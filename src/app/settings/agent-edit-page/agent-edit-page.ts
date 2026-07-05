@@ -3,7 +3,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 
-import type { AgentProfile, ModelOption } from '../../../../shared/agent-contracts';
+import type { AgentProfile, ModelOption, ToolDefinition } from '../../../../shared/agent-contracts';
 import { AssistantApi } from '../../chat/assistant-api';
 import { AppSelect, type SelectOption } from '../../shared/app-select/app-select';
 import { AgentSettingsStorage } from '../agent-settings-storage';
@@ -21,9 +21,11 @@ export class AgentEditPage {
 
   protected readonly agent = signal<AgentProfile | null>(null);
   protected readonly models = signal<readonly ModelOption[]>([]);
+  protected readonly tools = signal<readonly ToolDefinition[]>([]);
   protected readonly defaultModel = signal('');
   protected readonly draftName = signal('');
   protected readonly selectedModel = signal('');
+  protected readonly enabledToolIds = signal<readonly string[]>([]);
   protected readonly isLoading = signal(true);
   protected readonly isSaving = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -39,7 +41,11 @@ export class AgentEditPage {
   protected readonly hasChanges = computed(() => {
     const agent = this.agent();
 
-    return Boolean(agent && this.draftName().trim() !== agent.name);
+    return Boolean(
+      agent &&
+      (this.draftName().trim() !== agent.name ||
+        !areStringArraysEqual(this.enabledToolIds(), agent.enabledTools)),
+    );
   });
 
   constructor() {
@@ -65,6 +71,21 @@ export class AgentEditPage {
     this.savedMessage.set('Agent settings saved.');
   }
 
+  protected updateTool(toolId: string, isEnabled: boolean): void {
+    this.enabledToolIds.update((toolIds) => {
+      const nextToolIds = isEnabled
+        ? [...toolIds, toolId]
+        : toolIds.filter((enabledToolId) => enabledToolId !== toolId);
+
+      return normalizeToolIds(nextToolIds);
+    });
+    this.savedMessage.set(null);
+  }
+
+  protected isToolEnabled(toolId: string): boolean {
+    return this.enabledToolIds().includes(toolId);
+  }
+
   protected async save(): Promise<void> {
     const agent = this.agent();
     const name = this.draftName().trim();
@@ -77,8 +98,21 @@ export class AgentEditPage {
     await this.handleAsync(async () => {
       const updatedAgent =
         name === agent.name ? agent : await this.api.updateAgent(agent.id, { name });
-      this.agent.set(updatedAgent);
-      this.draftName.set(updatedAgent.name);
+      const updatedTools = areStringArraysEqual(this.enabledToolIds(), updatedAgent.enabledTools)
+        ? {
+            enabledTools: updatedAgent.enabledTools,
+          }
+        : await this.api.updateAgentTools(updatedAgent.id, {
+            enabledTools: this.enabledToolIds(),
+          });
+      const nextAgent: AgentProfile = {
+        ...updatedAgent,
+        enabledTools: updatedTools.enabledTools,
+      };
+
+      this.agent.set(nextAgent);
+      this.draftName.set(nextAgent.name);
+      this.enabledToolIds.set(nextAgent.enabledTools);
       this.savedMessage.set('Agent settings saved.');
     });
   }
@@ -91,11 +125,17 @@ export class AgentEditPage {
         throw new Error('Agent id is required.');
       }
 
-      const [agent, models] = await Promise.all([this.api.readAgent(agentId), this.api.models()]);
+      const [agent, models, agentTools] = await Promise.all([
+        this.api.readAgent(agentId),
+        this.api.models(),
+        this.api.agentTools(agentId),
+      ]);
       this.agent.set(agent);
       this.models.set(models.models);
+      this.tools.set(agentTools.tools);
       this.defaultModel.set(models.defaultModel);
       this.draftName.set(agent.name);
+      this.enabledToolIds.set(agentTools.enabledTools);
       this.selectedModel.set(this.initialModel(agent.id, models.defaultModel, models.models));
     });
     this.isLoading.set(false);
@@ -134,6 +174,20 @@ export class AgentEditPage {
       this.isSaving.set(false);
     }
   }
+}
+
+function normalizeToolIds(toolIds: readonly string[]): readonly string[] {
+  return [...new Set(toolIds)].sort();
+}
+
+function areStringArraysEqual(left: readonly string[], right: readonly string[]): boolean {
+  const normalizedLeft = normalizeToolIds(left);
+  const normalizedRight = normalizeToolIds(right);
+
+  return (
+    normalizedLeft.length === normalizedRight.length &&
+    normalizedLeft.every((value, index) => value === normalizedRight[index])
+  );
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {

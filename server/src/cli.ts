@@ -13,6 +13,9 @@ async function main(): Promise<void> {
   await runtime.ensureReady();
 
   switch (command) {
+    case 'tools:list':
+      printJson(runtime.toolsResponse());
+      return;
     case 'agents:list':
       printJson(await runtime.agentsResponse());
       return;
@@ -33,6 +36,22 @@ async function main(): Promise<void> {
       return;
     case 'agents:delete':
       printJson(await runtime.deleteAgent(agentId(options)));
+      return;
+    case 'agents:tools':
+      printJson(await runtime.agentToolsResponse(agentId(options)));
+      return;
+    case 'agents:tools:set':
+      printJson(
+        await runtime.updateAgentTools(agentId(options), {
+          enabledTools: parseToolList(requiredOption(options, 'tools')),
+        }),
+      );
+      return;
+    case 'agents:tools:grant':
+      printJson(await runtime.grantAgentTool(agentId(options), requiredOption(options, 'tool')));
+      return;
+    case 'agents:tools:revoke':
+      printJson(await runtime.revokeAgentTool(agentId(options), requiredOption(options, 'tool')));
       return;
     case 'threads:list':
       printJson(await runtime.listThreads(agentId(options)));
@@ -110,6 +129,13 @@ function agentId(options: Record<string, string | undefined>): string {
   return options['agent'] ?? runtime.getDefaultAgentId();
 }
 
+function parseToolList(input: string): readonly string[] {
+  return input
+    .split(',')
+    .map((toolId) => toolId.trim())
+    .filter(Boolean);
+}
+
 function requiredOption(options: Record<string, string | undefined>, key: string): string {
   const value = options[key]?.trim();
 
@@ -128,10 +154,15 @@ function printHelp(): void {
   process.stdout.write(`rdma26 CLI
 
 Usage:
+  rdma26 tools:list
   rdma26 agents:list
   rdma26 agents:create --id research --name "Research assistant"
   rdma26 agents:update --agent research --name "Researcher"
   rdma26 agents:delete --agent research
+  rdma26 agents:tools --agent research
+  rdma26 agents:tools:set --agent research --tools internet_search
+  rdma26 agents:tools:grant --agent research --tool internet_search
+  rdma26 agents:tools:revoke --agent research --tool internet_search
   rdma26 threads:list --agent default
   rdma26 threads:create --agent default --title "Planning"
   rdma26 threads:read --agent default --thread <thread-id>

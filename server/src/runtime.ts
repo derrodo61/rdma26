@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import type {
   AgentProfile,
   AgentRunRequest,
+  AgentToolsResponse,
   AgentsResponse,
   ChatThread,
   ChatThreadSummary,
@@ -13,15 +14,19 @@ import type {
   HealthResponse,
   ModelOption,
   ModelsResponse,
+  ToolsResponse,
   UpdateAgentRequest,
+  UpdateAgentToolsRequest,
 } from '../../shared/agent-contracts';
 import { readAuthConfig } from './auth';
 import { AgentRegistry, validateAgentId } from './agent-registry';
 import { PersonalAgent, type PersonalAgentResponse } from './personal-agent';
+import { ToolRegistry } from './tools/tool-registry';
 
 export class AssistantRuntime {
   private readonly registry: AgentRegistry;
   private readonly models: readonly ModelOption[];
+  private readonly tools = new ToolRegistry();
 
   constructor(options: AssistantRuntimeOptions = readRuntimeOptionsFromEnv()) {
     this.registry = new AgentRegistry(
@@ -72,6 +77,53 @@ export class AssistantRuntime {
 
   async updateAgent(agentId: string, request: UpdateAgentRequest): Promise<AgentProfile> {
     return await this.registry.updateAgent(agentId, request);
+  }
+
+  toolsResponse(): ToolsResponse {
+    return {
+      tools: this.tools.listDefinitions(),
+    };
+  }
+
+  async agentToolsResponse(agentId: string): Promise<AgentToolsResponse> {
+    const agent = await this.readAgent(agentId);
+
+    return {
+      agentId: agent.id,
+      enabledTools: agent.enabledTools,
+      tools: this.tools.listDefinitions(),
+    };
+  }
+
+  async updateAgentTools(
+    agentId: string,
+    request: UpdateAgentToolsRequest,
+  ): Promise<AgentToolsResponse> {
+    const enabledTools = this.tools.validateToolIds(request.enabledTools);
+    const agent = await this.registry.updateAgentTools(agentId, { enabledTools });
+
+    return {
+      agentId: agent.id,
+      enabledTools: agent.enabledTools,
+      tools: this.tools.listDefinitions(),
+    };
+  }
+
+  async grantAgentTool(agentId: string, toolId: string): Promise<AgentToolsResponse> {
+    const agent = await this.readAgent(agentId);
+
+    return await this.updateAgentTools(agentId, {
+      enabledTools: [...agent.enabledTools, toolId],
+    });
+  }
+
+  async revokeAgentTool(agentId: string, toolId: string): Promise<AgentToolsResponse> {
+    const agent = await this.readAgent(agentId);
+    this.tools.validateToolIds([toolId]);
+
+    return await this.updateAgentTools(agentId, {
+      enabledTools: agent.enabledTools.filter((enabledToolId) => enabledToolId !== toolId),
+    });
   }
 
   async deleteAgent(agentId: string): Promise<DeleteAgentResponse> {
@@ -143,6 +195,7 @@ export class AssistantRuntime {
       throw new Error(`Thread ${request.threadId} does not exist for agent ${request.agentId}.`);
     }
 
+    const tools = this.tools.createTools(storage.agent.enabledTools);
     const userThread = await storage.appendMessage(request.threadId, {
       role: 'user',
       content: request.prompt,
@@ -150,6 +203,7 @@ export class AssistantRuntime {
     const agentResponse = await new PersonalAgent(storage).run({
       threadId: request.threadId,
       model: request.model,
+      tools,
       messages: userThread.messages,
       prompt: request.prompt,
     });

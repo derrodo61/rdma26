@@ -62,6 +62,49 @@
           />
         </div>
 
+        <section class="space-y-3">
+          <div>
+            <h2 class="text-sm font-semibold text-text-muted">Tools</h2>
+            <p class="mt-1 text-sm text-text-muted">
+              Tools enabled here are available to this agent during chat runs.
+            </p>
+          </div>
+
+          @if (tools().length === 0) {
+            <p class="text-sm text-text-muted">No tools are registered yet.</p>
+          } @else {
+            <div class="divide-y divide-border border border-border">
+              @for (tool of tools(); track tool.id) {
+                <label
+                  class="grid cursor-pointer gap-3 p-3 hover:bg-surface-muted sm:grid-cols-[auto_1fr] sm:items-start"
+                >
+                  <input
+                    type="checkbox"
+                    class="mt-1 h-4 w-4 accent-accent"
+                    [checked]="isToolEnabled(tool.id)"
+                    (change)="updateTool(tool.id, $any($event.target).checked)"
+                  />
+                  <span class="min-w-0">
+                    <span class="flex flex-wrap items-center gap-2">
+                      <span class="text-sm font-semibold text-text">{{ tool.label }}</span>
+                      <span class="font-mono text-xs text-text-muted">{{ tool.id }}</span>
+                    </span>
+                    <span class="mt-1 block text-sm text-text-muted">
+                      {{ tool.description }}
+                    </span>
+                    <span class="mt-1 block text-xs text-text-muted">
+                      Provider: {{ tool.provider }}
+                      @if (!tool.available && tool.unavailableReason) {
+                        <span> · {{ tool.unavailableReason }}</span>
+                      }
+                    </span>
+                  </span>
+                </label>
+              }
+            </div>
+          }
+        </section>
+
         <div class="flex justify-end">
           <button
             type="submit"

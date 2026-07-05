@@ -10,6 +10,7 @@ import type {
   CreateThreadRequest,
   LoginRequest,
   UpdateAgentRequest,
+  UpdateAgentToolsRequest,
 } from '../../shared/agent-contracts';
 import { isAuthExemptPath, login, logout, readAuthConfig, sessionForRequest } from './auth';
 import { AssistantRuntime } from './runtime';
@@ -26,8 +27,15 @@ const createThreadRequestSchema = z.object({
 const updateAgentRequestSchema = z.object({
   name: z.string().trim().min(1),
 });
+const updateAgentToolsRequestSchema = z.object({
+  enabledTools: z.array(z.string().trim().min(1)),
+});
 const agentParamsSchema = z.object({
   agentId: z.string().trim().min(1),
+});
+const agentToolParamsSchema = z.object({
+  agentId: z.string().trim().min(1),
+  toolId: z.string().trim().min(1),
 });
 const threadParamsSchema = z.object({
   agentId: z.string().trim().min(1),
@@ -97,6 +105,8 @@ async function startServer(): Promise<void> {
 
   server.get('/api/models', async () => runtime.modelsResponse());
 
+  server.get('/api/tools', async () => runtime.toolsResponse());
+
   server.get('/api/agents', async () => await runtime.agentsResponse());
 
   server.post('/api/agents', async (request, reply) => {
@@ -110,6 +120,82 @@ async function startServer(): Promise<void> {
 
     try {
       return await runtime.createAgent(parsed.data satisfies CreateAgentRequest);
+    } catch (error) {
+      return reply.code(400).send({
+        message: getErrorMessage(error),
+      });
+    }
+  });
+
+  server.get('/api/agents/:agentId/tools', async (request, reply) => {
+    const params = agentParamsSchema.safeParse(request.params);
+
+    if (!params.success) {
+      return reply.code(400).send({
+        message: 'A valid agent id is required.',
+      });
+    }
+
+    try {
+      return await runtime.agentToolsResponse(params.data.agentId);
+    } catch (error) {
+      return reply.code(404).send({
+        message: getErrorMessage(error),
+      });
+    }
+  });
+
+  server.put('/api/agents/:agentId/tools', async (request, reply) => {
+    const params = agentParamsSchema.safeParse(request.params);
+    const body = updateAgentToolsRequestSchema.safeParse(request.body);
+
+    if (!params.success || !body.success) {
+      return reply.code(400).send({
+        message: 'A valid agent id and enabledTools array are required.',
+      });
+    }
+
+    try {
+      return await runtime.updateAgentTools(
+        params.data.agentId,
+        body.data satisfies UpdateAgentToolsRequest,
+      );
+    } catch (error) {
+      return reply.code(400).send({
+        message: getErrorMessage(error),
+      });
+    }
+  });
+
+  server.post('/api/agents/:agentId/tools/:toolId', async (request, reply) => {
+    const params = agentToolParamsSchema.safeParse(request.params);
+
+    if (!params.success) {
+      return reply.code(400).send({
+        message: 'A valid agent id and tool id are required.',
+      });
+    }
+
+    try {
+      return await runtime.grantAgentTool(params.data.agentId, params.data.toolId);
+    } catch (error) {
+      return reply.code(400).send({
+        message: getErrorMessage(error),
+      });
+    }
+  });
+
+  server.delete('/api/agents/:agentId/tools/:toolId', async (request, reply) => {
+    const params = agentToolParamsSchema.safeParse(request.params);
+
+    if (!params.success) {
+      return reply.code(400).send({
+        message: 'A valid agent id and tool id are required.',
+      });
+    }
+
+    try {
+      return await runtime.revokeAgentTool(params.data.agentId, params.data.toolId);
     } catch (error) {
       return reply.code(400).send({
         message: getErrorMessage(error),

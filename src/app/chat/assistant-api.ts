@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import type {
   AgentRunEvent,
   AgentRunRequest,
+  AgentToolsResponse,
   AgentProfile,
   AgentsResponse,
   AuthSessionResponse,
@@ -15,7 +16,9 @@ import type {
   DeleteThreadResponse,
   HealthResponse,
   ModelsResponse,
+  ToolsResponse,
   UpdateAgentRequest,
+  UpdateAgentToolsRequest,
 } from '../../../shared/agent-contracts';
 
 @Injectable({ providedIn: 'root' })
@@ -44,6 +47,10 @@ export class AssistantApi {
     return await firstValueFrom(this.http.get<ModelsResponse>('/api/models'));
   }
 
+  async tools(): Promise<ToolsResponse> {
+    return await firstValueFrom(this.http.get<ToolsResponse>('/api/tools'));
+  }
+
   async agents(): Promise<AgentsResponse> {
     return await firstValueFrom(this.http.get<AgentsResponse>('/api/agents'));
   }
@@ -62,6 +69,19 @@ export class AssistantApi {
 
   async deleteAgent(agentId: string): Promise<DeleteAgentResponse> {
     return await firstValueFrom(this.http.delete<DeleteAgentResponse>(`/api/agents/${agentId}`));
+  }
+
+  async agentTools(agentId: string): Promise<AgentToolsResponse> {
+    return await firstValueFrom(this.http.get<AgentToolsResponse>(`/api/agents/${agentId}/tools`));
+  }
+
+  async updateAgentTools(
+    agentId: string,
+    request: UpdateAgentToolsRequest,
+  ): Promise<AgentToolsResponse> {
+    return await firstValueFrom(
+      this.http.put<AgentToolsResponse>(`/api/agents/${agentId}/tools`, request),
+    );
   }
 
   async listThreads(agentId: string): Promise<readonly ChatThreadSummary[]> {

@@ -4,6 +4,8 @@ Local-first Angular and Fastify app for rdma26, a personal multi-agent Deep Agen
 
 The backend runs currently on a MacBook and exposes a browser-friendly API for any frontend that can reach it. The first frontend is Angular. Conversations are organized as agent-specific threads, model selection starts with OpenAI model IDs, and each configured agent gets its own local memory spine at `.assistant-data/agents/<agent-id>/deepagent/memories/soul.md`.
 
+Agents can also have tools assigned dynamically. The first registered tool is `internet_search`, backed by Tavily when `TAVILY_API_KEY` is configured.
+
 The project is designed around one shared backend runtime. API endpoints and CLI commands call the same `AssistantRuntime` service, so functionality exposed through the browser is also available from the command line without maintaining a second implementation.
 
 ## License
@@ -51,11 +53,16 @@ All backend routes delegate to the shared runtime used by the CLI.
 - `POST /api/auth/login`
 - `POST /api/auth/logout`
 - `GET /api/models`
+- `GET /api/tools`
 - `GET /api/agents`
 - `POST /api/agents`
 - `GET /api/agents/:agentId`
 - `PATCH /api/agents/:agentId`
 - `DELETE /api/agents/:agentId`
+- `GET /api/agents/:agentId/tools`
+- `PUT /api/agents/:agentId/tools`
+- `POST /api/agents/:agentId/tools/:toolId`
+- `DELETE /api/agents/:agentId/tools/:toolId`
 - `GET /api/agents/:agentId/threads`
 - `POST /api/agents/:agentId/threads`
 - `GET /api/agents/:agentId/threads/:threadId`
@@ -101,6 +108,14 @@ Each agent gets isolated threads, history, Deep Agents filesystem state, and `so
 
 `POST /api/agent-runs` requires `agentId`, so a thread can only be read and continued through the agent it belongs to.
 
+Tool grants are agent-specific too. The agent profile stores `enabledTools`, while the backend registry owns the tool implementation and required secrets. To enable Tavily search for an agent:
+
+```bash
+TAVILY_API_KEY=tvly-...
+```
+
+Then grant `internet_search` through the UI, API, or CLI. If a tool is enabled but its provider is not configured, the tool list reports it as unavailable and a chat run fails with a clear configuration error instead of silently pretending the tool exists.
+
 ## CLI
 
 The CLI uses the same `AssistantRuntime` service as the HTTP endpoints. Any workflow that should be available in the frontend should also have a CLI path backed by the same runtime code.
@@ -118,6 +133,11 @@ npm run --silent rdma26 -- agents:list
 npm run --silent rdma26 -- agents:create --id research --name "Research assistant"
 npm run --silent rdma26 -- agents:update --agent research --name "Researcher"
 npm run --silent rdma26 -- agents:delete --agent research
+npm run --silent rdma26 -- tools:list
+npm run --silent rdma26 -- agents:tools --agent research
+npm run --silent rdma26 -- agents:tools:set --agent research --tools internet_search
+npm run --silent rdma26 -- agents:tools:grant --agent research --tool internet_search
+npm run --silent rdma26 -- agents:tools:revoke --agent research --tool internet_search
 npm run --silent rdma26 -- threads:list --agent default
 npm run --silent rdma26 -- threads:create --agent default --title "Planning"
 npm run --silent rdma26 -- threads:read --agent default --thread <thread-id>

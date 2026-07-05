@@ -40,6 +40,7 @@ export interface AgentRunRequest {
 export interface AgentProfile {
   readonly id: string;
   readonly name: string;
+  readonly enabledTools: readonly string[];
   readonly soulVirtualPath: string;
   readonly createdAt: string;
   readonly updatedAt: string;
@@ -57,6 +58,29 @@ export interface CreateAgentRequest {
 
 export interface UpdateAgentRequest {
   readonly name: string;
+}
+
+export interface ToolDefinition {
+  readonly id: string;
+  readonly label: string;
+  readonly description: string;
+  readonly provider: string;
+  readonly available: boolean;
+  readonly unavailableReason?: string;
+}
+
+export interface ToolsResponse {
+  readonly tools: readonly ToolDefinition[];
+}
+
+export interface AgentToolsResponse {
+  readonly agentId: string;
+  readonly enabledTools: readonly string[];
+  readonly tools: readonly ToolDefinition[];
+}
+
+export interface UpdateAgentToolsRequest {
+  readonly enabledTools: readonly string[];
 }
 
 export interface DeleteAgentResponse {

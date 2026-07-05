@@ -5,6 +5,7 @@ import type {
   AgentProfile,
   CreateAgentRequest,
   UpdateAgentRequest,
+  UpdateAgentToolsRequest,
 } from '../../shared/agent-contracts';
 import { createAssistantStorage, type AssistantStorage } from './storage';
 
@@ -60,12 +61,17 @@ export class AgentRegistry {
 
     try {
       const raw = JSON.parse(await readFile(this.profilePath(agentId), 'utf8')) as unknown;
+      const agent = parseAgentProfile(raw);
 
-      if (!isAgentProfile(raw)) {
+      if (!agent) {
         throw new Error(`Invalid agent profile: ${this.profilePath(agentId)}`);
       }
 
-      return raw;
+      if (!hasCurrentAgentProfileShape(raw)) {
+        await this.writeAgent(agent);
+      }
+
+      return agent;
     } catch (error) {
       if (isNodeError(error) && error.code === 'ENOENT') {
         return null;
@@ -99,7 +105,25 @@ export class AgentRegistry {
       updatedAt: new Date().toISOString(),
     };
 
-    await writeFile(this.profilePath(agentId), `${JSON.stringify(updated, null, 2)}\n`, 'utf8');
+    await this.writeAgent(updated);
+
+    return updated;
+  }
+
+  async updateAgentTools(agentId: string, request: UpdateAgentToolsRequest): Promise<AgentProfile> {
+    const existing = await this.readAgent(agentId);
+
+    if (!existing) {
+      throw new Error(`Agent ${agentId} does not exist.`);
+    }
+
+    const updated: AgentProfile = {
+      ...existing,
+      enabledTools: normalizeToolIds(request.enabledTools),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await this.writeAgent(updated);
 
     return updated;
   }
@@ -157,6 +181,7 @@ export class AgentRegistry {
     const agent: AgentProfile = {
       id,
       name: normalizeAgentName(name),
+      enabledTools: [],
       soulVirtualPath: '/memories/soul.md',
       createdAt: now,
       updatedAt: now,
@@ -178,6 +203,10 @@ export class AgentRegistry {
 
   private profilePath(agentId: string): string {
     return join(this.agentDir(agentId), profileFileName);
+  }
+
+  private async writeAgent(agent: AgentProfile): Promise<void> {
+    await writeFile(this.profilePath(agent.id), `${JSON.stringify(agent, null, 2)}\n`, 'utf8');
   }
 }
 
@@ -209,8 +238,8 @@ function normalizeAgentName(name: string): string {
   return normalized;
 }
 
-function isAgentProfile(value: unknown): value is AgentProfile {
-  return (
+function parseAgentProfile(value: unknown): AgentProfile | null {
+  if (
     typeof value === 'object' &&
     value !== null &&
     'id' in value &&
@@ -223,7 +252,37 @@ function isAgentProfile(value: unknown): value is AgentProfile {
     typeof value.soulVirtualPath === 'string' &&
     typeof value.createdAt === 'string' &&
     typeof value.updatedAt === 'string'
+  ) {
+    return {
+      id: value.id,
+      name: value.name,
+      enabledTools:
+        'enabledTools' in value && Array.isArray(value.enabledTools)
+          ? normalizeToolIds(value.enabledTools)
+          : [],
+      soulVirtualPath: value.soulVirtualPath,
+      createdAt: value.createdAt,
+      updatedAt: value.updatedAt,
+    };
+  }
+
+  return null;
+}
+
+function hasCurrentAgentProfileShape(value: unknown): boolean {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'enabledTools' in value &&
+    Array.isArray(value.enabledTools)
   );
+}
+
+function normalizeToolIds(toolIds: readonly unknown[]): string[] {
+  return [...new Set(toolIds.filter((toolId): toolId is string => typeof toolId === 'string'))]
+    .map((toolId) => toolId.trim())
+    .filter(Boolean)
+    .sort();
 }
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {

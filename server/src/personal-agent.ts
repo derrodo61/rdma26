@@ -1,6 +1,7 @@
 import { ChatOpenAI } from '@langchain/openai';
 import { createDeepAgent, FilesystemBackend } from 'deepagents';
 import { MemorySaver } from '@langchain/langgraph';
+import type { StructuredToolInterface } from '@langchain/core/tools';
 
 import type { ChatMessage } from '../../shared/agent-contracts';
 import type { AssistantStorage } from './storage';
@@ -8,6 +9,7 @@ import type { AssistantStorage } from './storage';
 export interface PersonalAgentRequest {
   readonly threadId: string;
   readonly model: string;
+  readonly tools: readonly StructuredToolInterface[];
   readonly messages: readonly ChatMessage[];
   readonly prompt: string;
 }
@@ -46,6 +48,7 @@ export class PersonalAgent {
         rootDir: this.storage.deepAgentRootDir,
         virtualMode: true,
       }),
+      tools: request.tools,
       memory: [this.storage.agent.soulVirtualPath],
       checkpointer: this.checkpointer,
       systemPrompt: createBootloaderPrompt(this.storage.agent),
@@ -78,6 +81,8 @@ function createBootloaderPrompt(agent: { name: string; soulVirtualPath: string }
 Your editable identity, role, preferences, and long-term working agreements live in ${agent.soulVirtualPath}.
 
 Read ${agent.soulVirtualPath} before answering when it can help. Treat that file as the source of truth for who this agent is. Update it when Rolf explicitly asks you to remember something or when a durable preference is clear.
+
+Use enabled tools when they are useful. Do not claim to have tools that are not available in the current run.
 
 If the file does not contain a specific instruction for a situation, be practical, conversational, and clear about uncertainty.`;
 }
