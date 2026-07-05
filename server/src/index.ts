@@ -12,6 +12,7 @@ import type {
   CreateThreadRequest,
   LoginRequest,
   UpdateAgentRequest,
+  UpdateAgentSoulRequest,
   UpdateAgentToolsRequest,
   UpdateUserProfileRequest,
 } from '../../shared/agent-contracts';
@@ -29,6 +30,9 @@ const createThreadRequestSchema = z.object({
 });
 const updateAgentRequestSchema = z.object({
   name: z.string().trim().min(1),
+});
+const updateAgentSoulRequestSchema = z.object({
+  content: z.string(),
 });
 const updateAgentToolsRequestSchema = z.object({
   enabledTools: z.array(z.string().trim().min(1)),
@@ -364,6 +368,63 @@ async function startServer(): Promise<void> {
         return await runtime.revokeAgentTool(params.data.agentId, params.data.toolId);
       } catch (error) {
         return reply.code(400).send({
+          message: getErrorMessage(error),
+        });
+      }
+    },
+  );
+
+  server.get(
+    '/api/agents/:agentId/soul',
+    routeDocs({
+      tags: ['agents'],
+      summary: "Read an agent's soul.md content.",
+      params: agentParamsSchema,
+    }),
+    async (request, reply) => {
+      const params = agentParamsSchema.safeParse(request.params);
+
+      if (!params.success) {
+        return reply.code(400).send({
+          message: 'A valid agent id is required.',
+        });
+      }
+
+      try {
+        return await runtime.readAgentSoul(params.data.agentId);
+      } catch (error) {
+        return reply.code(404).send({
+          message: getErrorMessage(error),
+        });
+      }
+    },
+  );
+
+  server.put(
+    '/api/agents/:agentId/soul',
+    routeDocs({
+      tags: ['agents'],
+      summary: "Replace an agent's soul.md content.",
+      params: agentParamsSchema,
+      body: updateAgentSoulRequestSchema,
+    }),
+    async (request, reply) => {
+      const params = agentParamsSchema.safeParse(request.params);
+      const body = updateAgentSoulRequestSchema.safeParse(request.body);
+
+      if (!params.success || !body.success) {
+        return reply.code(400).send({
+          message: 'A valid agent id and soul.md content are required.',
+        });
+      }
+
+      try {
+        return await runtime.updateAgentSoul(
+          params.data.agentId,
+          body.data satisfies UpdateAgentSoulRequest,
+        );
+      } catch (error) {
+        return reply.code(404).send({
           message: getErrorMessage(error),
         });
       }

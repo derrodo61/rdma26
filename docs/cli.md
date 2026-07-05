@@ -36,6 +36,20 @@ rdma26 agents:create --id research --name "Research assistant"
 rdma26 agents:update --agent research --name "Researcher"
 ```
 
+### Read an agent soul.md
+
+```bash
+rdma26 agents:soul:read --agent research
+```
+
+### Update an agent soul.md
+
+```bash
+rdma26 agents:soul:write --agent research --file ./soul.md
+```
+
+Use `--content "..."` instead of `--file` for short inline updates.
+
 ### Delete an agent
 
 ```bash

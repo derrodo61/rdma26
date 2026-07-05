@@ -24,6 +24,7 @@ export interface AssistantStorage {
     message: Omit<ChatMessage, 'id' | 'createdAt'>,
   ): Promise<ChatThread>;
   readSoul(): Promise<string>;
+  writeSoul(content: string): Promise<void>;
 }
 
 export interface AssistantStorageOptions {
@@ -181,6 +182,10 @@ export function createAssistantStorage(
       await this.ensureReady();
 
       return await readFile(soulPath, 'utf8');
+    },
+    async writeSoul(content) {
+      await this.ensureReady();
+      await writeFile(soulPath, content, 'utf8');
     },
   };
 }

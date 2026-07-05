@@ -1,8 +1,10 @@
 import { join } from 'node:path';
+import { stat } from 'node:fs/promises';
 
 import type {
   AgentProfile,
   AgentRunRequest,
+  AgentSoulResponse,
   AgentToolsResponse,
   AgentsResponse,
   ChatThread,
@@ -16,6 +18,7 @@ import type {
   ModelsResponse,
   ToolsResponse,
   UpdateAgentRequest,
+  UpdateAgentSoulRequest,
   UpdateAgentToolsRequest,
   UpdateUserProfileRequest,
   UserProfile,
@@ -83,6 +86,30 @@ export class AssistantRuntime {
 
   async updateAgent(agentId: string, request: UpdateAgentRequest): Promise<AgentProfile> {
     return await this.registry.updateAgent(agentId, request);
+  }
+
+  async readAgentSoul(agentId: string): Promise<AgentSoulResponse> {
+    const storage = await this.storageFor(agentId);
+
+    return {
+      agentId: storage.agent.id,
+      content: await storage.readSoul(),
+      updatedAt: await readFileUpdatedAt(storage.soulPath),
+    };
+  }
+
+  async updateAgentSoul(
+    agentId: string,
+    request: UpdateAgentSoulRequest,
+  ): Promise<AgentSoulResponse> {
+    const storage = await this.storageFor(agentId);
+    await storage.writeSoul(request.content);
+
+    return {
+      agentId: storage.agent.id,
+      content: request.content,
+      updatedAt: await readFileUpdatedAt(storage.soulPath),
+    };
   }
 
   async readUserProfile(): Promise<UserProfile> {
@@ -243,6 +270,10 @@ export class AssistantRuntime {
 
     return await this.registry.storageFor(agentId);
   }
+}
+
+async function readFileUpdatedAt(path: string): Promise<string> {
+  return (await stat(path)).mtime.toISOString();
 }
 
 export interface RunAgentResult {

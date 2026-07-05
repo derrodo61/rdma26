@@ -63,6 +63,16 @@ export interface UpdateAgentRequest {
   readonly name: string;
 }
 
+export interface AgentSoulResponse {
+  readonly agentId: string;
+  readonly content: string;
+  readonly updatedAt: string;
+}
+
+export interface UpdateAgentSoulRequest {
+  readonly content: string;
+}
+
 export interface ToolDefinition {
   readonly id: string;
   readonly label: string;

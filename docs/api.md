@@ -120,6 +120,22 @@ Body:
 
 Updates the agent display name.
 
+### `GET /api/agents/:agentId/soul`
+
+Returns the current Markdown content of the agent's `soul.md`.
+
+### `PUT /api/agents/:agentId/soul`
+
+Body:
+
+```json
+{
+  "content": "# soul.md\n\nYou are Mina.\n"
+}
+```
+
+Replaces the agent's `soul.md` content.
+
 ### `DELETE /api/agents/:agentId`
 
 Deletes an agent and all related threads and Deep Agents data. The default agent cannot be deleted.

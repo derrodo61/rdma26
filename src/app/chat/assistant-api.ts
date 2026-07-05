@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import type {
   AgentRunEvent,
   AgentRunRequest,
+  AgentSoulResponse,
   AgentToolsResponse,
   AgentProfile,
   AgentsResponse,
@@ -18,6 +19,7 @@ import type {
   ModelsResponse,
   ToolsResponse,
   UpdateAgentRequest,
+  UpdateAgentSoulRequest,
   UpdateAgentToolsRequest,
   UpdateUserProfileRequest,
   UserProfile,
@@ -75,6 +77,19 @@ export class AssistantApi {
 
   async updateAgent(agentId: string, request: UpdateAgentRequest): Promise<AgentProfile> {
     return await firstValueFrom(this.http.patch<AgentProfile>(`/api/agents/${agentId}`, request));
+  }
+
+  async readAgentSoul(agentId: string): Promise<AgentSoulResponse> {
+    return await firstValueFrom(this.http.get<AgentSoulResponse>(`/api/agents/${agentId}/soul`));
+  }
+
+  async updateAgentSoul(
+    agentId: string,
+    request: UpdateAgentSoulRequest,
+  ): Promise<AgentSoulResponse> {
+    return await firstValueFrom(
+      this.http.put<AgentSoulResponse>(`/api/agents/${agentId}/soul`, request),
+    );
   }
 
   async deleteAgent(agentId: string): Promise<DeleteAgentResponse> {

@@ -15,6 +15,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added a backend-synced user profile for name, timezone, locale, language, date/time display settings, theme, and per-agent UI settings.
 - Added user profile date/time preferences to the agent bootloader prompt so agents can answer with the configured timezone and regional format.
 - Added Markdown rendering for assistant chat messages.
+- Added agent `soul.md` editing through the backend API, CLI, and agent edit UI with Markdown preview.
+- Added a Markdown formatting toolbar with heading-level choices for the agent `soul.md` editor.
 - Added a user profile settings page accessible from the settings menu.
 - Added `profile:read`, `profile:update`, and `profile:agent-model:set` CLI commands.
 - Added light, dark, and system theme support.

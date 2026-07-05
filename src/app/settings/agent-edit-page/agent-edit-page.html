@@ -105,6 +105,100 @@
           }
         </section>
 
+        <section class="space-y-3">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 class="text-sm font-semibold text-text-muted">soul.md</h2>
+              <p class="mt-1 text-sm text-text-muted">Agent identity and long-term memory.</p>
+            </div>
+            <span class="font-mono text-xs text-text-muted">{{
+              currentAgent.soulVirtualPath
+            }}</span>
+          </div>
+
+          <div class="grid gap-3 lg:grid-cols-2">
+            <div class="block text-sm font-medium text-text-muted">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <span>Markdown</span>
+                <div class="flex flex-wrap items-center gap-1" aria-label="Markdown formatting">
+                  @for (item of leadingMarkdownToolbar; track item.action) {
+                    <button
+                      type="button"
+                      class="flex h-8 w-8 items-center justify-center rounded-md text-text-muted hover:bg-surface-hover hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                      [attr.aria-label]="item.label"
+                      [title]="item.label"
+                      (click)="applyMarkdownAction(item.action)"
+                    >
+                      <ng-icon [name]="item.icon" size="16" strokeWidth="2" />
+                    </button>
+                  }
+
+                  <div class="relative">
+                    <button
+                      type="button"
+                      class="flex h-8 min-w-8 items-center justify-center rounded-md px-2 text-sm font-semibold text-text-muted hover:bg-surface-hover hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                      aria-label="Heading"
+                      aria-haspopup="menu"
+                      [attr.aria-expanded]="isHeadingMenuOpen()"
+                      title="Heading"
+                      (click)="toggleHeadingMenu()"
+                    >
+                      H1
+                    </button>
+
+                    @if (isHeadingMenuOpen()) {
+                      <div
+                        class="absolute left-0 top-9 z-20 min-w-24 overflow-hidden rounded-lg border border-border bg-surface py-1 shadow-lg"
+                        role="menu"
+                        aria-label="Heading level"
+                      >
+                        @for (level of headingLevels; track level) {
+                          <button
+                            type="button"
+                            class="flex h-9 w-full items-center px-3 text-left text-sm font-semibold text-text-muted hover:bg-surface-hover hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                            role="menuitem"
+                            (click)="applyHeadingLevel(level)"
+                          >
+                            H{{ level }}
+                          </button>
+                        }
+                      </div>
+                    }
+                  </div>
+
+                  @for (item of trailingMarkdownToolbar; track item.action) {
+                    <button
+                      type="button"
+                      class="flex h-8 w-8 items-center justify-center rounded-md text-text-muted hover:bg-surface-hover hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                      [attr.aria-label]="item.label"
+                      [title]="item.label"
+                      (click)="applyMarkdownAction(item.action)"
+                    >
+                      <ng-icon [name]="item.icon" size="16" strokeWidth="2" />
+                    </button>
+                  }
+                </div>
+              </div>
+              <textarea
+                #soulEditor
+                class="mt-1 min-h-80 w-full resize-y border border-border bg-surface px-3 py-2 font-mono text-sm leading-6 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                [ngModel]="draftSoulContent()"
+                name="soulContent"
+                spellcheck="false"
+                (ngModelChange)="updateDraftSoulContent($event)"
+              ></textarea>
+            </div>
+
+            <section class="min-h-80 border border-border bg-app-bg px-3 py-2">
+              <h3 class="mb-2 text-sm font-medium text-text-muted">Preview</h3>
+              <div
+                class="message-markdown text-[0.9375rem] leading-6 text-text"
+                [innerHTML]="renderedSoulPreview()"
+              ></div>
+            </section>
+          </div>
+        </section>
+
         <div class="flex justify-end">
           <button
             type="submit"

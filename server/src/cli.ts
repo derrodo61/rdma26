@@ -1,4 +1,5 @@
 import { config } from 'dotenv';
+import { readFile } from 'node:fs/promises';
 
 import type {
   DateStylePreference,
@@ -36,6 +37,16 @@ async function main(): Promise<void> {
       printJson(
         await runtime.updateAgent(agentId(options), {
           name: requiredOption(options, 'name'),
+        }),
+      );
+      return;
+    case 'agents:soul:read':
+      printJson(await runtime.readAgentSoul(agentId(options)));
+      return;
+    case 'agents:soul:write':
+      printJson(
+        await runtime.updateAgentSoul(agentId(options), {
+          content: await readSoulContent(options),
         }),
       );
       return;
@@ -174,6 +185,25 @@ function parseToolList(input: string): readonly string[] {
     .filter(Boolean);
 }
 
+async function readSoulContent(options: Record<string, string | undefined>): Promise<string> {
+  const file = options['file'];
+  const content = options['content'];
+
+  if (file && content !== undefined) {
+    throw new Error('Use either --file or --content, not both.');
+  }
+
+  if (file) {
+    return await readFile(file, 'utf8');
+  }
+
+  if (content !== undefined) {
+    return content;
+  }
+
+  throw new Error('Missing required option: --file or --content');
+}
+
 function parseTheme(value: string | undefined): ThemePreference | undefined {
   if (!value) {
     return undefined;
@@ -232,6 +262,8 @@ Usage:
   rdma26 agents:list
   rdma26 agents:create --id research --name "Research assistant"
   rdma26 agents:update --agent research --name "Researcher"
+  rdma26 agents:soul:read --agent research
+  rdma26 agents:soul:write --agent research --file ./soul.md
   rdma26 agents:delete --agent research
   rdma26 profile:read
   rdma26 profile:update --name "Rolf" --time-zone Europe/Berlin --locale de-DE --language de --date-style medium --time-style short --theme system
