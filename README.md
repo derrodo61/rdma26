@@ -1,8 +1,14 @@
 # rdma26
 
-Local-first Angular and Fastify app for rdma26, a personal Deep Agents assistant.
+Local-first Angular and Fastify app for rdma26, a personal multi-agent Deep Agents assistant.
 
-The backend runs on the MacBook and exposes a browser-friendly API for any frontend that can reach it. The first frontend is Angular. Conversations are organized as threads, model selection starts with OpenAI model IDs, and each configured agent gets its own local memory spine at `.assistant-data/agents/<agent-id>/deepagent/memories/soul.md`.
+The backend runs currently on a MacBook and exposes a browser-friendly API for any frontend that can reach it. The first frontend is Angular. Conversations are organized as agent-specific threads, model selection starts with OpenAI model IDs, and each configured agent gets its own local memory spine at `.assistant-data/agents/<agent-id>/deepagent/memories/soul.md`.
+
+The project is designed around one shared backend runtime. API endpoints and CLI commands call the same `AssistantRuntime` service, so functionality exposed through the browser is also available from the command line without maintaining a second implementation.
+
+## License
+
+This repository is public, but it is not open source. The code is source-available for reference only. Copying, modifying, distributing, hosting, or using it requires prior written permission from Rolf Dohrmann. See [LICENSE](./LICENSE).
 
 ## Run Locally
 
@@ -20,8 +26,8 @@ Without `OPENAI_API_KEY`, the backend still starts and stores messages, but agen
 Authentication is optional in local development. Set both values in `.env` to enable the single-user login screen:
 
 ```bash
-RDMA26_USERNAME=rolf
-RDMA26_PASSWORD=change-me
+RDMA26_USERNAME=username
+RDMA26_PASSWORD=userpassword
 RDMA26_SESSION_SECRET=use-a-long-random-string
 ```
 
@@ -37,6 +43,8 @@ npm run start:lan
 Then open `http://<macbook-lan-ip>:4200` from the other computer.
 
 ## Backend
+
+All backend routes delegate to the shared runtime used by the CLI.
 
 - `GET /api/health`
 - `GET /api/auth/session`
@@ -95,7 +103,7 @@ Each agent gets isolated threads, history, Deep Agents filesystem state, and `so
 
 ## CLI
 
-The CLI uses the same `AssistantRuntime` service as the HTTP endpoints.
+The CLI uses the same `AssistantRuntime` service as the HTTP endpoints. Any workflow that should be available in the frontend should also have a CLI path backed by the same runtime code.
 
 Run it directly from the repo:
 
