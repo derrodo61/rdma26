@@ -7,6 +7,7 @@ import type { AgentProfile, ModelOption, ToolDefinition } from '../../../../shar
 import { AssistantApi } from '../../chat/assistant-api';
 import { AppSelect, type SelectOption } from '../../shared/app-select/app-select';
 import { AgentSettingsStorage } from '../agent-settings-storage';
+import { UserProfileSyncService } from '../user-profile-sync';
 
 @Component({
   selector: 'app-agent-edit-page',
@@ -18,6 +19,7 @@ export class AgentEditPage {
   private readonly api = inject(AssistantApi);
   private readonly route = inject(ActivatedRoute);
   private readonly agentSettingsStorage = inject(AgentSettingsStorage);
+  private readonly userProfileSync = inject(UserProfileSyncService);
 
   protected readonly agent = signal<AgentProfile | null>(null);
   protected readonly models = signal<readonly ModelOption[]>([]);
@@ -68,6 +70,7 @@ export class AgentEditPage {
     }
 
     this.agentSettingsStorage.update(agent.id, { model: value });
+    void this.userProfileSync.updateAgentModel(agent.id, value);
     this.savedMessage.set('Agent settings saved.');
   }
 
@@ -125,10 +128,11 @@ export class AgentEditPage {
         throw new Error('Agent id is required.');
       }
 
-      const [agent, models, agentTools] = await Promise.all([
+      const [agent, models, agentTools, profile] = await Promise.all([
         this.api.readAgent(agentId),
         this.api.models(),
         this.api.agentTools(agentId),
+        this.userProfileSync.loadProfile(),
       ]);
       this.agent.set(agent);
       this.models.set(models.models);
@@ -136,6 +140,7 @@ export class AgentEditPage {
       this.defaultModel.set(models.defaultModel);
       this.draftName.set(agent.name);
       this.enabledToolIds.set(agentTools.enabledTools);
+      this.agentSettingsStorage.replaceAll(profile.agentSettings);
       this.selectedModel.set(this.initialModel(agent.id, models.defaultModel, models.models));
     });
     this.isLoading.set(false);

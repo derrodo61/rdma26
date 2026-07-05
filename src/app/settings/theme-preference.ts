@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 
-export type ThemePreference = 'light' | 'dark' | 'system';
+import type { ThemePreference } from '../../../shared/agent-contracts';
 
 @Injectable({ providedIn: 'root' })
 export class ThemePreferenceService {
@@ -21,6 +21,10 @@ export class ThemePreferenceService {
     } catch {
       return;
     }
+  }
+
+  readStoredTheme(): ThemePreference {
+    return this.readTheme();
   }
 
   private readTheme(): ThemePreference {

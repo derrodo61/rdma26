@@ -1,0 +1,167 @@
+<div class="min-h-dvh bg-app-bg text-text">
+  <header class="border-b border-border bg-surface">
+    <div class="flex min-h-16 flex-wrap items-center justify-between gap-4 px-4 py-3 sm:px-6">
+      <div class="min-w-0">
+        <h1 class="truncate text-lg font-semibold">User profile</h1>
+      </div>
+      <a
+        routerLink="/"
+        class="flex h-10 items-center border border-border bg-surface px-3 text-sm font-medium text-text-muted hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+      >
+        Back to chat
+      </a>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-3xl px-4 py-6 sm:px-6">
+    @if (error(); as currentError) {
+      <p class="mb-4 border border-danger-border bg-danger-soft px-3 py-2 text-sm text-danger">
+        {{ currentError }}
+      </p>
+    }
+
+    @if (savedMessage(); as currentSavedMessage) {
+      <p class="mb-4 border border-accent-border bg-accent-soft px-3 py-2 text-sm text-text">
+        {{ currentSavedMessage }}
+      </p>
+    }
+
+    @if (isLoading()) {
+      <p class="text-sm text-text-muted">Loading profile...</p>
+    } @else {
+      <form
+        class="space-y-5 border border-border bg-surface p-4 sm:p-5"
+        (submit)="$event.preventDefault(); save()"
+      >
+        <label class="block text-sm font-medium text-text-muted">
+          <span>Name</span>
+          <input
+            class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+            autocomplete="name"
+            [ngModel]="draftName()"
+            name="name"
+            (ngModelChange)="updateName($event)"
+          />
+        </label>
+
+        <div class="grid gap-4 sm:grid-cols-2">
+          <label class="block text-sm font-medium text-text-muted">
+            <span>Time zone</span>
+            <input
+              class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+              list="timeZones"
+              [ngModel]="draftTimeZone()"
+              name="timeZone"
+              (ngModelChange)="updateTimeZone($event)"
+            />
+          </label>
+
+          <label class="block text-sm font-medium text-text-muted">
+            <span>Locale</span>
+            <input
+              class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+              list="locales"
+              [ngModel]="draftLocale()"
+              name="locale"
+              (ngModelChange)="updateLocale($event)"
+            />
+          </label>
+        </div>
+
+        <div class="grid gap-4 sm:grid-cols-3">
+          <label class="block text-sm font-medium text-text-muted">
+            <span>Language</span>
+            <input
+              class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+              list="languages"
+              [ngModel]="draftLanguage()"
+              name="language"
+              (ngModelChange)="updateLanguage($event)"
+            />
+          </label>
+
+          <label class="block text-sm font-medium text-text-muted">
+            <span>Date style</span>
+            <select
+              class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+              [ngModel]="draftDateStyle()"
+              name="dateStyle"
+              (ngModelChange)="updateDateStyle($event)"
+            >
+              @for (dateStyle of dateStyles; track dateStyle) {
+                <option [value]="dateStyle">{{ dateStyle }}</option>
+              }
+            </select>
+          </label>
+
+          <label class="block text-sm font-medium text-text-muted">
+            <span>Time style</span>
+            <select
+              class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+              [ngModel]="draftTimeStyle()"
+              name="timeStyle"
+              (ngModelChange)="updateTimeStyle($event)"
+            >
+              @for (timeStyle of timeStyles; track timeStyle) {
+                <option [value]="timeStyle">{{ timeStyle }}</option>
+              }
+            </select>
+          </label>
+        </div>
+
+        <fieldset class="space-y-2">
+          <legend class="text-sm font-medium text-text-muted">Theme</legend>
+          <div class="grid gap-2 sm:grid-cols-3">
+            @for (theme of themes; track theme) {
+              <label
+                class="flex h-10 cursor-pointer items-center gap-2 border border-border px-3 text-sm text-text-muted hover:bg-surface-muted"
+              >
+                <input
+                  type="radio"
+                  class="accent-accent"
+                  name="theme"
+                  [value]="theme"
+                  [ngModel]="draftTheme()"
+                  (ngModelChange)="updateTheme($event)"
+                />
+                <span>{{ theme }}</span>
+              </label>
+            }
+          </div>
+        </fieldset>
+
+        <p class="border border-border bg-surface-muted px-3 py-2 text-sm text-text-muted">
+          Preview: <span class="text-text">{{ preview() }}</span>
+        </p>
+
+        <div class="flex justify-end">
+          <button
+            type="submit"
+            class="h-10 bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-hover focus:outline-none focus-visible:shadow-[var(--focus-shadow)] disabled:cursor-not-allowed disabled:bg-control-disabled"
+            [disabled]="!hasChanges() || isSaving()"
+          >
+            Save profile
+          </button>
+        </div>
+      </form>
+    }
+  </main>
+
+  <datalist id="timeZones">
+    @for (timeZone of timeZones(); track timeZone) {
+      <option [value]="timeZone"></option>
+    }
+  </datalist>
+
+  <datalist id="locales">
+    @for (locale of locales(); track locale) {
+      <option [value]="locale"></option>
+    }
+  </datalist>
+
+  <datalist id="languages">
+    @for (language of languages(); track language) {
+      <option [value]="language"></option>
+    }
+  </datalist>
+</div>

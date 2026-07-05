@@ -13,6 +13,7 @@ import type {
   LoginRequest,
   UpdateAgentRequest,
   UpdateAgentToolsRequest,
+  UpdateUserProfileRequest,
 } from '../../shared/agent-contracts';
 import { isAuthExemptPath, login, logout, readAuthConfig, sessionForRequest } from './auth';
 import { AssistantRuntime } from './runtime';
@@ -56,6 +57,19 @@ const loginRequestSchema = z.object({
   username: z.string().trim().min(1),
   password: z.string().min(1),
 });
+const agentSettingsSchema = z.object({
+  model: z.string().trim().min(1).optional(),
+});
+const updateUserProfileRequestSchema = z.object({
+  name: z.string().trim().optional(),
+  timeZone: z.string().trim().min(1).optional(),
+  language: z.string().trim().min(1).optional(),
+  locale: z.string().trim().min(1).optional(),
+  dateStyle: z.enum(['short', 'medium', 'long', 'full']).optional(),
+  timeStyle: z.enum(['short', 'medium']).optional(),
+  theme: z.enum(['light', 'dark', 'system']).optional(),
+  agentSettings: z.record(z.string(), agentSettingsSchema).optional(),
+});
 
 const server = Fastify({
   logger: true,
@@ -80,6 +94,7 @@ async function startServer(): Promise<void> {
       },
       tags: [
         { name: 'auth', description: 'Single-user session authentication.' },
+        { name: 'profile', description: 'Synced user profile and preferences.' },
         { name: 'health', description: 'Backend status.' },
         { name: 'models', description: 'Model selection.' },
         { name: 'tools', description: 'Tool registry and per-agent grants.' },
@@ -147,6 +162,41 @@ async function startServer(): Promise<void> {
       summary: 'Clear the session cookie.',
     }),
     async (_request, reply) => logout(reply, authConfig),
+  );
+
+  server.get(
+    '/api/profile',
+    routeDocs({
+      tags: ['profile'],
+      summary: 'Read the synced user profile.',
+    }),
+    async () => await runtime.readUserProfile(),
+  );
+
+  server.patch(
+    '/api/profile',
+    routeDocs({
+      tags: ['profile'],
+      summary: 'Update the synced user profile.',
+      body: updateUserProfileRequestSchema,
+    }),
+    async (request, reply) => {
+      const parsed = updateUserProfileRequestSchema.safeParse(request.body);
+
+      if (!parsed.success) {
+        return reply.code(400).send({
+          message: 'A valid user profile update is required.',
+        });
+      }
+
+      try {
+        return await runtime.updateUserProfile(parsed.data satisfies UpdateUserProfileRequest);
+      } catch (error) {
+        return reply.code(400).send({
+          message: getErrorMessage(error),
+        });
+      }
+    },
   );
 
   server.get(

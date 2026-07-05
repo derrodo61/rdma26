@@ -1,4 +1,7 @@
 export type ChatRole = 'user' | 'assistant';
+export type ThemePreference = 'light' | 'dark' | 'system';
+export type DateStylePreference = 'short' | 'medium' | 'long' | 'full';
+export type TimeStylePreference = 'short' | 'medium';
 
 export interface ChatMessage {
   readonly id: string;
@@ -143,4 +146,32 @@ export interface AuthSessionResponse {
 export interface LoginRequest {
   readonly username: string;
   readonly password: string;
+}
+
+export interface AgentSettings {
+  readonly model?: string;
+}
+
+export interface UserProfile {
+  readonly name: string;
+  readonly timeZone: string;
+  readonly language: string;
+  readonly locale: string;
+  readonly dateStyle: DateStylePreference;
+  readonly timeStyle: TimeStylePreference;
+  readonly theme: ThemePreference;
+  readonly agentSettings: Readonly<Record<string, AgentSettings>>;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface UpdateUserProfileRequest {
+  readonly name?: string;
+  readonly timeZone?: string;
+  readonly language?: string;
+  readonly locale?: string;
+  readonly dateStyle?: DateStylePreference;
+  readonly timeStyle?: TimeStylePreference;
+  readonly theme?: ThemePreference;
+  readonly agentSettings?: Readonly<Record<string, AgentSettings>>;
 }

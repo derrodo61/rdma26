@@ -23,9 +23,11 @@ import type {
   ChatThreadSummary,
   HealthResponse,
   ModelOption,
+  ThemePreference,
 } from '../../../../shared/agent-contracts';
 import { AgentSettingsStorage } from '../../settings/agent-settings-storage';
-import { ThemePreferenceService, type ThemePreference } from '../../settings/theme-preference';
+import { ThemePreferenceService } from '../../settings/theme-preference';
+import { UserProfileSyncService } from '../../settings/user-profile-sync';
 import { AppSelect, type SelectOption } from '../../shared/app-select/app-select';
 import { AssistantApi } from '../assistant-api';
 
@@ -52,6 +54,7 @@ export class ChatPage {
   private readonly api = inject(AssistantApi);
   private readonly agentSettingsStorage = inject(AgentSettingsStorage);
   private readonly themePreference = inject(ThemePreferenceService);
+  private readonly userProfileSync = inject(UserProfileSyncService);
   private readonly composerInput = viewChild<ElementRef<HTMLTextAreaElement>>('composerInput');
   private defaultModelId = '';
 
@@ -339,13 +342,13 @@ export class ChatPage {
 
     this.selectedModel.set(value);
 
-    if (agentId) {
-      this.saveSelectedModel(agentId, value);
+    if (agentId && this.isAvailableModel(value)) {
+      void this.userProfileSync.updateAgentModel(agentId, value);
     }
   }
 
   protected updateTheme(value: ThemePreference): void {
-    this.themePreference.setTheme(value);
+    void this.userProfileSync.updateTheme(value);
   }
 
   protected updateAgent(value: string): void {
@@ -396,6 +399,7 @@ export class ChatPage {
     this.agents.set(agentsResponse.agents);
     this.models.set(models.models);
     this.defaultModelId = models.defaultModel;
+    await this.userProfileSync.loadAndHydrate(agentsResponse.agents);
     await this.loadAgentThreads(agentsResponse.defaultAgentId);
   }
 
@@ -435,14 +439,6 @@ export class ChatPage {
     }
 
     return this.models()[0]?.id ?? '';
-  }
-
-  private saveSelectedModel(agentId: string, model: string): void {
-    if (!this.isAvailableModel(model)) {
-      return;
-    }
-
-    this.agentSettingsStorage.update(agentId, { model });
   }
 
   private isAvailableModel(model: string): boolean {

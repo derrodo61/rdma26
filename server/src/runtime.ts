@@ -17,16 +17,20 @@ import type {
   ToolsResponse,
   UpdateAgentRequest,
   UpdateAgentToolsRequest,
+  UpdateUserProfileRequest,
+  UserProfile,
 } from '../../shared/agent-contracts';
 import { readAuthConfig } from './auth';
 import { AgentRegistry, validateAgentId } from './agent-registry';
 import { PersonalAgent, type PersonalAgentResponse } from './personal-agent';
 import { ToolRegistry } from './tools/tool-registry';
+import { UserProfileStore } from './user-profile-store';
 
 export class AssistantRuntime {
   private readonly registry: AgentRegistry;
   private readonly models: readonly ModelOption[];
   private readonly tools = new ToolRegistry();
+  private readonly userProfileStore: UserProfileStore;
 
   constructor(options: AssistantRuntimeOptions = readRuntimeOptionsFromEnv()) {
     this.registry = new AgentRegistry(
@@ -34,11 +38,13 @@ export class AssistantRuntime {
       options.defaultAgentId,
       options.defaultAgentName,
     );
+    this.userProfileStore = new UserProfileStore(options.dataDir);
     this.models = readModels();
   }
 
   async ensureReady(): Promise<void> {
     await this.registry.ensureReady();
+    await this.userProfileStore.ensureReady();
   }
 
   async health(): Promise<HealthResponse> {
@@ -77,6 +83,14 @@ export class AssistantRuntime {
 
   async updateAgent(agentId: string, request: UpdateAgentRequest): Promise<AgentProfile> {
     return await this.registry.updateAgent(agentId, request);
+  }
+
+  async readUserProfile(): Promise<UserProfile> {
+    return await this.userProfileStore.readProfile();
+  }
+
+  async updateUserProfile(request: UpdateUserProfileRequest): Promise<UserProfile> {
+    return await this.userProfileStore.updateProfile(request);
   }
 
   toolsResponse(): ToolsResponse {

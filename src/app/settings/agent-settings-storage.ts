@@ -1,8 +1,6 @@
 import { Injectable } from '@angular/core';
 
-export interface AgentSettings {
-  readonly model?: string;
-}
+import type { AgentSettings } from '../../../shared/agent-contracts';
 
 @Injectable({ providedIn: 'root' })
 export class AgentSettingsStorage {
@@ -34,6 +32,20 @@ export class AgentSettingsStorage {
 
     this.write(agentId, settings);
     return settings;
+  }
+
+  readAll(agentIds: readonly string[]): Readonly<Record<string, AgentSettings>> {
+    return Object.fromEntries(
+      agentIds
+        .map((agentId) => [agentId, this.read(agentId)] as const)
+        .filter((entry): entry is readonly [string, AgentSettings] => Boolean(entry[1].model)),
+    );
+  }
+
+  replaceAll(agentSettings: Readonly<Record<string, AgentSettings>>): void {
+    for (const [agentId, settings] of Object.entries(agentSettings)) {
+      this.write(agentId, settings);
+    }
   }
 
   remove(agentId: string): void {

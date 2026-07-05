@@ -1,5 +1,10 @@
 import { config } from 'dotenv';
 
+import type {
+  DateStylePreference,
+  ThemePreference,
+  TimeStylePreference,
+} from '../../shared/agent-contracts';
 import { AssistantRuntime } from './runtime';
 
 config({ quiet: true });
@@ -37,6 +42,39 @@ async function main(): Promise<void> {
     case 'agents:delete':
       printJson(await runtime.deleteAgent(agentId(options)));
       return;
+    case 'profile:read':
+      printJson(await runtime.readUserProfile());
+      return;
+    case 'profile:update':
+      printJson(
+        await runtime.updateUserProfile({
+          name: options['name'],
+          timeZone: options['time-zone'],
+          language: options['language'],
+          locale: options['locale'],
+          dateStyle: parseDateStyle(options['date-style']),
+          timeStyle: parseTimeStyle(options['time-style']),
+          theme: parseTheme(options['theme']),
+        }),
+      );
+      return;
+    case 'profile:agent-model:set': {
+      const profile = await runtime.readUserProfile();
+      const selectedAgentId = agentId(options);
+
+      printJson(
+        await runtime.updateUserProfile({
+          agentSettings: {
+            ...profile.agentSettings,
+            [selectedAgentId]: {
+              ...profile.agentSettings[selectedAgentId],
+              model: requiredOption(options, 'model'),
+            },
+          },
+        }),
+      );
+      return;
+    }
     case 'agents:tools':
       printJson(await runtime.agentToolsResponse(agentId(options)));
       return;
@@ -136,6 +174,42 @@ function parseToolList(input: string): readonly string[] {
     .filter(Boolean);
 }
 
+function parseTheme(value: string | undefined): ThemePreference | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  if (value === 'light' || value === 'dark' || value === 'system') {
+    return value;
+  }
+
+  throw new Error('--theme must be light, dark, or system.');
+}
+
+function parseDateStyle(value: string | undefined): DateStylePreference | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  if (value === 'short' || value === 'medium' || value === 'long' || value === 'full') {
+    return value;
+  }
+
+  throw new Error('--date-style must be short, medium, long, or full.');
+}
+
+function parseTimeStyle(value: string | undefined): TimeStylePreference | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  if (value === 'short' || value === 'medium') {
+    return value;
+  }
+
+  throw new Error('--time-style must be short or medium.');
+}
+
 function requiredOption(options: Record<string, string | undefined>, key: string): string {
   const value = options[key]?.trim();
 
@@ -159,6 +233,9 @@ Usage:
   rdma26 agents:create --id research --name "Research assistant"
   rdma26 agents:update --agent research --name "Researcher"
   rdma26 agents:delete --agent research
+  rdma26 profile:read
+  rdma26 profile:update --name "Rolf" --time-zone Europe/Berlin --locale de-DE --language de --date-style medium --time-style short --theme system
+  rdma26 profile:agent-model:set --agent default --model gpt-4.1-mini
   rdma26 agents:tools --agent research
   rdma26 agents:tools:set --agent research --tools internet_search
   rdma26 agents:tools:grant --agent research --tool internet_search

@@ -19,6 +19,8 @@ import type {
   ToolsResponse,
   UpdateAgentRequest,
   UpdateAgentToolsRequest,
+  UpdateUserProfileRequest,
+  UserProfile,
 } from '../../../shared/agent-contracts';
 
 @Injectable({ providedIn: 'root' })
@@ -49,6 +51,14 @@ export class AssistantApi {
 
   async tools(): Promise<ToolsResponse> {
     return await firstValueFrom(this.http.get<ToolsResponse>('/api/tools'));
+  }
+
+  async profile(): Promise<UserProfile> {
+    return await firstValueFrom(this.http.get<UserProfile>('/api/profile'));
+  }
+
+  async updateProfile(request: UpdateUserProfileRequest): Promise<UserProfile> {
+    return await firstValueFrom(this.http.patch<UserProfile>('/api/profile', request));
   }
 
   async agents(): Promise<AgentsResponse> {

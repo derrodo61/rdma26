@@ -12,6 +12,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added the first registered tool, `internet_search`, backed by Tavily when `TAVILY_API_KEY` is configured.
 - Added persistent `enabledTools` to agent profiles, including migration for existing agents.
 - Added generated OpenAPI documentation from Zod-derived route schemas at `/api/openapi.json` and Swagger UI at `/docs`.
+- Added a backend-synced user profile for name, timezone, locale, language, date/time display settings, theme, and per-agent UI settings.
+- Added a user profile settings page accessible from the settings menu.
+- Added `profile:read`, `profile:update`, and `profile:agent-model:set` CLI commands.
 - Added light, dark, and system theme support.
 - Added dedicated API and CLI reference docs in `docs/api.md` and `docs/cli.md`.
 - Added source-available license documentation for public publishing.

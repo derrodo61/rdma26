@@ -44,6 +44,35 @@ Creates an HTTP-only signed session cookie when credentials match the configured
 
 Clears the session cookie.
 
+## Profile
+
+### `GET /api/profile`
+
+Returns the synced user profile, including name, timezone, locale, language, date/time display preferences, theme, and per-agent UI settings.
+
+### `PATCH /api/profile`
+
+Body:
+
+```json
+{
+  "name": "Rolf",
+  "timeZone": "Europe/Berlin",
+  "language": "de",
+  "locale": "de-DE",
+  "dateStyle": "medium",
+  "timeStyle": "short",
+  "theme": "system",
+  "agentSettings": {
+    "default": {
+      "model": "gpt-4.1-mini"
+    }
+  }
+}
+```
+
+Updates the synced user profile. Fields are optional; omitted fields keep their current values.
+
 ## Models And Tools
 
 ### `GET /api/models`

@@ -44,6 +44,28 @@ rdma26 agents:delete --agent research
 
 The default agent cannot be deleted.
 
+## Profile
+
+### Read the synced user profile
+
+```bash
+rdma26 profile:read
+```
+
+### Update profile fields
+
+```bash
+rdma26 profile:update --name "Rolf" --time-zone Europe/Berlin --locale de-DE --language de --date-style medium --time-style short --theme system
+```
+
+All options are optional. Omitted fields keep their current values.
+
+### Set an agent model preference
+
+```bash
+rdma26 profile:agent-model:set --agent default --model gpt-4.1-mini
+```
+
 ## Tools
 
 ### List registered tools
