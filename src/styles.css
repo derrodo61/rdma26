@@ -124,3 +124,64 @@ textarea {
 :focus-visible {
   box-shadow: var(--focus-shadow);
 }
+
+.message-markdown > :first-child {
+  margin-top: 0;
+}
+
+.message-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.message-markdown p {
+  margin: 0 0 0.85rem;
+}
+
+.message-markdown ul,
+.message-markdown ol {
+  margin: 0.75rem 0 0.85rem;
+  padding-left: 1.35rem;
+}
+
+.message-markdown ul {
+  list-style: disc;
+}
+
+.message-markdown ol {
+  list-style: decimal;
+}
+
+.message-markdown li {
+  margin: 0.35rem 0;
+}
+
+.message-markdown strong {
+  font-weight: 650;
+}
+
+.message-markdown a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.message-markdown code {
+  border-radius: 0.35rem;
+  background: var(--color-surface);
+  padding: 0.08rem 0.32rem;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+.message-markdown pre {
+  margin: 0.85rem 0;
+  overflow-x: auto;
+  border-radius: 0.75rem;
+  background: var(--color-surface);
+  padding: 0.85rem;
+}
+
+.message-markdown pre code {
+  background: transparent;
+  padding: 0;
+}

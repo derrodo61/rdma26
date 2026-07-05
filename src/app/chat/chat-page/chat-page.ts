@@ -14,6 +14,7 @@ import {
   lucideSun,
   lucideTrash2,
 } from '@ng-icons/lucide';
+import { marked } from 'marked';
 
 import type {
   AgentProfile,
@@ -30,6 +31,16 @@ import { ThemePreferenceService } from '../../settings/theme-preference';
 import { UserProfileSyncService } from '../../settings/user-profile-sync';
 import { AppSelect, type SelectOption } from '../../shared/app-select/app-select';
 import { AssistantApi } from '../assistant-api';
+
+interface RenderedChatMessage extends ChatMessage {
+  readonly renderedContent: string;
+}
+
+marked.use({
+  async: false,
+  breaks: true,
+  gfm: true,
+});
 
 @Component({
   selector: 'app-chat-page',
@@ -79,6 +90,12 @@ export class ChatPage {
 
   protected readonly messages = computed<readonly ChatMessage[]>(
     () => this.activeThread()?.messages ?? [],
+  );
+  protected readonly renderedMessages = computed<readonly RenderedChatMessage[]>(() =>
+    this.messages().map((message) => ({
+      ...message,
+      renderedContent: message.role === 'assistant' ? renderMarkdown(message.content) : '',
+    })),
   );
   protected readonly canSend = computed(
     () =>
@@ -470,4 +487,8 @@ function getErrorMessage(error: unknown, fallback: string): string {
   }
 
   return error instanceof Error ? error.message : fallback;
+}
+
+function renderMarkdown(content: string): string {
+  return marked.parse(content, { async: false, breaks: true, gfm: true });
 }

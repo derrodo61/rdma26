@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added generated OpenAPI documentation from Zod-derived route schemas at `/api/openapi.json` and Swagger UI at `/docs`.
 - Added a backend-synced user profile for name, timezone, locale, language, date/time display settings, theme, and per-agent UI settings.
 - Added user profile date/time preferences to the agent bootloader prompt so agents can answer with the configured timezone and regional format.
+- Added Markdown rendering for assistant chat messages.
 - Added a user profile settings page accessible from the settings menu.
 - Added `profile:read`, `profile:update`, and `profile:agent-model:set` CLI commands.
 - Added light, dark, and system theme support.

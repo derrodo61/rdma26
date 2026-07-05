@@ -250,7 +250,7 @@
             </div>
           } @else {
             <div class="mx-auto flex max-w-3xl flex-col gap-4">
-              @for (message of messages(); track message.id) {
+              @for (message of renderedMessages(); track message.id) {
                 <article
                   class="max-w-[48rem]"
                   [class.ml-auto]="message.role === 'user'"
@@ -261,9 +261,16 @@
                   [class.px-4]="message.role === 'assistant'"
                   [class.py-3]="message.role === 'assistant'"
                 >
-                  <p class="whitespace-pre-wrap text-[0.9375rem] leading-6">
-                    {{ message.content }}
-                  </p>
+                  @if (message.role === 'assistant') {
+                    <div
+                      class="message-markdown text-[0.9375rem] leading-6"
+                      [innerHTML]="message.renderedContent"
+                    ></div>
+                  } @else {
+                    <p class="whitespace-pre-wrap text-[0.9375rem] leading-6">
+                      {{ message.content }}
+                    </p>
+                  }
                 </article>
               }
 
