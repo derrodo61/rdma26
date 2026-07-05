@@ -44,6 +44,12 @@ export class UserProfilePage {
   ];
   protected readonly timeStyles: readonly TimeStylePreference[] = ['short', 'medium'];
   protected readonly themes: readonly ThemePreference[] = ['system', 'light', 'dark'];
+  protected readonly localeOptions = computed(() =>
+    mergeOptions(this.locales(), this.draftLocale()),
+  );
+  protected readonly languageOptions = computed(() =>
+    mergeOptions(this.languages(), this.draftLanguage()),
+  );
 
   protected readonly preview = computed(() => {
     try {
@@ -171,7 +177,32 @@ function readSupportedTimeZones(): readonly string[] {
 }
 
 function readSuggestedLocales(): readonly string[] {
-  return ['en-US', 'en-GB', 'de-DE', 'fr-FR', 'es-ES', 'it-IT', 'nl-NL'];
+  return [
+    'de-DE',
+    'de-AT',
+    'de-CH',
+    'en-US',
+    'en-GB',
+    'en-IE',
+    'en-CA',
+    'en-AU',
+    'fr-FR',
+    'fr-CH',
+    'es-ES',
+    'it-IT',
+    'nl-NL',
+    'pl-PL',
+    'pt-PT',
+    'pt-BR',
+    'sv-SE',
+    'da-DK',
+    'fi-FI',
+    'nb-NO',
+  ];
+}
+
+function mergeOptions(options: readonly string[], selectedValue: string): readonly string[] {
+  return [...new Set([selectedValue, ...options].filter(Boolean))];
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {

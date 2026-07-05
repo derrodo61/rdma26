@@ -47,37 +47,46 @@
         <div class="grid gap-4 sm:grid-cols-2">
           <label class="block text-sm font-medium text-text-muted">
             <span>Time zone</span>
-            <input
+            <select
               class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-              list="timeZones"
               [ngModel]="draftTimeZone()"
               name="timeZone"
               (ngModelChange)="updateTimeZone($event)"
-            />
+            >
+              @for (timeZone of timeZones(); track timeZone) {
+                <option [value]="timeZone">{{ timeZone }}</option>
+              }
+            </select>
           </label>
 
           <label class="block text-sm font-medium text-text-muted">
-            <span>Locale</span>
-            <input
+            <span>Regional format</span>
+            <select
               class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-              list="locales"
               [ngModel]="draftLocale()"
               name="locale"
               (ngModelChange)="updateLocale($event)"
-            />
+            >
+              @for (locale of localeOptions(); track locale) {
+                <option [value]="locale">{{ locale }}</option>
+              }
+            </select>
           </label>
         </div>
 
         <div class="grid gap-4 sm:grid-cols-3">
           <label class="block text-sm font-medium text-text-muted">
             <span>Language</span>
-            <input
+            <select
               class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-              list="languages"
               [ngModel]="draftLanguage()"
               name="language"
               (ngModelChange)="updateLanguage($event)"
-            />
+            >
+              @for (language of languageOptions(); track language) {
+                <option [value]="language">{{ language }}</option>
+              }
+            </select>
           </label>
 
           <label class="block text-sm font-medium text-text-muted">
@@ -146,22 +155,4 @@
       </form>
     }
   </main>
-
-  <datalist id="timeZones">
-    @for (timeZone of timeZones(); track timeZone) {
-      <option [value]="timeZone"></option>
-    }
-  </datalist>
-
-  <datalist id="locales">
-    @for (locale of locales(); track locale) {
-      <option [value]="locale"></option>
-    }
-  </datalist>
-
-  <datalist id="languages">
-    @for (language of languages(); track language) {
-      <option [value]="language"></option>
-    }
-  </datalist>
 </div>

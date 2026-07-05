@@ -48,7 +48,7 @@ Clears the session cookie.
 
 ### `GET /api/profile`
 
-Returns the synced user profile, including name, timezone, locale, language, date/time display preferences, theme, and per-agent UI settings.
+Returns the synced user profile, including name, timezone, regional format (`locale`), language, date/time display preferences, theme, and per-agent UI settings.
 
 ### `PATCH /api/profile`
 
