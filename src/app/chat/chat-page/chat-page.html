@@ -274,12 +274,10 @@
             <div class="mx-auto flex max-w-3xl flex-col gap-4">
               @for (message of messages(); track message.id) {
                 <article
-                  class="max-w-[48rem] border px-4 py-3"
+                  class="max-w-[48rem] px-4 py-3"
                   [class.ml-auto]="message.role === 'user'"
-                  [class.border-accent-border]="message.role === 'user'"
+                  [class.rounded-2xl]="message.role === 'user'"
                   [class.bg-accent-soft]="message.role === 'user'"
-                  [class.border-border]="message.role === 'assistant'"
-                  [class.bg-surface]="message.role === 'assistant'"
                 >
                   <p class="mb-2 text-xs font-semibold uppercase text-text-muted">
                     {{ message.role }}
@@ -295,10 +293,7 @@
           }
         </section>
 
-        <form
-          class="shrink-0 border-t border-border bg-surface p-4 sm:p-6"
-          (submit)="$event.preventDefault(); send()"
-        >
+        <form class="shrink-0 bg-app-bg p-4 sm:p-6" (submit)="$event.preventDefault(); send()">
           @if (error(); as currentError) {
             <p
               class="mb-3 border border-danger-border bg-danger-soft px-3 py-2 text-sm text-danger"
@@ -307,28 +302,27 @@
             </p>
           }
 
-          @if (activeSoulPath()) {
-            <p class="mb-3 truncate text-xs text-text-muted">soul.md: {{ activeSoulPath() }}</p>
-          }
-
-          <div class="mx-auto flex max-w-3xl gap-3">
+          <div class="mx-auto grid max-w-3xl rounded-2xl border border-border bg-surface shadow-sm">
             <label class="sr-only" for="message">Message</label>
             <textarea
               id="message"
-              class="min-h-24 flex-1 resize-y border border-border px-3 py-2 leading-6 focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+              class="composer-input min-h-24 w-full resize-none bg-transparent px-4 py-3 leading-6 focus:outline-none"
               placeholder="Write to your assistant"
               [ngModel]="draft()"
               name="message"
               (keydown)="handleComposerKeydown($event)"
               (ngModelChange)="updateDraft($event)"
             ></textarea>
-            <button
-              type="submit"
-              class="h-12 min-w-24 bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-hover focus:outline-none focus-visible:shadow-[var(--focus-shadow)] disabled:cursor-not-allowed disabled:bg-control-disabled"
-              [disabled]="!canSend()"
-            >
-              Send
-            </button>
+            <div class="flex items-center justify-end px-3 pb-3">
+              <button
+                type="submit"
+                class="grid h-10 w-10 place-items-center rounded-full bg-accent text-white hover:bg-accent-hover focus:outline-none focus-visible:shadow-[var(--focus-shadow)] disabled:cursor-not-allowed disabled:bg-control-disabled"
+                [disabled]="!canSend()"
+                aria-label="Send message"
+              >
+                <ng-icon name="lucideArrowUp" size="20" strokeWidth="2.25" />
+              </button>
+            </div>
           </div>
         </form>
       </main>
