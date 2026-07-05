@@ -229,38 +229,8 @@
       </aside>
 
       <main
-        class="grid h-dvh min-h-0 min-w-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden pl-16 lg:pl-0"
+        class="grid h-dvh min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)_auto] overflow-hidden pl-16 lg:pl-0"
       >
-        <header class="border-b border-border bg-surface">
-          <div class="flex min-h-16 flex-wrap items-center justify-between gap-4 px-4 py-3 sm:px-6">
-            <div class="min-w-0">
-              <h2 class="truncate text-lg font-semibold">{{ activeAgent()?.name ?? 'Chat' }}</h2>
-              <p class="truncate text-sm text-text-muted">
-                @if (health(); as currentHealth) {
-                  <span>{{
-                    currentHealth.apiKeyConfigured ? 'OpenAI ready' : 'OpenAI key missing'
-                  }}</span>
-                } @else {
-                  <span>Local backend</span>
-                }
-              </p>
-            </div>
-
-            <div class="flex flex-wrap items-center gap-3">
-              <div class="flex items-center gap-2 text-sm text-text-muted">
-                <span>Model</span>
-                <app-select
-                  class="block min-w-40"
-                  label="Model"
-                  [options]="modelOptions()"
-                  [value]="selectedModel()"
-                  (valueChange)="updateModel($event)"
-                />
-              </div>
-            </div>
-          </div>
-        </header>
-
         <section class="min-h-0 overflow-y-auto px-4 py-5 sm:px-6" aria-live="polite">
           @if (messages().length === 0) {
             <div class="mx-auto max-w-2xl pt-10">

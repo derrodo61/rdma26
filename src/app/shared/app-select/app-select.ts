@@ -64,7 +64,12 @@ type SelectVariant = 'default' | 'inline';
 
       @if (isOpen()) {
         <div
-          class="absolute left-0 right-0 z-50 mt-1 max-h-64 overflow-y-auto rounded-md border border-border bg-surface p-1 shadow-lg"
+          class="absolute right-0 z-50 max-h-64 overflow-y-auto rounded-md border border-border bg-surface p-1 shadow-lg"
+          [class.left-0]="variant() === 'default'"
+          [class.mt-1]="variant() === 'default'"
+          [class.bottom-full]="variant() === 'inline'"
+          [class.mb-1]="variant() === 'inline'"
+          [class.w-56]="variant() === 'inline'"
           role="listbox"
           [attr.aria-label]="label()"
         >
