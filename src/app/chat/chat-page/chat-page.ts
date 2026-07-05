@@ -2,6 +2,14 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import {
+  lucidePanelLeftClose,
+  lucidePanelLeftOpen,
+  lucidePlus,
+  lucideSettings,
+  lucideTrash2,
+} from '@ng-icons/lucide';
 
 import type {
   AgentProfile,
@@ -16,7 +24,16 @@ import { AssistantApi } from '../assistant-api';
 
 @Component({
   selector: 'app-chat-page',
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, NgIcon],
+  providers: [
+    provideIcons({
+      lucidePanelLeftClose,
+      lucidePanelLeftOpen,
+      lucidePlus,
+      lucideSettings,
+      lucideTrash2,
+    }),
+  ],
   templateUrl: './chat-page.html',
   styleUrl: './chat-page.css',
 })

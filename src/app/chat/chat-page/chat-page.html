@@ -50,40 +50,40 @@
   } @else {
     <div class="flex h-dvh overflow-hidden">
       <aside
-        class="fixed inset-y-0 left-0 z-30 flex h-dvh shrink-0 flex-col overflow-hidden border-r border-zinc-200 bg-zinc-100 transition-[width] duration-200 lg:static"
-        [class.w-18]="isSidebarCollapsed()"
+        class="fixed inset-y-0 left-0 z-30 flex h-dvh shrink-0 flex-col overflow-hidden border-r border-zinc-200 bg-zinc-50 text-zinc-800 transition-[width] duration-200 lg:static"
+        [class.w-16]="isSidebarCollapsed()"
         [class.w-80]="!isSidebarCollapsed()"
       >
-        <div class="flex h-16 items-center justify-between gap-2 border-b border-zinc-200 px-3">
+        <div class="flex h-16 items-center justify-between gap-2 px-4">
           @if (!isSidebarCollapsed()) {
             <div class="min-w-0">
-              <h1 class="truncate text-lg font-semibold">rdma26</h1>
-              <p class="truncate text-xs text-zinc-500">
+              <h1 class="truncate text-base font-semibold text-zinc-950">rdma26</h1>
+              <p class="truncate text-sm text-zinc-500">
                 {{ activeAgent()?.name ?? 'Local backend' }}
               </p>
             </div>
           }
           <button
             type="button"
-            class="h-10 border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            class="grid h-9 w-9 shrink-0 place-items-center rounded-md text-zinc-500 hover:bg-zinc-200 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-teal-500"
             [attr.aria-label]="isSidebarCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
             (click)="toggleSidebar()"
           >
-            @if (isSidebarCollapsed()) {
-              Open
-            } @else {
-              Close
-            }
+            <ng-icon
+              [name]="isSidebarCollapsed() ? 'lucidePanelLeftOpen' : 'lucidePanelLeftClose'"
+              size="20"
+              strokeWidth="1.8"
+            />
           </button>
         </div>
 
         <div class="flex min-h-0 flex-1 flex-col">
           @if (!isSidebarCollapsed()) {
-            <section class="border-b border-zinc-200 p-3">
-              <label class="block text-sm font-medium text-zinc-700">
-                <span>Agents</span>
+            <section class="px-4 pb-4">
+              <label class="block text-sm font-medium text-zinc-500">
+                <span class="mb-2 block">Agents</span>
                 <select
-                  class="mt-1 h-10 w-full border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-950 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  class="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-950 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                   [ngModel]="selectedAgentId()"
                   (ngModelChange)="updateAgent($event)"
                 >
@@ -95,25 +95,29 @@
             </section>
 
             <section class="flex min-h-0 flex-1 flex-col">
-              <div class="flex items-center justify-between gap-2 p-3">
-                <h2 class="text-sm font-semibold text-zinc-700">Threads</h2>
+              <div class="flex items-center justify-between gap-2 px-4 pb-2 pt-2">
+                <h2 class="text-sm font-medium text-zinc-500">Threads</h2>
                 <button
                   type="button"
-                  class="h-9 border border-zinc-300 bg-white px-3 text-sm font-medium hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  class="flex h-8 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-zinc-600 hover:bg-zinc-200 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-teal-500"
                   (click)="createThread()"
                 >
+                  <ng-icon name="lucidePlus" size="16" strokeWidth="2" />
                   New
                 </button>
               </div>
 
-              <nav class="min-h-0 flex-1 overflow-y-auto p-2" aria-label="Conversation threads">
+              <nav
+                class="min-h-0 flex-1 overflow-y-auto px-2 pb-2"
+                aria-label="Conversation threads"
+              >
                 @for (thread of threads(); track thread.id) {
                   <div
-                    class="mb-1 block w-full border px-3 py-2 text-left text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                    [class.border-teal-600]="activeThread()?.id === thread.id"
-                    [class.bg-white]="activeThread()?.id === thread.id"
-                    [class.border-transparent]="activeThread()?.id !== thread.id"
-                    [class.hover:bg-white]="activeThread()?.id !== thread.id"
+                    class="group mb-0.5 block w-full rounded-lg px-3 py-2 text-left text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
+                    [class.bg-zinc-200]="activeThread()?.id === thread.id"
+                    [class.text-zinc-950]="activeThread()?.id === thread.id"
+                    [class.text-zinc-700]="activeThread()?.id !== thread.id"
+                    [class.hover:bg-zinc-100]="activeThread()?.id !== thread.id"
                     (click)="selectThread(thread.id)"
                     (keydown.enter)="selectThread(thread.id)"
                     (keydown.space)="$event.preventDefault(); selectThread(thread.id)"
@@ -123,18 +127,18 @@
                     <div class="flex items-start justify-between gap-2">
                       <span class="min-w-0 flex-1">
                         <span class="block truncate font-medium">{{ thread.title }}</span>
-                        <span class="mt-1 block text-xs text-zinc-500"
+                        <span class="mt-0.5 block text-xs text-zinc-500"
                           >{{ thread.messageCount }} messages</span
                         >
                       </span>
                       <button
                         type="button"
-                        class="border border-transparent px-2 py-1 text-xs font-medium text-zinc-500 hover:border-red-200 hover:bg-red-50 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 disabled:cursor-not-allowed disabled:text-zinc-300"
+                        class="grid h-7 w-7 shrink-0 place-items-center rounded text-zinc-400 opacity-0 hover:bg-red-50 hover:text-red-700 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-400 group-hover:opacity-100 disabled:cursor-not-allowed disabled:text-zinc-300"
                         [disabled]="isRunning()"
                         [attr.aria-label]="'Delete thread ' + thread.title"
                         (click)="stopThreadClick($event); deleteThread(thread.id)"
                       >
-                        Delete
+                        <ng-icon name="lucideTrash2" size="15" strokeWidth="2" />
                       </button>
                     </div>
                   </div>
@@ -147,12 +151,12 @@
         <div class="relative border-t border-zinc-200 p-3">
           @if (isSettingsMenuOpen()) {
             <div
-              class="absolute bottom-14 left-3 right-3 z-20 border border-zinc-200 bg-white p-1 shadow-lg"
+              class="absolute bottom-14 left-3 right-3 z-20 rounded-lg border border-zinc-200 bg-white p-1 shadow-lg"
               role="menu"
             >
               <a
                 routerLink="/settings/agents"
-                class="block px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                class="block rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500"
                 role="menuitem"
                 (click)="closeSettingsMenu()"
               >
@@ -163,22 +167,23 @@
 
           <button
             type="button"
-            class="h-10 w-full border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            class="flex h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-medium text-zinc-600 hover:bg-zinc-200 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-teal-500"
             aria-haspopup="menu"
             [attr.aria-expanded]="isSettingsMenuOpen()"
             (click)="toggleSettingsMenu()"
           >
+            <ng-icon name="lucideSettings" size="17" strokeWidth="2" />
             @if (isSidebarCollapsed()) {
-              Set
+              <span class="sr-only">Settings</span>
             } @else {
-              Settings
+              <span>Settings</span>
             }
           </button>
         </div>
       </aside>
 
       <main
-        class="grid h-dvh min-h-0 min-w-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden pl-18 lg:pl-0"
+        class="grid h-dvh min-h-0 min-w-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden pl-16 lg:pl-0"
       >
         <header class="border-b border-zinc-200 bg-white">
           <div class="flex min-h-16 flex-wrap items-center justify-between gap-4 px-4 py-3 sm:px-6">
