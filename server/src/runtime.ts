@@ -210,6 +210,7 @@ export class AssistantRuntime {
     }
 
     const tools = this.tools.createTools(storage.agent.enabledTools);
+    const userProfile = await this.readUserProfile();
     const userThread = await storage.appendMessage(request.threadId, {
       role: 'user',
       content: request.prompt,
@@ -218,6 +219,7 @@ export class AssistantRuntime {
       threadId: request.threadId,
       model: request.model,
       tools,
+      userProfile,
       messages: userThread.messages,
       prompt: request.prompt,
     });

@@ -3,13 +3,14 @@ import { createDeepAgent, FilesystemBackend } from 'deepagents';
 import { MemorySaver } from '@langchain/langgraph';
 import type { StructuredToolInterface } from '@langchain/core/tools';
 
-import type { ChatMessage } from '../../shared/agent-contracts';
+import type { ChatMessage, UserProfile } from '../../shared/agent-contracts';
 import type { AssistantStorage } from './storage';
 
 export interface PersonalAgentRequest {
   readonly threadId: string;
   readonly model: string;
   readonly tools: readonly StructuredToolInterface[];
+  readonly userProfile: UserProfile;
   readonly messages: readonly ChatMessage[];
   readonly prompt: string;
 }
@@ -51,7 +52,7 @@ export class PersonalAgent {
       tools: request.tools,
       memory: [this.storage.agent.soulVirtualPath],
       checkpointer: this.checkpointer,
-      systemPrompt: createBootloaderPrompt(this.storage.agent),
+      systemPrompt: createBootloaderPrompt(this.storage.agent, request.userProfile),
     });
 
     const result: unknown = await agent.invoke(
@@ -75,16 +76,42 @@ export class PersonalAgent {
   }
 }
 
-function createBootloaderPrompt(agent: { name: string; soulVirtualPath: string }): string {
+function createBootloaderPrompt(
+  agent: { name: string; soulVirtualPath: string },
+  userProfile: UserProfile,
+): string {
   return `You are the configured local agent named "${agent.name}".
 
 Your editable identity, role, preferences, and long-term working agreements live in ${agent.soulVirtualPath}.
 
 Read ${agent.soulVirtualPath} before answering when it can help. Treat that file as the source of truth for who this agent is. Update it when Rolf explicitly asks you to remember something or when a durable preference is clear.
 
+User profile and display preferences:
+- Name: ${userProfile.name || 'not configured'}
+- Time zone: ${userProfile.timeZone}
+- Language: ${userProfile.language}
+- Regional format: ${userProfile.locale}
+- Date style: ${userProfile.dateStyle}
+- Time style: ${userProfile.timeStyle}
+- Current local date/time: ${formatLocalDateTime(userProfile)}
+
+When presenting dates and times to the user, prefer the user profile's time zone, language, regional format, date style, and time style unless the user asks for a different format.
+
 Use enabled tools when they are useful. Do not claim to have tools that are not available in the current run.
 
 If the file does not contain a specific instruction for a situation, be practical, conversational, and clear about uncertainty.`;
+}
+
+function formatLocalDateTime(userProfile: UserProfile): string {
+  try {
+    return new Intl.DateTimeFormat(userProfile.locale, {
+      dateStyle: userProfile.dateStyle,
+      timeStyle: userProfile.timeStyle,
+      timeZone: userProfile.timeZone,
+    }).format(new Date());
+  } catch {
+    return new Date().toISOString();
+  }
 }
 
 function extractText(result: unknown): string {

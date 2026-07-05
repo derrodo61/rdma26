@@ -73,6 +73,8 @@ Body:
 
 Updates the synced user profile. Fields are optional; omitted fields keep their current values.
 
+Agent runs include the current profile in the backend-generated bootloader prompt, so agents can use the configured timezone, language, regional format, date style, and time style when presenting dates and times.
+
 ## Models And Tools
 
 ### `GET /api/models`
