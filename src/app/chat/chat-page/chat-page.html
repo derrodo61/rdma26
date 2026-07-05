@@ -54,7 +54,7 @@
   } @else {
     <div class="flex h-dvh overflow-hidden">
       <aside
-        class="fixed inset-y-0 left-0 z-30 flex h-dvh shrink-0 flex-col overflow-hidden border-r border-border bg-surface-muted text-text transition-[width] duration-200 lg:static"
+        class="fixed inset-y-0 left-0 z-30 flex h-dvh shrink-0 flex-col overflow-hidden border-r border-border bg-surface text-text transition-[width] duration-200 lg:static"
         [class.w-16]="isSidebarCollapsed()"
         [class.w-80]="!isSidebarCollapsed()"
       >
@@ -317,14 +317,22 @@
               (keydown)="handleComposerKeydown($event)"
               (ngModelChange)="updateDraft($event)"
             ></textarea>
-            <div class="flex items-center justify-end px-3 pb-3">
+            <div class="flex items-center justify-end gap-3 px-3 pb-3">
+              <app-select
+                class="block max-w-48"
+                label="Model"
+                variant="inline"
+                [options]="modelOptions()"
+                [value]="selectedModel()"
+                (valueChange)="updateModel($event)"
+              />
               <button
                 type="submit"
-                class="grid h-10 w-10 place-items-center rounded-full bg-accent text-white hover:bg-accent-hover focus:outline-none focus-visible:shadow-[var(--focus-shadow)] disabled:cursor-not-allowed disabled:bg-control-disabled"
+                class="grid h-9 w-9 place-items-center rounded-full bg-accent text-white hover:bg-accent-hover focus:outline-none focus-visible:shadow-[var(--focus-shadow)] disabled:cursor-not-allowed disabled:bg-control-disabled"
                 [disabled]="!canSend()"
                 aria-label="Send message"
               >
-                <ng-icon name="lucideArrowUp" size="20" strokeWidth="2.25" />
+                <ng-icon name="lucideArrowUp" size="18" strokeWidth="2.25" />
               </button>
             </div>
           </div>

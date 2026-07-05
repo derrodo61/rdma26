@@ -29,9 +29,9 @@
   color-scheme: dark;
   --color-app-bg: #151515;
   --color-surface: #242424;
-  --color-surface-muted: #4a4a4a;
-  --color-surface-hover: #373737;
-  --color-surface-active: #5a5a5a;
+  --color-surface-muted: #303030;
+  --color-surface-hover: #2f2f2f;
+  --color-surface-active: #343434;
   --color-border: #303030;
   --color-text: #f4f4f2;
   --color-text-muted: #b7b7b2;
@@ -52,9 +52,9 @@
     color-scheme: dark;
     --color-app-bg: #151515;
     --color-surface: #242424;
-    --color-surface-muted: #4a4a4a;
-    --color-surface-hover: #373737;
-    --color-surface-active: #5a5a5a;
+    --color-surface-muted: #303030;
+    --color-surface-hover: #2f2f2f;
+    --color-surface-active: #343434;
     --color-border: #303030;
     --color-text: #f4f4f2;
     --color-text-muted: #b7b7b2;

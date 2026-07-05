@@ -16,6 +16,8 @@ export interface SelectOption {
   readonly label: string;
 }
 
+type SelectVariant = 'default' | 'inline';
+
 @Component({
   selector: 'app-select',
   imports: [NgIcon],
@@ -29,7 +31,21 @@ export interface SelectOption {
     <div class="relative">
       <button
         type="button"
-        class="flex h-10 w-full items-center justify-between gap-2 rounded-md border border-border bg-surface py-0 pl-3 pr-2 text-left text-sm font-medium text-text shadow-sm hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+        class="flex w-full items-center justify-between gap-2 rounded-md py-0 text-left text-sm font-medium focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+        [class.h-10]="variant() === 'default'"
+        [class.border]="variant() === 'default'"
+        [class.border-border]="variant() === 'default'"
+        [class.bg-surface]="variant() === 'default'"
+        [class.pl-3]="variant() === 'default'"
+        [class.pr-2]="variant() === 'default'"
+        [class.text-text]="variant() === 'default'"
+        [class.shadow-sm]="variant() === 'default'"
+        [class.hover:bg-surface-muted]="variant() === 'default'"
+        [class.h-8]="variant() === 'inline'"
+        [class.px-2]="variant() === 'inline'"
+        [class.text-text-muted]="variant() === 'inline'"
+        [class.hover:bg-surface-hover]="variant() === 'inline'"
+        [class.hover:text-text]="variant() === 'inline'"
         aria-haspopup="listbox"
         [attr.aria-expanded]="isOpen()"
         [attr.aria-label]="label()"
@@ -83,6 +99,7 @@ export class AppSelect {
   readonly label = input.required<string>();
   readonly options = input.required<readonly SelectOption[]>();
   readonly value = input.required<string>();
+  readonly variant = input<SelectVariant>('default');
   readonly valueChange = output<string>();
 
   protected readonly isOpen = signal(false);
