@@ -31,6 +31,8 @@
     "@angular/platform-browser": "^22.0.0",
     "@angular/router": "^22.0.0",
     "@fastify/cors": "^11.2.0",
+    "@fastify/swagger": "^9.7.0",
+    "@fastify/swagger-ui": "^6.0.0",
     "@langchain/core": "^1.2.1",
     "@langchain/langgraph": "^1.0.5",
     "@langchain/openai": "^1.5.3",

@@ -82,7 +82,12 @@ export function logout(reply: FastifyReply, config: AuthConfig): AuthSessionResp
 }
 
 export function isAuthExemptPath(path: string): boolean {
-  return path === '/api/auth/session' || path === '/api/auth/login' || path === '/api/auth/logout';
+  return (
+    path === '/api/auth/session' ||
+    path === '/api/auth/login' ||
+    path === '/api/auth/logout' ||
+    path === '/api/openapi.json'
+  );
 }
 
 function createSessionToken(username: string, expiresAt: number, config: AuthConfig): string {

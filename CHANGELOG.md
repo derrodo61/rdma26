@@ -7,6 +7,7 @@ All notable project changes are tracked here.
 - Added dynamic per-agent tool assignment through the backend API, CLI, and agent edit UI.
 - Added the first registered tool, `internet_search`, backed by Tavily when `TAVILY_API_KEY` is configured.
 - Added persistent `enabledTools` to agent profiles, including migration for existing agents.
+- Added generated OpenAPI documentation from Zod-derived route schemas at `/api/openapi.json` and Swagger UI at `/docs`.
 - Added light, dark, and system theme support.
 - Refined the chat layout with a collapsible sidebar, inline model selector, rounded composer, and simplified message styling.
 - Added source-available license documentation for public publishing.

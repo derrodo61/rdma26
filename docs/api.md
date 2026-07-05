@@ -6,15 +6,14 @@ Unless authentication is disabled, `/api/*` routes require the signed session co
 
 ## Automatic API Documentation
 
-The project does not currently expose automatic API docs.
+The backend exposes generated OpenAPI documentation:
 
-Fastify can support OpenAPI/Swagger documentation with plugins, but it is not automatic in the same way FastAPI is for this codebase. The usual Fastify path is:
+- `GET /api/openapi.json` returns the generated OpenAPI 3.1 document.
+- `GET /docs` serves Swagger UI for browser-based API exploration.
 
-- Add `@fastify/swagger` to generate an OpenAPI document from route schemas.
-- Add `@fastify/swagger-ui` or a UI like Scalar to serve interactive browser docs.
-- Move request and response definitions into Fastify route schemas so the generator has a source of truth.
+Zod remains the source of truth for request and route-parameter schemas. The server converts those Zod schemas to JSON Schema for Fastify route metadata, and `@fastify/swagger` uses that metadata to generate the OpenAPI document.
 
-Today the backend validates request bodies and params with Zod inside handlers, so those schemas are not yet available to Fastify's OpenAPI generator.
+The current generated documentation covers routes, request bodies, and path parameters. Response schemas are not fully modeled yet.
 
 ## Health
 
