@@ -8,6 +8,12 @@ Agents can also have tools assigned dynamically. The first registered tool is `i
 
 The project is designed around one shared backend runtime. API endpoints and CLI commands call the same `AssistantRuntime` service, so functionality exposed through the browser is also available from the command line without maintaining a second implementation.
 
+## Documentation
+
+- [API endpoints](./docs/api.md)
+- [CLI commands](./docs/cli.md)
+- [Changelog](./CHANGELOG.md)
+
 ## License
 
 This repository is public, but it is not open source. The code is source-available for reference only. Copying, modifying, distributing, hosting, or using it requires prior written permission from Rolf Dohrmann. See [LICENSE](./LICENSE).
@@ -46,28 +52,7 @@ Then open `http://<macbook-lan-ip>:4200` from the other computer.
 
 ## Backend
 
-All backend routes delegate to the shared runtime used by the CLI.
-
-- `GET /api/health`
-- `GET /api/auth/session`
-- `POST /api/auth/login`
-- `POST /api/auth/logout`
-- `GET /api/models`
-- `GET /api/tools`
-- `GET /api/agents`
-- `POST /api/agents`
-- `GET /api/agents/:agentId`
-- `PATCH /api/agents/:agentId`
-- `DELETE /api/agents/:agentId`
-- `GET /api/agents/:agentId/tools`
-- `PUT /api/agents/:agentId/tools`
-- `POST /api/agents/:agentId/tools/:toolId`
-- `DELETE /api/agents/:agentId/tools/:toolId`
-- `GET /api/agents/:agentId/threads`
-- `POST /api/agents/:agentId/threads`
-- `GET /api/agents/:agentId/threads/:threadId`
-- `DELETE /api/agents/:agentId/threads/:threadId`
-- `POST /api/agent-runs` streams Server-Sent Events
+All backend routes delegate to the shared runtime used by the CLI. The API reference lives in [docs/api.md](./docs/api.md).
 
 Thread JSON files live under the configured agent folder. Deep Agents filesystem memory also lives under the configured agent folder, with `soul.md` mounted as `/memories/soul.md`.
 
@@ -126,21 +111,4 @@ Run it directly from the repo:
 ./bin/rdma26 agents:list
 ```
 
-Or through npm:
-
-```bash
-npm run --silent rdma26 -- agents:list
-npm run --silent rdma26 -- agents:create --id research --name "Research assistant"
-npm run --silent rdma26 -- agents:update --agent research --name "Researcher"
-npm run --silent rdma26 -- agents:delete --agent research
-npm run --silent rdma26 -- tools:list
-npm run --silent rdma26 -- agents:tools --agent research
-npm run --silent rdma26 -- agents:tools:set --agent research --tools internet_search
-npm run --silent rdma26 -- agents:tools:grant --agent research --tool internet_search
-npm run --silent rdma26 -- agents:tools:revoke --agent research --tool internet_search
-npm run --silent rdma26 -- threads:list --agent default
-npm run --silent rdma26 -- threads:create --agent default --title "Planning"
-npm run --silent rdma26 -- threads:read --agent default --thread <thread-id>
-npm run --silent rdma26 -- threads:delete --agent default --thread <thread-id>
-npm run --silent rdma26 -- chat:send --agent default --thread <thread-id> --model gpt-4.1-mini --prompt "Hello"
-```
+See [docs/cli.md](./docs/cli.md) for the command reference.
