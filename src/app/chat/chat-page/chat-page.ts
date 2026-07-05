@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -52,6 +52,7 @@ export class ChatPage {
   private readonly api = inject(AssistantApi);
   private readonly agentSettingsStorage = inject(AgentSettingsStorage);
   private readonly themePreference = inject(ThemePreferenceService);
+  private readonly composerInput = viewChild<ElementRef<HTMLTextAreaElement>>('composerInput');
   private defaultModelId = '';
 
   protected readonly health = signal<HealthResponse | null>(null);
@@ -255,6 +256,7 @@ export class ChatPage {
     }
 
     this.draft.set('');
+    this.resizeComposerInput();
     this.isRunning.set(true);
     this.error.set(null);
 
@@ -300,6 +302,7 @@ export class ChatPage {
 
   protected updateDraft(value: string): void {
     this.draft.set(value);
+    this.resizeComposerInput();
   }
 
   protected handleComposerKeydown(event: KeyboardEvent): void {
@@ -309,6 +312,18 @@ export class ChatPage {
 
     event.preventDefault();
     void this.send();
+  }
+
+  private resizeComposerInput(): void {
+    const input = this.composerInput()?.nativeElement;
+
+    if (!input) {
+      return;
+    }
+
+    input.value = this.draft();
+    input.style.height = 'auto';
+    input.style.height = `${input.scrollHeight}px`;
   }
 
   protected updateUsername(value: string): void {

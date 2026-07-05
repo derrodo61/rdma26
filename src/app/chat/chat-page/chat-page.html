@@ -277,11 +277,8 @@
                   class="max-w-[48rem] px-4 py-3"
                   [class.ml-auto]="message.role === 'user'"
                   [class.rounded-2xl]="message.role === 'user'"
-                  [class.bg-accent-soft]="message.role === 'user'"
+                  [class.bg-surface-active]="message.role === 'user'"
                 >
-                  <p class="mb-2 text-xs font-semibold uppercase text-text-muted">
-                    {{ message.role }}
-                  </p>
                   <p class="whitespace-pre-wrap leading-7">{{ message.content }}</p>
                 </article>
               }
@@ -305,8 +302,9 @@
           <div class="mx-auto grid max-w-3xl rounded-2xl border border-border bg-surface shadow-sm">
             <label class="sr-only" for="message">Message</label>
             <textarea
+              #composerInput
               id="message"
-              class="composer-input min-h-24 w-full resize-none bg-transparent px-4 py-3 leading-6 focus:outline-none"
+              class="composer-input min-h-[4.5rem] w-full resize-none overflow-hidden bg-transparent px-4 py-3 leading-6 focus:outline-none"
               placeholder="Write to your assistant"
               [ngModel]="draft()"
               name="message"
