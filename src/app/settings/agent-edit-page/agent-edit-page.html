@@ -1,0 +1,77 @@
+<div class="min-h-dvh bg-app-bg text-text">
+  <header class="border-b border-border bg-surface">
+    <div class="flex min-h-16 flex-wrap items-center justify-between gap-4 px-4 py-3 sm:px-6">
+      <div class="min-w-0">
+        <h1 class="truncate text-lg font-semibold">Edit agent</h1>
+      </div>
+      <a
+        routerLink="/settings/agents"
+        class="flex h-10 items-center border border-border bg-surface px-3 text-sm font-medium text-text-muted hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+      >
+        Back to agents
+      </a>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-3xl px-4 py-6 sm:px-6">
+    @if (error(); as currentError) {
+      <p class="mb-4 border border-danger-border bg-danger-soft px-3 py-2 text-sm text-danger">
+        {{ currentError }}
+      </p>
+    }
+
+    @if (savedMessage(); as currentSavedMessage) {
+      <p class="mb-4 border border-accent-border bg-accent-soft px-3 py-2 text-sm text-text">
+        {{ currentSavedMessage }}
+      </p>
+    }
+
+    @if (isLoading()) {
+      <p class="text-sm text-text-muted">Loading agent...</p>
+    } @else if (agent(); as currentAgent) {
+      <form
+        class="space-y-5 border border-border bg-surface p-4 sm:p-5"
+        (submit)="$event.preventDefault(); save()"
+      >
+        <label class="block text-sm font-medium text-text-muted">
+          <span>Agent ID</span>
+          <input
+            class="mt-1 h-10 w-full border border-border bg-surface-muted px-3 font-mono text-sm text-text-muted"
+            [value]="currentAgent.id"
+            readonly
+          />
+        </label>
+
+        <label class="block text-sm font-medium text-text-muted">
+          <span>Display name</span>
+          <input
+            class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+            [ngModel]="draftName()"
+            name="displayName"
+            (ngModelChange)="updateDraftName($event)"
+          />
+        </label>
+
+        <div class="block text-sm font-medium text-text-muted">
+          <span class="mb-1 block">Assigned model</span>
+          <app-select
+            label="Assigned model"
+            [options]="modelOptions()"
+            [value]="selectedModel()"
+            (valueChange)="updateModel($event)"
+          />
+        </div>
+
+        <div class="flex justify-end">
+          <button
+            type="submit"
+            class="h-10 bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-hover focus:outline-none focus-visible:shadow-[var(--focus-shadow)] disabled:cursor-not-allowed disabled:bg-control-disabled"
+            [disabled]="!hasChanges() || isSaving()"
+          >
+            Save changes
+          </button>
+        </div>
+      </form>
+    }
+  </main>
+</div>

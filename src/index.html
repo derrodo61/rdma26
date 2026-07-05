@@ -6,6 +6,18 @@
     <base href="/" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <script>
+      (() => {
+        try {
+          const theme = localStorage.getItem('rdma26:theme');
+
+          document.documentElement.dataset['theme'] =
+            theme === 'light' || theme === 'dark' || theme === 'system' ? theme : 'system';
+        } catch {
+          document.documentElement.dataset['theme'] = 'system';
+        }
+      })();
+    </script>
   </head>
   <body>
     <app-root></app-root>

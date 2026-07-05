@@ -4,10 +4,13 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
+  lucideMonitor,
+  lucideMoon,
   lucidePanelLeftClose,
   lucidePanelLeftOpen,
   lucidePlus,
   lucideSettings,
+  lucideSun,
   lucideTrash2,
 } from '@ng-icons/lucide';
 
@@ -20,6 +23,8 @@ import type {
   HealthResponse,
   ModelOption,
 } from '../../../../shared/agent-contracts';
+import { AgentSettingsStorage } from '../../settings/agent-settings-storage';
+import { ThemePreferenceService, type ThemePreference } from '../../settings/theme-preference';
 import { AppSelect, type SelectOption } from '../../shared/app-select/app-select';
 import { AssistantApi } from '../assistant-api';
 
@@ -28,10 +33,13 @@ import { AssistantApi } from '../assistant-api';
   imports: [FormsModule, RouterLink, NgIcon, AppSelect],
   providers: [
     provideIcons({
+      lucideMonitor,
+      lucideMoon,
       lucidePanelLeftClose,
       lucidePanelLeftOpen,
       lucidePlus,
       lucideSettings,
+      lucideSun,
       lucideTrash2,
     }),
   ],
@@ -40,7 +48,8 @@ import { AssistantApi } from '../assistant-api';
 })
 export class ChatPage {
   private readonly api = inject(AssistantApi);
-  private readonly selectedModelStoragePrefix = 'rdma26:selected-model';
+  private readonly agentSettingsStorage = inject(AgentSettingsStorage);
+  private readonly themePreference = inject(ThemePreferenceService);
   private defaultModelId = '';
 
   protected readonly health = signal<HealthResponse | null>(null);
@@ -60,6 +69,7 @@ export class ChatPage {
   protected readonly isSettingsMenuOpen = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly loginError = signal<string | null>(null);
+  protected readonly theme = this.themePreference.theme;
 
   protected readonly messages = computed<readonly ChatMessage[]>(
     () => this.activeThread()?.messages ?? [],
@@ -317,6 +327,10 @@ export class ChatPage {
     }
   }
 
+  protected updateTheme(value: ThemePreference): void {
+    this.themePreference.setTheme(value);
+  }
+
   protected updateAgent(value: string): void {
     this.isSettingsMenuOpen.set(false);
     void this.selectAgent(value);
@@ -393,7 +407,7 @@ export class ChatPage {
   }
 
   private modelForAgent(agentId: string): string {
-    const storedModel = this.readSelectedModel(agentId);
+    const storedModel = this.agentSettingsStorage.read(agentId).model;
 
     if (storedModel && this.isAvailableModel(storedModel)) {
       return storedModel;
@@ -406,28 +420,12 @@ export class ChatPage {
     return this.models()[0]?.id ?? '';
   }
 
-  private readSelectedModel(agentId: string): string | null {
-    try {
-      return globalThis.localStorage.getItem(this.selectedModelStorageKey(agentId));
-    } catch {
-      return null;
-    }
-  }
-
   private saveSelectedModel(agentId: string, model: string): void {
     if (!this.isAvailableModel(model)) {
       return;
     }
 
-    try {
-      globalThis.localStorage.setItem(this.selectedModelStorageKey(agentId), model);
-    } catch {
-      return;
-    }
-  }
-
-  private selectedModelStorageKey(agentId: string): string {
-    return `${this.selectedModelStoragePrefix}:${agentId}`;
+    this.agentSettingsStorage.update(agentId, { model });
   }
 
   private isAvailableModel(model: string): boolean {

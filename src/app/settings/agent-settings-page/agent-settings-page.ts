@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 
 import type { AgentProfile } from '../../../../shared/agent-contracts';
 import { AssistantApi } from '../../chat/assistant-api';
+import { AgentSettingsStorage } from '../agent-settings-storage';
 
 @Component({
   selector: 'app-agent-settings-page',
@@ -14,13 +15,12 @@ import { AssistantApi } from '../../chat/assistant-api';
 })
 export class AgentSettingsPage {
   private readonly api = inject(AssistantApi);
-  private readonly selectedModelStoragePrefix = 'rdma26:selected-model';
+  private readonly agentSettingsStorage = inject(AgentSettingsStorage);
 
   protected readonly agents = signal<readonly AgentProfile[]>([]);
   protected readonly defaultAgentId = signal('');
   protected readonly newAgentId = signal('');
   protected readonly newAgentName = signal('');
-  protected readonly draftNames = signal<Record<string, string>>({});
   protected readonly isLoading = signal(true);
   protected readonly isSaving = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -39,21 +39,6 @@ export class AgentSettingsPage {
 
   protected updateNewAgentName(value: string): void {
     this.newAgentName.set(value);
-  }
-
-  protected updateDraftName(agentId: string, value: string): void {
-    this.draftNames.update((draftNames) => ({
-      ...draftNames,
-      [agentId]: value,
-    }));
-  }
-
-  protected draftName(agentId: string): string {
-    return this.draftNames()[agentId] ?? '';
-  }
-
-  protected hasNameChanges(agent: AgentProfile): boolean {
-    return this.draftName(agent.id).trim() !== agent.name;
   }
 
   protected isDefaultAgent(agent: AgentProfile): boolean {
@@ -80,19 +65,6 @@ export class AgentSettingsPage {
     });
   }
 
-  protected async saveAgent(agent: AgentProfile): Promise<void> {
-    const name = this.draftName(agent.id).trim();
-
-    if (!name || name === agent.name) {
-      return;
-    }
-
-    await this.handleAsync(async () => {
-      await this.api.updateAgent(agent.id, { name });
-      await this.loadAgents();
-    });
-  }
-
   protected async deleteAgent(agent: AgentProfile): Promise<void> {
     if (this.isDefaultAgent(agent)) {
       this.error.set('The default agent cannot be deleted.');
@@ -109,7 +81,7 @@ export class AgentSettingsPage {
 
     await this.handleAsync(async () => {
       await this.api.deleteAgent(agent.id);
-      this.removeSelectedModel(agent.id);
+      this.agentSettingsStorage.remove(agent.id);
       await this.loadAgents();
     });
   }
@@ -125,15 +97,6 @@ export class AgentSettingsPage {
     const response = await this.api.agents();
     this.defaultAgentId.set(response.defaultAgentId);
     this.agents.set(response.agents);
-    this.draftNames.set(Object.fromEntries(response.agents.map((agent) => [agent.id, agent.name])));
-  }
-
-  private removeSelectedModel(agentId: string): void {
-    try {
-      globalThis.localStorage.removeItem(`${this.selectedModelStoragePrefix}:${agentId}`);
-    } catch {
-      return;
-    }
   }
 
   private async handleAsync(work: () => Promise<void>): Promise<void> {
