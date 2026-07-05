@@ -2,17 +2,29 @@
 
 All notable project changes are tracked here.
 
-## Unreleased
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioned release sections will be added when the project starts tagging releases.
+
+## [Unreleased]
+
+### Added
 
 - Added dynamic per-agent tool assignment through the backend API, CLI, and agent edit UI.
 - Added the first registered tool, `internet_search`, backed by Tavily when `TAVILY_API_KEY` is configured.
 - Added persistent `enabledTools` to agent profiles, including migration for existing agents.
 - Added generated OpenAPI documentation from Zod-derived route schemas at `/api/openapi.json` and Swagger UI at `/docs`.
 - Added light, dark, and system theme support.
-- Refined the chat layout with a collapsible sidebar, inline model selector, rounded composer, and simplified message styling.
+- Added dedicated API and CLI reference docs in `docs/api.md` and `docs/cli.md`.
 - Added source-available license documentation for public publishing.
 
-## 2026-07-05
+### Changed
+
+- Refined the chat layout with a collapsible sidebar, inline model selector, rounded composer, and simplified message styling.
+- Slimmed down the README so it stays focused on project overview, setup, and links to reference docs.
+- Organized the changelog in Keep a Changelog style.
+
+## [Initial development] - 2026-07-05
+
+### Added
 
 - Initialized `rdma26` as a local-first Angular and Fastify personal multi-agent assistant.
 - Added OpenAI model selection, per-agent localStorage model preference, and agent-specific conversation threads.
