@@ -1,0 +1,61 @@
+{
+  "name": "rdma26",
+  "version": "0.0.0",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve --proxy-config proxy.conf.json",
+    "start:lan": "ng serve --host 0.0.0.0 --proxy-config proxy.conf.json",
+    "server": "tsx watch server/src/index.ts",
+    "server:start": "tsx server/src/index.ts",
+    "server:lan": "HOST=0.0.0.0 npm run server:start",
+    "server:typecheck": "tsc -p server/tsconfig.json --noEmit",
+    "rdma26": "tsx server/src/cli.ts",
+    "build": "ng build",
+    "watch": "ng build --watch --configuration development",
+    "test": "ng test",
+    "lint": "ng lint",
+    "typecheck": "npm run build && npm run server:typecheck",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "private": true,
+  "bin": {
+    "rdma26": "bin/rdma26"
+  },
+  "packageManager": "npm@10.9.8",
+  "dependencies": {
+    "@angular/common": "^22.0.0",
+    "@angular/compiler": "^22.0.0",
+    "@angular/core": "^22.0.0",
+    "@angular/forms": "^22.0.0",
+    "@angular/platform-browser": "^22.0.0",
+    "@angular/router": "^22.0.0",
+    "@fastify/cors": "^11.2.0",
+    "@langchain/openai": "^1.5.3",
+    "@langchain/langgraph": "^1.0.5",
+    "deepagents": "^1.10.5",
+    "dotenv": "^17.4.2",
+    "fastify": "^5.9.0",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@angular/build": "^22.0.4",
+    "@angular/cli": "^22.0.4",
+    "@angular/compiler-cli": "^22.0.0",
+    "@eslint/js": "^10.0.1",
+    "@tailwindcss/postcss": "^4.1.12",
+    "@types/node": "^26.0.1",
+    "angular-eslint": "22.0.0",
+    "eslint": "^10.3.0",
+    "jsdom": "^28.0.0",
+    "postcss": "^8.5.3",
+    "prettier": "^3.8.1",
+    "tailwindcss": "^4.1.12",
+    "tsx": "^4.22.4",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "8.60.1",
+    "vitest": "^4.0.8"
+  }
+}
