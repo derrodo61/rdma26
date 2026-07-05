@@ -59,6 +59,11 @@ export interface UpdateAgentRequest {
   readonly name: string;
 }
 
+export interface DeleteAgentResponse {
+  readonly deleted: true;
+  readonly agentId: string;
+}
+
 export type AgentRunEvent =
   | {
       readonly type: 'run-started';

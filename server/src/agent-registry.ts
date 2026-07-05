@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import type {
@@ -102,6 +102,27 @@ export class AgentRegistry {
     await writeFile(this.profilePath(agentId), `${JSON.stringify(updated, null, 2)}\n`, 'utf8');
 
     return updated;
+  }
+
+  async deleteAgent(agentId: string): Promise<boolean> {
+    validateAgentId(agentId);
+
+    if (agentId === this.defaultAgentId) {
+      throw new Error('The default agent cannot be deleted.');
+    }
+
+    const existing = await this.readAgent(agentId);
+
+    if (!existing) {
+      return false;
+    }
+
+    await rm(this.agentDir(agentId), {
+      recursive: true,
+      force: true,
+    });
+
+    return true;
   }
 
   async ensureAgent(request: CreateAgentRequest & { readonly id: string }): Promise<AgentProfile> {

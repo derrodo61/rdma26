@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 
 import type {
   AgentProfile,
@@ -15,12 +16,14 @@ import { AssistantApi } from '../assistant-api';
 
 @Component({
   selector: 'app-chat-page',
-  imports: [FormsModule],
+  imports: [FormsModule, RouterLink],
   templateUrl: './chat-page.html',
   styleUrl: './chat-page.css',
 })
 export class ChatPage {
   private readonly api = inject(AssistantApi);
+  private readonly selectedModelStoragePrefix = 'rdma26:selected-model';
+  private defaultModelId = '';
 
   protected readonly health = signal<HealthResponse | null>(null);
   protected readonly session = signal<AuthSessionResponse | null>(null);
@@ -254,6 +257,15 @@ export class ChatPage {
     this.draft.set(value);
   }
 
+  protected handleComposerKeydown(event: KeyboardEvent): void {
+    if (event.key !== 'Enter' || event.shiftKey || event.isComposing) {
+      return;
+    }
+
+    event.preventDefault();
+    void this.send();
+  }
+
   protected updateUsername(value: string): void {
     this.username.set(value);
   }
@@ -263,7 +275,13 @@ export class ChatPage {
   }
 
   protected updateModel(value: string): void {
+    const agentId = this.selectedAgentId();
+
     this.selectedModel.set(value);
+
+    if (agentId) {
+      this.saveSelectedModel(agentId, value);
+    }
   }
 
   protected updateAgent(value: string): void {
@@ -295,7 +313,7 @@ export class ChatPage {
     this.health.set(health);
     this.agents.set(agentsResponse.agents);
     this.models.set(models.models);
-    this.selectedModel.set(models.defaultModel);
+    this.defaultModelId = models.defaultModel;
     await this.loadAgentThreads(agentsResponse.defaultAgentId);
   }
 
@@ -312,6 +330,7 @@ export class ChatPage {
   private async loadAgentThreads(agentId: string): Promise<void> {
     const threads = await this.api.listThreads(agentId);
     this.selectedAgentId.set(agentId);
+    this.selectedModel.set(this.modelForAgent(agentId));
     this.threads.set(threads);
 
     if (threads.length) {
@@ -320,6 +339,48 @@ export class ChatPage {
       this.activeThread.set(await this.api.createThread(agentId));
       await this.refreshThreads();
     }
+  }
+
+  private modelForAgent(agentId: string): string {
+    const storedModel = this.readSelectedModel(agentId);
+
+    if (storedModel && this.isAvailableModel(storedModel)) {
+      return storedModel;
+    }
+
+    if (this.isAvailableModel(this.defaultModelId)) {
+      return this.defaultModelId;
+    }
+
+    return this.models()[0]?.id ?? '';
+  }
+
+  private readSelectedModel(agentId: string): string | null {
+    try {
+      return globalThis.localStorage.getItem(this.selectedModelStorageKey(agentId));
+    } catch {
+      return null;
+    }
+  }
+
+  private saveSelectedModel(agentId: string, model: string): void {
+    if (!this.isAvailableModel(model)) {
+      return;
+    }
+
+    try {
+      globalThis.localStorage.setItem(this.selectedModelStorageKey(agentId), model);
+    } catch {
+      return;
+    }
+  }
+
+  private selectedModelStorageKey(agentId: string): string {
+    return `${this.selectedModelStoragePrefix}:${agentId}`;
+  }
+
+  private isAvailableModel(model: string): boolean {
+    return this.models().some((candidate) => candidate.id === model);
   }
 
   private async handleAsync(work: () => Promise<void>): Promise<void> {

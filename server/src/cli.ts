@@ -31,6 +31,9 @@ async function main(): Promise<void> {
         }),
       );
       return;
+    case 'agents:delete':
+      printJson(await runtime.deleteAgent(agentId(options)));
+      return;
     case 'threads:list':
       printJson(await runtime.listThreads(agentId(options)));
       return;
@@ -128,6 +131,7 @@ Usage:
   rdma26 agents:list
   rdma26 agents:create --id research --name "Research assistant"
   rdma26 agents:update --agent research --name "Researcher"
+  rdma26 agents:delete --agent research
   rdma26 threads:list --agent default
   rdma26 threads:create --agent default --title "Planning"
   rdma26 threads:read --agent default --thread <thread-id>

@@ -47,6 +47,7 @@ Then open `http://<macbook-lan-ip>:4200` from the other computer.
 - `POST /api/agents`
 - `GET /api/agents/:agentId`
 - `PATCH /api/agents/:agentId`
+- `DELETE /api/agents/:agentId`
 - `GET /api/agents/:agentId/threads`
 - `POST /api/agents/:agentId/threads`
 - `GET /api/agents/:agentId/threads/:threadId`
@@ -108,6 +109,7 @@ Or through npm:
 npm run --silent rdma26 -- agents:list
 npm run --silent rdma26 -- agents:create --id research --name "Research assistant"
 npm run --silent rdma26 -- agents:update --agent research --name "Researcher"
+npm run --silent rdma26 -- agents:delete --agent research
 npm run --silent rdma26 -- threads:list --agent default
 npm run --silent rdma26 -- threads:create --agent default --title "Planning"
 npm run --silent rdma26 -- threads:read --agent default --thread <thread-id>

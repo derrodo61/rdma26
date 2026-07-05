@@ -154,6 +154,24 @@ async function startServer(): Promise<void> {
     }
   });
 
+  server.delete('/api/agents/:agentId', async (request, reply) => {
+    const params = agentParamsSchema.safeParse(request.params);
+
+    if (!params.success) {
+      return reply.code(400).send({
+        message: 'A valid agent id is required.',
+      });
+    }
+
+    try {
+      return await runtime.deleteAgent(params.data.agentId);
+    } catch (error) {
+      return reply.code(400).send({
+        message: getErrorMessage(error),
+      });
+    }
+  });
+
   server.get('/api/agents/:agentId/threads', async (request, reply) => {
     const params = agentParamsSchema.safeParse(request.params);
 

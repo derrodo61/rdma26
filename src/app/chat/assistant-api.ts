@@ -10,6 +10,8 @@ import type {
   AuthSessionResponse,
   ChatThread,
   ChatThreadSummary,
+  CreateAgentRequest,
+  DeleteAgentResponse,
   DeleteThreadResponse,
   HealthResponse,
   ModelsResponse,
@@ -50,8 +52,16 @@ export class AssistantApi {
     return await firstValueFrom(this.http.get<AgentProfile>(`/api/agents/${agentId}`));
   }
 
+  async createAgent(request: CreateAgentRequest): Promise<AgentProfile> {
+    return await firstValueFrom(this.http.post<AgentProfile>('/api/agents', request));
+  }
+
   async updateAgent(agentId: string, request: UpdateAgentRequest): Promise<AgentProfile> {
     return await firstValueFrom(this.http.patch<AgentProfile>(`/api/agents/${agentId}`, request));
+  }
+
+  async deleteAgent(agentId: string): Promise<DeleteAgentResponse> {
+    return await firstValueFrom(this.http.delete<DeleteAgentResponse>(`/api/agents/${agentId}`));
   }
 
   async listThreads(agentId: string): Promise<readonly ChatThreadSummary[]> {

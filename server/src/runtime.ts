@@ -8,6 +8,7 @@ import type {
   ChatThreadSummary,
   CreateAgentRequest,
   CreateThreadRequest,
+  DeleteAgentResponse,
   DeleteThreadResponse,
   HealthResponse,
   ModelOption,
@@ -71,6 +72,19 @@ export class AssistantRuntime {
 
   async updateAgent(agentId: string, request: UpdateAgentRequest): Promise<AgentProfile> {
     return await this.registry.updateAgent(agentId, request);
+  }
+
+  async deleteAgent(agentId: string): Promise<DeleteAgentResponse> {
+    const deleted = await this.registry.deleteAgent(agentId);
+
+    if (!deleted) {
+      throw new Error(`Agent ${agentId} does not exist.`);
+    }
+
+    return {
+      deleted: true,
+      agentId,
+    };
   }
 
   async readAgent(agentId: string): Promise<AgentProfile> {
