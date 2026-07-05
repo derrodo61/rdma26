@@ -274,12 +274,18 @@
             <div class="mx-auto flex max-w-3xl flex-col gap-4">
               @for (message of messages(); track message.id) {
                 <article
-                  class="max-w-[48rem] px-4 py-3"
+                  class="max-w-[48rem]"
                   [class.ml-auto]="message.role === 'user'"
+                  [class.px-3]="message.role === 'user'"
+                  [class.py-2]="message.role === 'user'"
                   [class.rounded-2xl]="message.role === 'user'"
-                  [class.bg-surface-active]="message.role === 'user'"
+                  [class.bg-surface]="message.role === 'user'"
+                  [class.px-4]="message.role === 'assistant'"
+                  [class.py-3]="message.role === 'assistant'"
                 >
-                  <p class="whitespace-pre-wrap leading-7">{{ message.content }}</p>
+                  <p class="whitespace-pre-wrap text-[0.9375rem] leading-6">
+                    {{ message.content }}
+                  </p>
                 </article>
               }
 
