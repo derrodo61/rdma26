@@ -1,8 +1,10 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 
 import type {
   AgentProfile,
+  AuthSessionResponse,
   ChatMessage,
   ChatThread,
   ChatThreadSummary,
@@ -21,6 +23,9 @@ export class ChatPage {
   private readonly api = inject(AssistantApi);
 
   protected readonly health = signal<HealthResponse | null>(null);
+  protected readonly session = signal<AuthSessionResponse | null>(null);
+  protected readonly username = signal('');
+  protected readonly password = signal('');
   protected readonly agents = signal<readonly AgentProfile[]>([]);
   protected readonly selectedAgentId = signal('');
   protected readonly models = signal<readonly ModelOption[]>([]);
@@ -31,6 +36,7 @@ export class ChatPage {
   protected readonly isLoading = signal(true);
   protected readonly isRunning = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly loginError = signal<string | null>(null);
 
   protected readonly messages = computed<readonly ChatMessage[]>(
     () => this.activeThread()?.messages ?? [],
@@ -56,6 +62,34 @@ export class ChatPage {
 
   constructor() {
     void this.load();
+  }
+
+  protected async login(): Promise<void> {
+    const username = this.username().trim();
+    const password = this.password();
+
+    if (!username || !password) {
+      this.loginError.set('Username and password are required.');
+      return;
+    }
+
+    try {
+      this.loginError.set(null);
+      this.session.set(await this.api.login(username, password));
+      this.password.set('');
+      await this.loadAppData();
+    } catch (error) {
+      this.loginError.set(getErrorMessage(error, 'Login failed.'));
+    }
+  }
+
+  protected async logout(): Promise<void> {
+    await this.api.logout();
+    this.session.set(await this.api.session());
+    this.health.set(null);
+    this.agents.set([]);
+    this.threads.set([]);
+    this.activeThread.set(null);
   }
 
   protected async createThread(): Promise<void> {
@@ -220,6 +254,14 @@ export class ChatPage {
     this.draft.set(value);
   }
 
+  protected updateUsername(value: string): void {
+    this.username.set(value);
+  }
+
+  protected updatePassword(value: string): void {
+    this.password.set(value);
+  }
+
   protected updateModel(value: string): void {
     this.selectedModel.set(value);
   }
@@ -234,18 +276,27 @@ export class ChatPage {
 
   private async load(): Promise<void> {
     await this.handleAsync(async () => {
-      const [health, models, agentsResponse] = await Promise.all([
-        this.api.health(),
-        this.api.models(),
-        this.api.agents(),
-      ]);
-      this.health.set(health);
-      this.agents.set(agentsResponse.agents);
-      this.models.set(models.models);
-      this.selectedModel.set(models.defaultModel);
-      await this.loadAgentThreads(agentsResponse.defaultAgentId);
+      const session = await this.api.session();
+      this.session.set(session);
+
+      if (session.authenticated) {
+        await this.loadAppData();
+      }
     });
     this.isLoading.set(false);
+  }
+
+  private async loadAppData(): Promise<void> {
+    const [health, models, agentsResponse] = await Promise.all([
+      this.api.health(),
+      this.api.models(),
+      this.api.agents(),
+    ]);
+    this.health.set(health);
+    this.agents.set(agentsResponse.agents);
+    this.models.set(models.models);
+    this.selectedModel.set(models.defaultModel);
+    await this.loadAgentThreads(agentsResponse.defaultAgentId);
   }
 
   private async refreshThreads(): Promise<void> {
@@ -276,7 +327,24 @@ export class ChatPage {
       this.error.set(null);
       await work();
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'Request failed.');
+      this.error.set(getErrorMessage(error, 'Request failed.'));
     }
   }
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof HttpErrorResponse) {
+    const body = error.error as unknown;
+
+    if (
+      typeof body === 'object' &&
+      body !== null &&
+      'message' in body &&
+      typeof body.message === 'string'
+    ) {
+      return body.message;
+    }
+  }
+
+  return error instanceof Error ? error.message : fallback;
 }

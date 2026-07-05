@@ -17,6 +17,16 @@ Open `http://localhost:4200`.
 
 Without `OPENAI_API_KEY`, the backend still starts and stores messages, but agent replies use a local fallback. Add the key to `.env` and restart the backend to run Deep Agents through OpenAI.
 
+Authentication is optional in local development. Set both values in `.env` to enable the single-user login screen:
+
+```bash
+RDMA26_USERNAME=rolf
+RDMA26_PASSWORD=change-me
+RDMA26_SESSION_SECRET=use-a-long-random-string
+```
+
+When those credentials are configured, the backend protects `/api/*` with an HTTP-only signed session cookie. Leave `RDMA26_USERNAME` or `RDMA26_PASSWORD` empty to run without authentication.
+
 To reach the app from another computer on the same network, run these on the MacBook:
 
 ```bash
@@ -29,6 +39,9 @@ Then open `http://<macbook-lan-ip>:4200` from the other computer.
 ## Backend
 
 - `GET /api/health`
+- `GET /api/auth/session`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
 - `GET /api/models`
 - `GET /api/agents`
 - `POST /api/agents`

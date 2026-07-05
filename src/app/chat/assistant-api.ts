@@ -7,6 +7,7 @@ import type {
   AgentRunRequest,
   AgentProfile,
   AgentsResponse,
+  AuthSessionResponse,
   ChatThread,
   ChatThreadSummary,
   DeleteThreadResponse,
@@ -21,6 +22,20 @@ export class AssistantApi {
 
   async health(): Promise<HealthResponse> {
     return await firstValueFrom(this.http.get<HealthResponse>('/api/health'));
+  }
+
+  async session(): Promise<AuthSessionResponse> {
+    return await firstValueFrom(this.http.get<AuthSessionResponse>('/api/auth/session'));
+  }
+
+  async login(username: string, password: string): Promise<AuthSessionResponse> {
+    return await firstValueFrom(
+      this.http.post<AuthSessionResponse>('/api/auth/login', { username, password }),
+    );
+  }
+
+  async logout(): Promise<AuthSessionResponse> {
+    return await firstValueFrom(this.http.post<AuthSessionResponse>('/api/auth/logout', {}));
   }
 
   async models(): Promise<ModelsResponse> {

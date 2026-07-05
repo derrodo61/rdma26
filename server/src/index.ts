@@ -8,8 +8,10 @@ import type {
   AgentRunRequest,
   CreateAgentRequest,
   CreateThreadRequest,
+  LoginRequest,
   UpdateAgentRequest,
 } from '../../shared/agent-contracts';
+import { isAuthExemptPath, login, logout, readAuthConfig, sessionForRequest } from './auth';
 import { AssistantRuntime } from './runtime';
 
 config({ quiet: true });
@@ -37,11 +39,16 @@ const agentRunRequestSchema = z.object({
   prompt: z.string().trim().min(1),
   model: z.string().trim().min(1),
 });
+const loginRequestSchema = z.object({
+  username: z.string().trim().min(1),
+  password: z.string().min(1),
+});
 
 const server = Fastify({
   logger: true,
 });
 const runtime = new AssistantRuntime();
+const authConfig = readAuthConfig();
 
 async function startServer(): Promise<void> {
   await runtime.ensureReady();
@@ -49,6 +56,42 @@ async function startServer(): Promise<void> {
   await server.register(cors, {
     origin: process.env['CLIENT_ORIGIN'] ?? 'http://localhost:4200',
   });
+
+  server.addHook('onRequest', async (request, reply) => {
+    if (!request.url.startsWith('/api/') || isAuthExemptPath(request.url.split('?')[0])) {
+      return;
+    }
+
+    const session = sessionForRequest(request, authConfig);
+
+    if (!session.authenticated) {
+      return reply.code(401).send({
+        message: 'Authentication required.',
+      });
+    }
+  });
+
+  server.get('/api/auth/session', async (request) => sessionForRequest(request, authConfig));
+
+  server.post('/api/auth/login', async (request, reply) => {
+    const parsed = loginRequestSchema.safeParse(request.body);
+
+    if (!parsed.success) {
+      return reply.code(400).send({
+        message: 'Username and password are required.',
+      });
+    }
+
+    try {
+      return login(reply, authConfig, parsed.data satisfies LoginRequest);
+    } catch (error) {
+      return reply.code(401).send({
+        message: getErrorMessage(error),
+      });
+    }
+  });
+
+  server.post('/api/auth/logout', async (_request, reply) => logout(reply, authConfig));
 
   server.get('/api/health', async () => await runtime.health());
 

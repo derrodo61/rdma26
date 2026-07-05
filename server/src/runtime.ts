@@ -14,6 +14,7 @@ import type {
   ModelsResponse,
   UpdateAgentRequest,
 } from '../../shared/agent-contracts';
+import { readAuthConfig } from './auth';
 import { AgentRegistry, validateAgentId } from './agent-registry';
 import { PersonalAgent, type PersonalAgentResponse } from './personal-agent';
 
@@ -41,6 +42,7 @@ export class AssistantRuntime {
       agents: await this.listAgents(),
       defaultAgentId: this.registry.getDefaultAgentId(),
       apiKeyConfigured: Boolean(process.env['OPENAI_API_KEY']),
+      authEnabled: readAuthConfig().enabled,
       dataDir: this.registry.dataDir,
     };
   }

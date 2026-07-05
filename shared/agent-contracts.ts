@@ -101,5 +101,17 @@ export interface HealthResponse {
   readonly agents: readonly AgentProfile[];
   readonly defaultAgentId: string;
   readonly apiKeyConfigured: boolean;
+  readonly authEnabled: boolean;
   readonly dataDir: string;
+}
+
+export interface AuthSessionResponse {
+  readonly authEnabled: boolean;
+  readonly authenticated: boolean;
+  readonly username?: string;
+}
+
+export interface LoginRequest {
+  readonly username: string;
+  readonly password: string;
 }
