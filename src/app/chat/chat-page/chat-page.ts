@@ -20,11 +20,12 @@ import type {
   HealthResponse,
   ModelOption,
 } from '../../../../shared/agent-contracts';
+import { AppSelect, type SelectOption } from '../../shared/app-select/app-select';
 import { AssistantApi } from '../assistant-api';
 
 @Component({
   selector: 'app-chat-page',
-  imports: [FormsModule, RouterLink, NgIcon],
+  imports: [FormsModule, RouterLink, NgIcon, AppSelect],
   providers: [
     provideIcons({
       lucidePanelLeftClose,
@@ -75,6 +76,18 @@ export class ChatPage {
   protected readonly activeAgent = computed<AgentProfile | null>(
     () => this.agents().find((agent) => agent.id === this.selectedAgentId()) ?? null,
   );
+  protected readonly agentOptions = computed<readonly SelectOption[]>(() =>
+    this.agents().map((agent) => ({
+      value: agent.id,
+      label: agent.name,
+    })),
+  );
+  protected readonly modelOptions = computed<readonly SelectOption[]>(() =>
+    this.models().map((model) => ({
+      value: model.id,
+      label: model.label,
+    })),
+  );
   protected readonly activeSoulPath = computed(() => {
     const dataDir = this.health()?.dataDir;
     const agentId = this.selectedAgentId();
@@ -106,6 +119,7 @@ export class ChatPage {
   }
 
   protected async logout(): Promise<void> {
+    this.closeSettingsMenu();
     await this.api.logout();
     this.session.set(await this.api.session());
     this.health.set(null);

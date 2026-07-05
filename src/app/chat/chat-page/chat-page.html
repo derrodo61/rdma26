@@ -1,38 +1,42 @@
-<div class="min-h-dvh bg-stone-50 text-zinc-950">
+<div class="min-h-dvh bg-app-bg text-text">
   @if (isLoading()) {
     <div class="grid min-h-dvh place-items-center px-4">
-      <p class="text-sm text-zinc-600">Loading rdma26...</p>
+      <p class="text-sm text-text-muted">Loading rdma26...</p>
     </div>
   } @else if (session()?.authEnabled && !session()?.authenticated) {
     <div class="grid min-h-dvh place-items-center px-4">
       <form
-        class="w-full max-w-sm border border-zinc-200 bg-white p-5 shadow-sm"
+        class="w-full max-w-sm border border-border bg-surface p-5 shadow-sm"
         (submit)="$event.preventDefault(); login()"
       >
         <h1 class="text-lg font-semibold">rdma26</h1>
-        <p class="mt-1 text-sm text-zinc-600">Sign in to continue.</p>
+        <p class="mt-1 text-sm text-text-muted">Sign in to continue.</p>
 
         @if (loginError(); as currentLoginError) {
-          <p class="mt-4 border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <p class="mt-4 border border-danger-border bg-danger-soft px-3 py-2 text-sm text-danger">
             {{ currentLoginError }}
           </p>
         }
 
-        <label class="mt-5 block text-sm font-medium text-zinc-700" for="username">Username</label>
+        <label class="mt-5 block text-sm font-medium text-text-muted" for="username"
+          >Username</label
+        >
         <input
           id="username"
-          class="mt-1 h-10 w-full border border-zinc-300 px-3 focus:outline-none focus:ring-2 focus:ring-teal-500"
+          class="mt-1 h-10 w-full border border-border px-3 focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
           autocomplete="username"
           [ngModel]="username()"
           name="username"
           (ngModelChange)="updateUsername($event)"
         />
 
-        <label class="mt-4 block text-sm font-medium text-zinc-700" for="password">Password</label>
+        <label class="mt-4 block text-sm font-medium text-text-muted" for="password"
+          >Password</label
+        >
         <input
           id="password"
           type="password"
-          class="mt-1 h-10 w-full border border-zinc-300 px-3 focus:outline-none focus:ring-2 focus:ring-teal-500"
+          class="mt-1 h-10 w-full border border-border px-3 focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
           autocomplete="current-password"
           [ngModel]="password()"
           name="password"
@@ -41,7 +45,7 @@
 
         <button
           type="submit"
-          class="mt-5 h-10 w-full bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
+          class="mt-5 h-10 w-full bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-hover focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
         >
           Sign in
         </button>
@@ -50,22 +54,14 @@
   } @else {
     <div class="flex h-dvh overflow-hidden">
       <aside
-        class="fixed inset-y-0 left-0 z-30 flex h-dvh shrink-0 flex-col overflow-hidden border-r border-zinc-200 bg-zinc-50 text-zinc-800 transition-[width] duration-200 lg:static"
+        class="fixed inset-y-0 left-0 z-30 flex h-dvh shrink-0 flex-col overflow-hidden border-r border-border bg-surface-muted text-text transition-[width] duration-200 lg:static"
         [class.w-16]="isSidebarCollapsed()"
         [class.w-80]="!isSidebarCollapsed()"
       >
-        <div class="flex h-16 items-center justify-between gap-2 px-4">
-          @if (!isSidebarCollapsed()) {
-            <div class="min-w-0">
-              <h1 class="truncate text-base font-semibold text-zinc-950">rdma26</h1>
-              <p class="truncate text-sm text-zinc-500">
-                {{ activeAgent()?.name ?? 'Local backend' }}
-              </p>
-            </div>
-          }
+        <div class="flex h-16 items-center justify-end px-4">
           <button
             type="button"
-            class="grid h-9 w-9 shrink-0 place-items-center rounded-md text-zinc-500 hover:bg-zinc-200 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            class="grid h-9 w-9 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-active hover:text-text focus:outline-none focus-visible:bg-surface-active focus-visible:text-text focus-visible:shadow-none"
             [attr.aria-label]="isSidebarCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
             (click)="toggleSidebar()"
           >
@@ -80,26 +76,23 @@
         <div class="flex min-h-0 flex-1 flex-col">
           @if (!isSidebarCollapsed()) {
             <section class="px-4 pb-4">
-              <label class="block text-sm font-medium text-zinc-500">
+              <div class="block text-sm font-medium text-text-muted">
                 <span class="mb-2 block">Agents</span>
-                <select
-                  class="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-950 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  [ngModel]="selectedAgentId()"
-                  (ngModelChange)="updateAgent($event)"
-                >
-                  @for (agent of agents(); track agent.id) {
-                    <option [value]="agent.id">{{ agent.name }}</option>
-                  }
-                </select>
-              </label>
+                <app-select
+                  label="Agents"
+                  [options]="agentOptions()"
+                  [value]="selectedAgentId()"
+                  (valueChange)="updateAgent($event)"
+                />
+              </div>
             </section>
 
             <section class="flex min-h-0 flex-1 flex-col">
               <div class="flex items-center justify-between gap-2 px-4 pb-2 pt-2">
-                <h2 class="text-sm font-medium text-zinc-500">Threads</h2>
+                <h2 class="text-sm font-medium text-text-muted">Threads</h2>
                 <button
                   type="button"
-                  class="flex h-8 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-zinc-600 hover:bg-zinc-200 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  class="flex h-8 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-text-muted hover:bg-surface-active hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
                   (click)="createThread()"
                 >
                   <ng-icon name="lucidePlus" size="16" strokeWidth="2" />
@@ -113,11 +106,11 @@
               >
                 @for (thread of threads(); track thread.id) {
                   <div
-                    class="group mb-0.5 block w-full rounded-lg px-3 py-2 text-left text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
-                    [class.bg-zinc-200]="activeThread()?.id === thread.id"
-                    [class.text-zinc-950]="activeThread()?.id === thread.id"
-                    [class.text-zinc-700]="activeThread()?.id !== thread.id"
-                    [class.hover:bg-zinc-100]="activeThread()?.id !== thread.id"
+                    class="group mb-0.5 block w-full rounded-lg px-3 py-2 text-left text-sm focus:outline-none focus-visible:bg-surface-active focus-visible:shadow-none"
+                    [class.bg-surface-active]="activeThread()?.id === thread.id"
+                    [class.text-text]="activeThread()?.id === thread.id"
+                    [class.text-text-muted]="activeThread()?.id !== thread.id"
+                    [class.hover:bg-surface-muted]="activeThread()?.id !== thread.id"
                     (click)="selectThread(thread.id)"
                     (keydown.enter)="selectThread(thread.id)"
                     (keydown.space)="$event.preventDefault(); selectThread(thread.id)"
@@ -127,13 +120,13 @@
                     <div class="flex items-start justify-between gap-2">
                       <span class="min-w-0 flex-1">
                         <span class="block truncate font-medium">{{ thread.title }}</span>
-                        <span class="mt-0.5 block text-xs text-zinc-500"
+                        <span class="mt-0.5 block text-xs text-text-muted"
                           >{{ thread.messageCount }} messages</span
                         >
                       </span>
                       <button
                         type="button"
-                        class="grid h-7 w-7 shrink-0 place-items-center rounded text-zinc-400 opacity-0 hover:bg-red-50 hover:text-red-700 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-400 group-hover:opacity-100 disabled:cursor-not-allowed disabled:text-zinc-300"
+                        class="grid h-7 w-7 shrink-0 place-items-center rounded text-text-muted opacity-0 hover:bg-danger-soft hover:text-danger focus:outline-none focus-visible:bg-danger-soft focus-visible:text-danger focus-visible:opacity-100 focus-visible:shadow-none group-hover:opacity-100 disabled:cursor-not-allowed disabled:text-control-disabled"
                         [disabled]="isRunning()"
                         [attr.aria-label]="'Delete thread ' + thread.title"
                         (click)="stopThreadClick($event); deleteThread(thread.id)"
@@ -148,26 +141,36 @@
           }
         </div>
 
-        <div class="relative border-t border-zinc-200 p-3">
+        <div class="relative border-t border-border p-3">
           @if (isSettingsMenuOpen()) {
             <div
-              class="absolute bottom-14 left-3 right-3 z-20 rounded-lg border border-zinc-200 bg-white p-1 shadow-lg"
+              class="absolute bottom-14 left-3 right-3 z-20 rounded-lg border border-border bg-surface p-1 shadow-lg"
               role="menu"
             >
               <a
                 routerLink="/settings/agents"
-                class="block rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                class="block rounded-md px-3 py-2 text-sm font-medium text-text-muted hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
                 role="menuitem"
                 (click)="closeSettingsMenu()"
               >
                 Agent settings
               </a>
+              @if (session()?.authEnabled) {
+                <button
+                  type="button"
+                  class="mt-1 block w-full rounded-md px-3 py-2 text-left text-sm font-medium text-text-muted hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                  role="menuitem"
+                  (click)="logout()"
+                >
+                  Sign out
+                </button>
+              }
             </div>
           }
 
           <button
             type="button"
-            class="flex h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-medium text-zinc-600 hover:bg-zinc-200 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            class="flex h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-medium text-text-muted hover:bg-surface-active hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
             aria-haspopup="menu"
             [attr.aria-expanded]="isSettingsMenuOpen()"
             (click)="toggleSettingsMenu()"
@@ -185,11 +188,11 @@
       <main
         class="grid h-dvh min-h-0 min-w-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden pl-16 lg:pl-0"
       >
-        <header class="border-b border-zinc-200 bg-white">
+        <header class="border-b border-border bg-surface">
           <div class="flex min-h-16 flex-wrap items-center justify-between gap-4 px-4 py-3 sm:px-6">
             <div class="min-w-0">
               <h2 class="truncate text-lg font-semibold">{{ activeAgent()?.name ?? 'Chat' }}</h2>
-              <p class="truncate text-sm text-zinc-600">
+              <p class="truncate text-sm text-text-muted">
                 @if (health(); as currentHealth) {
                   <span>{{
                     currentHealth.apiKeyConfigured ? 'OpenAI ready' : 'OpenAI key missing'
@@ -201,27 +204,16 @@
             </div>
 
             <div class="flex flex-wrap items-center gap-3">
-              <label class="flex items-center gap-2 text-sm text-zinc-700">
+              <div class="flex items-center gap-2 text-sm text-text-muted">
                 <span>Model</span>
-                <select
-                  class="h-10 border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-950 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  [ngModel]="selectedModel()"
-                  (ngModelChange)="updateModel($event)"
-                >
-                  @for (model of models(); track model.id) {
-                    <option [value]="model.id">{{ model.label }}</option>
-                  }
-                </select>
-              </label>
-              @if (session()?.authEnabled) {
-                <button
-                  type="button"
-                  class="h-10 border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  (click)="logout()"
-                >
-                  Sign out
-                </button>
-              }
+                <app-select
+                  class="block min-w-40"
+                  label="Model"
+                  [options]="modelOptions()"
+                  [value]="selectedModel()"
+                  (valueChange)="updateModel($event)"
+                />
+              </div>
             </div>
           </div>
         </header>
@@ -230,7 +222,7 @@
           @if (messages().length === 0) {
             <div class="mx-auto max-w-2xl pt-10">
               <h2 class="text-2xl font-semibold">Start a thread</h2>
-              <p class="mt-3 text-zinc-600">
+              <p class="mt-3 text-text-muted">
                 This backend runs locally and keeps each agent's conversations plus soul.md on this
                 MacBook.
               </p>
@@ -241,12 +233,12 @@
                 <article
                   class="max-w-[48rem] border px-4 py-3"
                   [class.ml-auto]="message.role === 'user'"
-                  [class.border-teal-300]="message.role === 'user'"
-                  [class.bg-teal-50]="message.role === 'user'"
-                  [class.border-zinc-200]="message.role === 'assistant'"
-                  [class.bg-white]="message.role === 'assistant'"
+                  [class.border-accent-border]="message.role === 'user'"
+                  [class.bg-accent-soft]="message.role === 'user'"
+                  [class.border-border]="message.role === 'assistant'"
+                  [class.bg-surface]="message.role === 'assistant'"
                 >
-                  <p class="mb-2 text-xs font-semibold uppercase text-zinc-500">
+                  <p class="mb-2 text-xs font-semibold uppercase text-text-muted">
                     {{ message.role }}
                   </p>
                   <p class="whitespace-pre-wrap leading-7">{{ message.content }}</p>
@@ -254,31 +246,33 @@
               }
 
               @if (isRunning()) {
-                <p class="text-sm text-zinc-600">Thinking...</p>
+                <p class="text-sm text-text-muted">Thinking...</p>
               }
             </div>
           }
         </section>
 
         <form
-          class="shrink-0 border-t border-zinc-200 bg-white p-4 sm:p-6"
+          class="shrink-0 border-t border-border bg-surface p-4 sm:p-6"
           (submit)="$event.preventDefault(); send()"
         >
           @if (error(); as currentError) {
-            <p class="mb-3 border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+            <p
+              class="mb-3 border border-danger-border bg-danger-soft px-3 py-2 text-sm text-danger"
+            >
               {{ currentError }}
             </p>
           }
 
           @if (activeSoulPath()) {
-            <p class="mb-3 truncate text-xs text-zinc-500">soul.md: {{ activeSoulPath() }}</p>
+            <p class="mb-3 truncate text-xs text-text-muted">soul.md: {{ activeSoulPath() }}</p>
           }
 
           <div class="mx-auto flex max-w-3xl gap-3">
             <label class="sr-only" for="message">Message</label>
             <textarea
               id="message"
-              class="min-h-24 flex-1 resize-y border border-zinc-300 px-3 py-2 leading-6 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              class="min-h-24 flex-1 resize-y border border-border px-3 py-2 leading-6 focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
               placeholder="Write to your assistant"
               [ngModel]="draft()"
               name="message"
@@ -287,7 +281,7 @@
             ></textarea>
             <button
               type="submit"
-              class="h-12 min-w-24 bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:cursor-not-allowed disabled:bg-zinc-300"
+              class="h-12 min-w-24 bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-hover focus:outline-none focus-visible:shadow-[var(--focus-shadow)] disabled:cursor-not-allowed disabled:bg-control-disabled"
               [disabled]="!canSend()"
             >
               Send
