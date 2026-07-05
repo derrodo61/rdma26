@@ -38,6 +38,8 @@ export class ChatPage {
   protected readonly draft = signal('');
   protected readonly isLoading = signal(true);
   protected readonly isRunning = signal(false);
+  protected readonly isSidebarCollapsed = signal(false);
+  protected readonly isSettingsMenuOpen = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly loginError = signal<string | null>(null);
 
@@ -285,7 +287,25 @@ export class ChatPage {
   }
 
   protected updateAgent(value: string): void {
+    this.isSettingsMenuOpen.set(false);
     void this.selectAgent(value);
+  }
+
+  protected toggleSidebar(): void {
+    this.isSidebarCollapsed.update((isCollapsed) => !isCollapsed);
+    this.isSettingsMenuOpen.set(false);
+  }
+
+  protected toggleSettingsMenu(): void {
+    if (this.isSidebarCollapsed()) {
+      this.isSidebarCollapsed.set(false);
+    }
+
+    this.isSettingsMenuOpen.update((isOpen) => !isOpen);
+  }
+
+  protected closeSettingsMenu(): void {
+    this.isSettingsMenuOpen.set(false);
   }
 
   protected stopThreadClick(event: Event): void {

@@ -48,132 +48,181 @@
       </form>
     </div>
   } @else {
-    <header class="border-b border-zinc-200 bg-white">
-      <div class="flex min-h-16 flex-wrap items-center justify-between gap-4 px-4 py-3 sm:px-6">
-        <div class="min-w-0">
-          <h1 class="truncate text-lg font-semibold">rdma26</h1>
-          <p class="truncate text-sm text-zinc-600">
-            @if (health(); as currentHealth) {
-              <span>{{ activeAgent()?.name ?? 'Local backend' }}</span>
-              <span>
-                · {{ currentHealth.apiKeyConfigured ? 'OpenAI ready' : 'OpenAI key missing' }}</span
-              >
-            } @else {
-              <span>Local backend</span>
-            }
-          </p>
-        </div>
-
-        <div class="flex flex-wrap items-center gap-3">
-          <a
-            routerLink="/settings/agents"
-            class="flex h-10 items-center border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
-          >
-            Settings
-          </a>
-          <label class="flex items-center gap-2 text-sm text-zinc-700">
-            <span>Agent</span>
-            <select
-              class="h-10 border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-950 focus:outline-none focus:ring-2 focus:ring-teal-500"
-              [ngModel]="selectedAgentId()"
-              (ngModelChange)="updateAgent($event)"
-            >
-              @for (agent of agents(); track agent.id) {
-                <option [value]="agent.id">{{ agent.name }}</option>
-              }
-            </select>
-          </label>
+    <div class="flex h-dvh overflow-hidden">
+      <aside
+        class="fixed inset-y-0 left-0 z-30 flex h-dvh shrink-0 flex-col overflow-hidden border-r border-zinc-200 bg-zinc-100 transition-[width] duration-200 lg:static"
+        [class.w-18]="isSidebarCollapsed()"
+        [class.w-80]="!isSidebarCollapsed()"
+      >
+        <div class="flex h-16 items-center justify-between gap-2 border-b border-zinc-200 px-3">
+          @if (!isSidebarCollapsed()) {
+            <div class="min-w-0">
+              <h1 class="truncate text-lg font-semibold">rdma26</h1>
+              <p class="truncate text-xs text-zinc-500">
+                {{ activeAgent()?.name ?? 'Local backend' }}
+              </p>
+            </div>
+          }
           <button
             type="button"
             class="h-10 border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
-            [disabled]="!activeAgent() || isRunning()"
-            (click)="renameSelectedAgent()"
+            [attr.aria-label]="isSidebarCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+            (click)="toggleSidebar()"
           >
-            Rename
-          </button>
-
-          <label class="flex items-center gap-2 text-sm text-zinc-700">
-            <span>Model</span>
-            <select
-              class="h-10 border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-950 focus:outline-none focus:ring-2 focus:ring-teal-500"
-              [ngModel]="selectedModel()"
-              (ngModelChange)="updateModel($event)"
-            >
-              @for (model of models(); track model.id) {
-                <option [value]="model.id">{{ model.label }}</option>
-              }
-            </select>
-          </label>
-          @if (session()?.authEnabled) {
-            <button
-              type="button"
-              class="h-10 border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
-              (click)="logout()"
-            >
-              Sign out
-            </button>
-          }
-        </div>
-      </div>
-    </header>
-
-    <div class="grid min-h-[calc(100dvh-4rem)] grid-cols-1 lg:grid-cols-[20rem_1fr]">
-      <aside class="border-b border-zinc-200 bg-zinc-100 lg:border-b-0 lg:border-r">
-        <div class="flex items-center justify-between gap-2 p-3">
-          <h2 class="text-sm font-semibold text-zinc-700">Threads</h2>
-          <button
-            type="button"
-            class="h-9 border border-zinc-300 bg-white px-3 text-sm font-medium hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
-            (click)="createThread()"
-          >
-            New
+            @if (isSidebarCollapsed()) {
+              Open
+            } @else {
+              Close
+            }
           </button>
         </div>
 
-        <nav
-          class="max-h-72 overflow-y-auto p-2 lg:max-h-[calc(100dvh-7.5rem)]"
-          aria-label="Conversation threads"
-        >
-          @for (thread of threads(); track thread.id) {
-            <div
-              class="mb-1 block w-full border px-3 py-2 text-left text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-              [class.border-teal-600]="activeThread()?.id === thread.id"
-              [class.bg-white]="activeThread()?.id === thread.id"
-              [class.border-transparent]="activeThread()?.id !== thread.id"
-              [class.hover:bg-white]="activeThread()?.id !== thread.id"
-              (click)="selectThread(thread.id)"
-              (keydown.enter)="selectThread(thread.id)"
-              (keydown.space)="$event.preventDefault(); selectThread(thread.id)"
-              role="button"
-              tabindex="0"
-            >
-              <div class="flex items-start justify-between gap-2">
-                <span class="min-w-0 flex-1">
-                  <span class="block truncate font-medium">{{ thread.title }}</span>
-                  <span class="mt-1 block text-xs text-zinc-500"
-                    >{{ thread.messageCount }} messages</span
-                  >
-                </span>
+        <div class="flex min-h-0 flex-1 flex-col">
+          @if (!isSidebarCollapsed()) {
+            <section class="border-b border-zinc-200 p-3">
+              <label class="block text-sm font-medium text-zinc-700">
+                <span>Agents</span>
+                <select
+                  class="mt-1 h-10 w-full border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-950 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  [ngModel]="selectedAgentId()"
+                  (ngModelChange)="updateAgent($event)"
+                >
+                  @for (agent of agents(); track agent.id) {
+                    <option [value]="agent.id">{{ agent.name }}</option>
+                  }
+                </select>
+              </label>
+            </section>
+
+            <section class="flex min-h-0 flex-1 flex-col">
+              <div class="flex items-center justify-between gap-2 p-3">
+                <h2 class="text-sm font-semibold text-zinc-700">Threads</h2>
                 <button
                   type="button"
-                  class="border border-transparent px-2 py-1 text-xs font-medium text-zinc-500 hover:border-red-200 hover:bg-red-50 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 disabled:cursor-not-allowed disabled:text-zinc-300"
-                  [disabled]="isRunning()"
-                  [attr.aria-label]="'Delete thread ' + thread.title"
-                  (click)="stopThreadClick($event); deleteThread(thread.id)"
+                  class="h-9 border border-zinc-300 bg-white px-3 text-sm font-medium hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  (click)="createThread()"
                 >
-                  Delete
+                  New
                 </button>
               </div>
+
+              <nav class="min-h-0 flex-1 overflow-y-auto p-2" aria-label="Conversation threads">
+                @for (thread of threads(); track thread.id) {
+                  <div
+                    class="mb-1 block w-full border px-3 py-2 text-left text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    [class.border-teal-600]="activeThread()?.id === thread.id"
+                    [class.bg-white]="activeThread()?.id === thread.id"
+                    [class.border-transparent]="activeThread()?.id !== thread.id"
+                    [class.hover:bg-white]="activeThread()?.id !== thread.id"
+                    (click)="selectThread(thread.id)"
+                    (keydown.enter)="selectThread(thread.id)"
+                    (keydown.space)="$event.preventDefault(); selectThread(thread.id)"
+                    role="button"
+                    tabindex="0"
+                  >
+                    <div class="flex items-start justify-between gap-2">
+                      <span class="min-w-0 flex-1">
+                        <span class="block truncate font-medium">{{ thread.title }}</span>
+                        <span class="mt-1 block text-xs text-zinc-500"
+                          >{{ thread.messageCount }} messages</span
+                        >
+                      </span>
+                      <button
+                        type="button"
+                        class="border border-transparent px-2 py-1 text-xs font-medium text-zinc-500 hover:border-red-200 hover:bg-red-50 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 disabled:cursor-not-allowed disabled:text-zinc-300"
+                        [disabled]="isRunning()"
+                        [attr.aria-label]="'Delete thread ' + thread.title"
+                        (click)="stopThreadClick($event); deleteThread(thread.id)"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                }
+              </nav>
+            </section>
+          }
+        </div>
+
+        <div class="relative border-t border-zinc-200 p-3">
+          @if (isSettingsMenuOpen()) {
+            <div
+              class="absolute bottom-14 left-3 right-3 z-20 border border-zinc-200 bg-white p-1 shadow-lg"
+              role="menu"
+            >
+              <a
+                routerLink="/settings/agents"
+                class="block px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                role="menuitem"
+                (click)="closeSettingsMenu()"
+              >
+                Agent settings
+              </a>
             </div>
           }
-        </nav>
+
+          <button
+            type="button"
+            class="h-10 w-full border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            aria-haspopup="menu"
+            [attr.aria-expanded]="isSettingsMenuOpen()"
+            (click)="toggleSettingsMenu()"
+          >
+            @if (isSidebarCollapsed()) {
+              Set
+            } @else {
+              Settings
+            }
+          </button>
+        </div>
       </aside>
 
-      <main class="grid min-h-[calc(100dvh-4rem)] grid-rows-[1fr_auto]">
-        <section class="overflow-y-auto px-4 py-5 sm:px-6" aria-live="polite">
-          @if (isLoading()) {
-            <p class="text-sm text-zinc-600">Loading assistant...</p>
-          } @else if (messages().length === 0) {
+      <main
+        class="grid h-dvh min-h-0 min-w-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden pl-18 lg:pl-0"
+      >
+        <header class="border-b border-zinc-200 bg-white">
+          <div class="flex min-h-16 flex-wrap items-center justify-between gap-4 px-4 py-3 sm:px-6">
+            <div class="min-w-0">
+              <h2 class="truncate text-lg font-semibold">{{ activeAgent()?.name ?? 'Chat' }}</h2>
+              <p class="truncate text-sm text-zinc-600">
+                @if (health(); as currentHealth) {
+                  <span>{{
+                    currentHealth.apiKeyConfigured ? 'OpenAI ready' : 'OpenAI key missing'
+                  }}</span>
+                } @else {
+                  <span>Local backend</span>
+                }
+              </p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+              <label class="flex items-center gap-2 text-sm text-zinc-700">
+                <span>Model</span>
+                <select
+                  class="h-10 border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-950 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  [ngModel]="selectedModel()"
+                  (ngModelChange)="updateModel($event)"
+                >
+                  @for (model of models(); track model.id) {
+                    <option [value]="model.id">{{ model.label }}</option>
+                  }
+                </select>
+              </label>
+              @if (session()?.authEnabled) {
+                <button
+                  type="button"
+                  class="h-10 border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  (click)="logout()"
+                >
+                  Sign out
+                </button>
+              }
+            </div>
+          </div>
+        </header>
+
+        <section class="min-h-0 overflow-y-auto px-4 py-5 sm:px-6" aria-live="polite">
+          @if (messages().length === 0) {
             <div class="mx-auto max-w-2xl pt-10">
               <h2 class="text-2xl font-semibold">Start a thread</h2>
               <p class="mt-3 text-zinc-600">
@@ -207,7 +256,7 @@
         </section>
 
         <form
-          class="border-t border-zinc-200 bg-white p-4 sm:p-6"
+          class="shrink-0 border-t border-zinc-200 bg-white p-4 sm:p-6"
           (submit)="$event.preventDefault(); send()"
         >
           @if (error(); as currentError) {
