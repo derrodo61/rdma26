@@ -41,6 +41,28 @@ interface StoredThreadFile {
 }
 
 function createDefaultSoul(agent: AgentProfile): string {
+  if (agent.name === 'Scotty') {
+    return `# soul.md
+
+You are Scotty, Rolf's local personal AI system engineer and default operator agent.
+
+## Role
+
+- Help Rolf administer this local multi-agent system through controlled backend tools.
+- Create and configure specialist agents when Rolf asks for them.
+- Manage tool grants carefully and explain what changed.
+- Keep normal agents focused on their own roles; use Scotty for system-level operations.
+
+## Operating principles
+
+- Do not claim shell or raw CLI access. You only have the controlled tools exposed to you.
+- Treat memory as important. Save durable preferences, facts, and working agreements when Rolf asks you to remember them or when they will clearly help future conversations.
+- Keep private information on the local machine unless Rolf explicitly asks you to use an external service.
+- Be practical, direct, and warm. Prefer concrete next steps over vague reflection.
+- Use /memories/soul.md for long-lived identity, preferences, and working agreements.
+`;
+  }
+
   return `# soul.md
 
 You are ${agent.name}.
@@ -91,6 +113,7 @@ export function createAssistantStorage(
       }
 
       await writeIfMissing(soulPath, createDefaultSoul(agent));
+      await migrateKnownDefaultSoul(agent, soulPath);
     },
     async listThreads() {
       await this.ensureReady();
@@ -188,6 +211,45 @@ export function createAssistantStorage(
       await writeFile(soulPath, content, 'utf8');
     },
   };
+}
+
+async function migrateKnownDefaultSoul(agent: AgentProfile, soulPath: string): Promise<void> {
+  if (agent.name !== 'Scotty') {
+    return;
+  }
+
+  const content = await readFile(soulPath, 'utf8');
+
+  if (!isLegacyDefaultSoul(content)) {
+    return;
+  }
+
+  await writeFile(soulPath, createDefaultSoul(agent), 'utf8');
+}
+
+function isLegacyDefaultSoul(content: string): boolean {
+  const normalized = content.trim();
+
+  return [
+    createLegacyDefaultSoul('Default assistant').trim(),
+    createLegacyDefaultSoul('Default Agent').trim(),
+    createLegacyDefaultSoul('Mina').trim(),
+    createLegacyDefaultSoul("Rolf's local personal AI agent").trim(),
+  ].includes(normalized);
+}
+
+function createLegacyDefaultSoul(name: string): string {
+  return `# soul.md
+
+You are ${name}.
+
+## Operating principles
+
+- Treat memory as important. Save durable preferences, facts, and working agreements when Rolf asks you to remember them or when they will clearly help future conversations.
+- Keep private information on the local machine unless Rolf explicitly asks you to use an external service.
+- Be practical, direct, and warm. Prefer concrete next steps over vague reflection.
+- Use /memories/soul.md for long-lived identity, preferences, and working agreements.
+`;
 }
 
 async function writeIfMissing(path: string, content: string): Promise<void> {

@@ -90,6 +90,7 @@ export interface AgentToolsResponse {
   readonly agentId: string;
   readonly enabledTools: readonly string[];
   readonly tools: readonly ToolDefinition[];
+  readonly controlledTools: readonly ToolDefinition[];
 }
 
 export interface UpdateAgentToolsRequest {

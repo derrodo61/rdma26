@@ -94,6 +94,8 @@ rdma26 tools:list
 rdma26 agents:tools --agent research
 ```
 
+For the protected default operator agent, the response also includes `controlledTools`, which are read-only admin capabilities injected by the backend.
+
 ### Replace an agent's enabled tools
 
 ```bash

@@ -10,6 +10,7 @@ export interface PersonalAgentRequest {
   readonly threadId: string;
   readonly model: string;
   readonly tools: readonly StructuredToolInterface[];
+  readonly isOperatorAgent: boolean;
   readonly userProfile: UserProfile;
   readonly messages: readonly ChatMessage[];
   readonly prompt: string;
@@ -52,7 +53,11 @@ export class PersonalAgent {
       tools: request.tools,
       memory: [this.storage.agent.soulVirtualPath],
       checkpointer: this.checkpointer,
-      systemPrompt: createBootloaderPrompt(this.storage.agent, request.userProfile),
+      systemPrompt: createBootloaderPrompt(
+        this.storage.agent,
+        request.userProfile,
+        request.isOperatorAgent,
+      ),
     });
 
     const result: unknown = await agent.invoke(
@@ -79,12 +84,21 @@ export class PersonalAgent {
 function createBootloaderPrompt(
   agent: { name: string; soulVirtualPath: string },
   userProfile: UserProfile,
+  isOperatorAgent: boolean,
 ): string {
+  const operatorGuidance = isOperatorAgent
+    ? `
+You are the protected default operator agent. Your role is to help Rolf administer this local multi-agent system through controlled backend tools.
+
+You may use admin tools when they are available to create agents, rename agents, delete non-default agents, read or update agent soul.md files, list normal tools, and grant or revoke normal tools. These are controlled application tools, not raw CLI or shell access. Do not claim to have unrestricted terminal access.`
+    : '';
+
   return `You are the configured local agent named "${agent.name}".
 
 Your editable identity, role, preferences, and long-term working agreements live in ${agent.soulVirtualPath}.
 
 Read ${agent.soulVirtualPath} before answering when it can help. Treat that file as the source of truth for who this agent is. Update it when Rolf explicitly asks you to remember something or when a durable preference is clear.
+${operatorGuidance}
 
 User profile and display preferences:
 - Name: ${userProfile.name || 'not configured'}

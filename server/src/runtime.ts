@@ -26,6 +26,7 @@ import type {
 import { readAuthConfig } from './auth';
 import { AgentRegistry, validateAgentId } from './agent-registry';
 import { PersonalAgent, type PersonalAgentResponse } from './personal-agent';
+import { createAdminTools, listAdminToolDefinitions } from './tools/admin-tools';
 import { ToolRegistry } from './tools/tool-registry';
 import { UserProfileStore } from './user-profile-store';
 
@@ -133,6 +134,7 @@ export class AssistantRuntime {
       agentId: agent.id,
       enabledTools: agent.enabledTools,
       tools: this.tools.listDefinitions(),
+      controlledTools: this.controlledToolsFor(agent.id),
     };
   }
 
@@ -147,6 +149,7 @@ export class AssistantRuntime {
       agentId: agent.id,
       enabledTools: agent.enabledTools,
       tools: this.tools.listDefinitions(),
+      controlledTools: this.controlledToolsFor(agent.id),
     };
   }
 
@@ -236,7 +239,10 @@ export class AssistantRuntime {
       throw new Error(`Thread ${request.threadId} does not exist for agent ${request.agentId}.`);
     }
 
-    const tools = this.tools.createTools(storage.agent.enabledTools);
+    const tools = [
+      ...this.tools.createTools(storage.agent.enabledTools),
+      ...this.adminToolsFor(storage.agent.id),
+    ];
     const userProfile = await this.readUserProfile();
     const userThread = await storage.appendMessage(request.threadId, {
       role: 'user',
@@ -246,6 +252,7 @@ export class AssistantRuntime {
       threadId: request.threadId,
       model: request.model,
       tools,
+      isOperatorAgent: storage.agent.id === this.getDefaultAgentId(),
       userProfile,
       messages: userThread.messages,
       prompt: request.prompt,
@@ -270,6 +277,14 @@ export class AssistantRuntime {
 
     return await this.registry.storageFor(agentId);
   }
+
+  private adminToolsFor(agentId: string) {
+    return agentId === this.getDefaultAgentId() ? createAdminTools(this) : [];
+  }
+
+  private controlledToolsFor(agentId: string) {
+    return agentId === this.getDefaultAgentId() ? listAdminToolDefinitions() : [];
+  }
 }
 
 async function readFileUpdatedAt(path: string): Promise<string> {
@@ -291,7 +306,7 @@ export function readRuntimeOptionsFromEnv(): AssistantRuntimeOptions {
   return {
     dataDir: process.env['ASSISTANT_DATA_DIR'] ?? join(process.cwd(), '.assistant-data'),
     defaultAgentId: process.env['ASSISTANT_AGENT_ID'] ?? 'default',
-    defaultAgentName: process.env['ASSISTANT_AGENT_NAME'] ?? 'Default assistant',
+    defaultAgentName: process.env['ASSISTANT_AGENT_NAME'] ?? 'Scotty',
   };
 }
 

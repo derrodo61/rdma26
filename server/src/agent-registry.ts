@@ -24,10 +24,17 @@ export class AgentRegistry {
 
   async ensureReady(): Promise<void> {
     await mkdir(this.agentsDir, { recursive: true });
-    const defaultAgent = await this.ensureAgent({
+    let defaultAgent = await this.ensureAgent({
       id: this.defaultAgentId,
       name: this.defaultAgentName,
     });
+
+    if (this.shouldRenameLegacyDefaultAgent(defaultAgent.name)) {
+      defaultAgent = await this.updateAgent(defaultAgent.id, {
+        name: this.defaultAgentName,
+      });
+    }
+
     const storage = await this.storageFor(defaultAgent.id);
     await storage.ensureReady();
   }
@@ -207,6 +214,14 @@ export class AgentRegistry {
 
   private async writeAgent(agent: AgentProfile): Promise<void> {
     await writeFile(this.profilePath(agent.id), `${JSON.stringify(agent, null, 2)}\n`, 'utf8');
+  }
+
+  private shouldRenameLegacyDefaultAgent(name: string): boolean {
+    if (this.defaultAgentName !== 'Scotty') {
+      return false;
+    }
+
+    return ['default assistant', 'default agent', 'mina'].includes(name.trim().toLowerCase());
   }
 }
 

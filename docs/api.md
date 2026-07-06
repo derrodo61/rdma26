@@ -85,6 +85,8 @@ Returns configured OpenAI model options and the default model.
 
 Returns registered tools and their availability. `internet_search` is available when `TAVILY_API_KEY` is configured.
 
+The protected default agent, `Scotty`, also receives controlled admin tools during chat runs for managing agents, `soul.md`, and normal tool grants. Those admin tools are injected by the backend only for the default agent and are not part of the normal assignable tool catalog returned here.
+
 ## Agents
 
 ### `GET /api/agents`
@@ -140,11 +142,13 @@ Replaces the agent's `soul.md` content.
 
 Deletes an agent and all related threads and Deep Agents data. The default agent cannot be deleted.
 
+The protected default agent keeps the internal id `default`. With the built-in configuration its display name is `Scotty`, and it is intended to be the local operator/admin agent.
+
 ## Agent Tools
 
 ### `GET /api/agents/:agentId/tools`
 
-Returns the agent's enabled tool ids plus all registered tool definitions.
+Returns the agent's enabled tool ids, all registered normal tool definitions, and any read-only controlled tools injected for that agent.
 
 ### `PUT /api/agents/:agentId/tools`
 

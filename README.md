@@ -4,7 +4,7 @@ Local-first Angular and Fastify app for rdma26, a personal multi-agent Deep Agen
 
 The backend runs currently on a MacBook and exposes a browser-friendly API for any frontend that can reach it. The first frontend is Angular. Conversations are organized as agent-specific threads, model selection starts with OpenAI model IDs, and each configured agent gets its own local memory spine at `.assistant-data/agents/<agent-id>/deepagent/memories/soul.md`.
 
-Agents can also have tools assigned dynamically. The first registered tool is `internet_search`, backed by Tavily when `TAVILY_API_KEY` is configured.
+Agents can also have tools assigned dynamically. The first registered normal tool is `internet_search`, backed by Tavily when `TAVILY_API_KEY` is configured. The protected default agent is `Scotty`, a local operator agent with controlled admin tools for managing agents and tool grants.
 
 The project is designed around one shared backend runtime. API endpoints and CLI commands call the same `AssistantRuntime` service, so functionality exposed through the browser is also available from the command line without maintaining a second implementation.
 
@@ -62,10 +62,12 @@ The first/default agent is configured from `.env`:
 
 ```bash
 ASSISTANT_AGENT_ID=default
-ASSISTANT_AGENT_NAME=Default assistant
+ASSISTANT_AGENT_NAME=Scotty
 ```
 
 At runtime the backend uses a small generated bootloader prompt that points Deep Agents to the configured agent's `/memories/soul.md`. The agent's role, identity, preferences, and working agreements belong in that `soul.md`, not in hardcoded TypeScript.
+
+The protected default agent keeps the internal id `default`, but its built-in display name is `Scotty`. Scotty receives controlled backend admin tools during chat runs so Rolf can ask him to list agents, create agents, rename agents, delete non-default agents, read or update agent `soul.md`, list normal tools, and grant or revoke normal tools. These are application tools backed by `AssistantRuntime`, not shell or unrestricted CLI access.
 
 Default local paths:
 
@@ -93,7 +95,7 @@ Each agent gets isolated threads, history, Deep Agents filesystem state, and `so
 
 `POST /api/agent-runs` requires `agentId`, so a thread can only be read and continued through the agent it belongs to.
 
-Tool grants are agent-specific too. The agent profile stores `enabledTools`, while the backend registry owns the tool implementation and required secrets. To enable Tavily search for an agent:
+Tool grants are agent-specific too. The agent profile stores `enabledTools`, while the backend registry owns the tool implementation and required secrets. Scotty's admin tools are injected only for the protected default agent and are not part of the normal tool grant list. To enable Tavily search for an agent:
 
 ```bash
 TAVILY_API_KEY=tvly-...

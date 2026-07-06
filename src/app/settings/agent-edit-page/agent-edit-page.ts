@@ -66,6 +66,7 @@ export class AgentEditPage {
   protected readonly agent = signal<AgentProfile | null>(null);
   protected readonly models = signal<readonly ModelOption[]>([]);
   protected readonly tools = signal<readonly ToolDefinition[]>([]);
+  protected readonly controlledTools = signal<readonly ToolDefinition[]>([]);
   protected readonly defaultModel = signal('');
   protected readonly draftName = signal('');
   protected readonly soulContent = signal('');
@@ -252,6 +253,7 @@ export class AgentEditPage {
       this.agent.set(agent);
       this.models.set(models.models);
       this.tools.set(agentTools.tools);
+      this.controlledTools.set(agentTools.controlledTools);
       this.defaultModel.set(models.defaultModel);
       this.draftName.set(agent.name);
       this.soulContent.set(soul.content);

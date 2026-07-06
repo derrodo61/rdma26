@@ -17,6 +17,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added Markdown rendering for assistant chat messages.
 - Added agent `soul.md` editing through the backend API, CLI, and agent edit UI with Markdown preview.
 - Added a Markdown formatting toolbar with heading-level choices for the agent `soul.md` editor.
+- Added `Scotty` as the protected default operator agent with controlled admin tools for agent and tool-grant management.
+- Added migration for known legacy default `soul.md` templates to Scotty's operator identity.
+- Added read-only UI/API/CLI visibility for controlled operator tools.
 - Added a user profile settings page accessible from the settings menu.
 - Added `profile:read`, `profile:update`, and `profile:agent-model:set` CLI commands.
 - Added light, dark, and system theme support.
