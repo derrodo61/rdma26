@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Reworked the agent edit page into wider Basic, Tools, and Soul tabs.
 - Refined the chat layout with a collapsible sidebar, inline model selector, rounded composer, and simplified message styling.
 - Slimmed down the README so it stays focused on project overview, setup, and links to reference docs.
 - Organized the changelog in Keep a Changelog style.

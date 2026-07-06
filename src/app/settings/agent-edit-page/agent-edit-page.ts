@@ -23,6 +23,7 @@ import { UserProfileSyncService } from '../user-profile-sync';
 type MarkdownAction = 'bold' | 'italic' | 'bulletList' | 'numberedList' | 'quote' | 'code' | 'link';
 
 type MarkdownHeadingLevel = 1 | 2 | 3;
+type AgentEditTab = 'basic' | 'tools' | 'soul';
 
 interface MarkdownToolbarItem {
   readonly action: MarkdownAction;
@@ -73,6 +74,7 @@ export class AgentEditPage {
   protected readonly draftSoulContent = signal('');
   protected readonly selectedModel = signal('');
   protected readonly enabledToolIds = signal<readonly string[]>([]);
+  protected readonly activeTab = signal<AgentEditTab>('basic');
   protected readonly isLoading = signal(true);
   protected readonly isSaving = signal(false);
   protected readonly isHeadingMenuOpen = signal(false);
@@ -113,6 +115,11 @@ export class AgentEditPage {
 
   constructor() {
     void this.load();
+  }
+
+  protected selectTab(tab: AgentEditTab): void {
+    this.activeTab.set(tab);
+    this.isHeadingMenuOpen.set(false);
   }
 
   protected updateDraftName(value: string): void {
