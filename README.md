@@ -12,6 +12,7 @@ The project is designed around one shared backend runtime. API endpoints and CLI
 
 - [API endpoints](./docs/api.md)
 - [CLI commands](./docs/cli.md)
+- [Memory system](./docs/memory.md)
 - [Changelog](./CHANGELOG.md)
 
 ## License
