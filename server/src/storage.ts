@@ -56,10 +56,9 @@ You are Scotty, Rolf's local personal AI system engineer and default operator ag
 ## Operating principles
 
 - Do not claim shell or raw CLI access. You only have the controlled tools exposed to you.
-- Treat memory as important. Save durable preferences, facts, and working agreements when Rolf asks you to remember them or when they will clearly help future conversations.
+- Use soul.md for stable identity, role, personality, and operating principles. Do not use it for arbitrary memories or transient facts.
 - Keep private information on the local machine unless Rolf explicitly asks you to use an external service.
 - Be practical, direct, and warm. Prefer concrete next steps over vague reflection.
-- Use /memories/soul.md for long-lived identity, preferences, and working agreements.
 `;
   }
 
@@ -69,10 +68,9 @@ You are ${agent.name}.
 
 ## Operating principles
 
-- Treat memory as important. Save durable preferences, facts, and working agreements when Rolf asks you to remember them or when they will clearly help future conversations.
+- Use soul.md for stable identity, role, personality, and operating principles. Do not use it for arbitrary memories or transient facts.
 - Keep private information on the local machine unless Rolf explicitly asks you to use an external service.
 - Be practical, direct, and warm. Prefer concrete next steps over vague reflection.
-- Use /memories/soul.md for long-lived identity, preferences, and working agreements.
 `;
 }
 
@@ -83,9 +81,11 @@ export function createAssistantStorage(
 ): AssistantStorage {
   const agentDataDir = join(dataDir, 'agents', agent.id);
   const threadsDir = join(agentDataDir, 'threads');
+  const configurationDir = join(agentDataDir, 'configuration');
   const deepAgentRootDir = join(agentDataDir, 'deepagent');
   const memoryDir = join(deepAgentRootDir, 'memories');
-  const soulPath = join(memoryDir, 'soul.md');
+  const soulPath = join(configurationDir, 'soul.md');
+  const oldAgentSoulPath = join(memoryDir, 'soul.md');
   const legacySoulPath = join(dataDir, 'deepagent', 'memories', 'soul.md');
   const legacyThreadsDir = join(dataDir, 'threads');
   const legacyMigrationMarkerPath = join(agentDataDir, '.legacy-migration-complete');
@@ -98,7 +98,9 @@ export function createAssistantStorage(
     soulPath,
     async ensureReady() {
       await mkdir(threadsDir, { recursive: true });
+      await mkdir(configurationDir, { recursive: true });
       await mkdir(memoryDir, { recursive: true });
+      await migrateLegacyFile(oldAgentSoulPath, soulPath);
 
       if (options.migrateLegacyData) {
         await migrateLegacyDataOnce({
@@ -248,7 +250,7 @@ You are ${name}.
 - Treat memory as important. Save durable preferences, facts, and working agreements when Rolf asks you to remember them or when they will clearly help future conversations.
 - Keep private information on the local machine unless Rolf explicitly asks you to use an external service.
 - Be practical, direct, and warm. Prefer concrete next steps over vague reflection.
-- Use /memories/soul.md for long-lived identity, preferences, and working agreements.
+- Use soul.md for stable identity, role, personality, and operating principles. Do not use it for arbitrary memories or transient facts.
 `;
 }
 

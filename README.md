@@ -2,7 +2,7 @@
 
 Local-first Angular and Fastify app for rdma26, a personal multi-agent Deep Agents assistant.
 
-The backend runs currently on a MacBook and exposes a browser-friendly API for any frontend that can reach it. The first frontend is Angular. Conversations are organized as agent-specific threads, model selection starts with OpenAI model IDs, and each configured agent gets its own local memory spine at `.assistant-data/agents/<agent-id>/deepagent/memories/soul.md`.
+The backend runs currently on a MacBook and exposes a browser-friendly API for any frontend that can reach it. The first frontend is Angular. Conversations are organized as agent-specific threads, model selection starts with OpenAI model IDs, and each configured agent gets its own stable identity file at `.assistant-data/agents/<agent-id>/configuration/soul.md`.
 
 Agents can also have tools assigned dynamically. The first registered normal tool is `internet_search`, backed by Tavily when `TAVILY_API_KEY` is configured. The protected default agent is `Scotty`, a local operator agent with controlled admin tools for managing agents and tool grants.
 
@@ -54,7 +54,7 @@ Then open `http://<macbook-lan-ip>:4200` from the other computer.
 
 All backend routes delegate to the shared runtime used by the CLI. The API reference lives in [docs/api.md](./docs/api.md).
 
-Thread JSON files live under the configured agent folder. Deep Agents filesystem memory also lives under the configured agent folder, with `soul.md` mounted as `/memories/soul.md`.
+Thread JSON files live under the configured agent folder. Agent identity lives in `configuration/soul.md`. Deep Agents filesystem state remains under the configured agent folder in `deepagent/`.
 
 ## Agent Configuration
 
@@ -65,17 +65,17 @@ ASSISTANT_AGENT_ID=default
 ASSISTANT_AGENT_NAME=Scotty
 ```
 
-At runtime the backend uses a small generated bootloader prompt that points Deep Agents to the configured agent's `/memories/soul.md`. The agent's role, identity, preferences, and working agreements belong in that `soul.md`, not in hardcoded TypeScript.
+At runtime the backend loads the configured agent's `configuration/soul.md` and injects it into the generated bootloader prompt. The agent's stable identity, role, personality, and operating principles belong in that `soul.md`, not in hardcoded TypeScript. Arbitrary memories, transient facts, game results, project notes, and conversation history do not belong in `soul.md`.
 
 The protected default agent keeps the internal id `default`, but its built-in display name is `Scotty`. Scotty receives controlled backend admin tools during chat runs so Rolf can ask him to list agents, create agents, rename agents, delete non-default agents, read or update agent `soul.md`, list normal tools, and grant or revoke normal tools. These are application tools backed by `AssistantRuntime`, not shell or unrestricted CLI access.
 
 Default local paths:
 
 - threads: `.assistant-data/agents/default/threads/`
-- memory root: `.assistant-data/agents/default/deepagent/`
-- soul file: `.assistant-data/agents/default/deepagent/memories/soul.md`
+- identity file: `.assistant-data/agents/default/configuration/soul.md`
+- Deep Agents root: `.assistant-data/agents/default/deepagent/`
 
-Older data from `.assistant-data/threads/` and `.assistant-data/deepagent/memories/soul.md` is copied into the default agent layout if the new files do not exist yet.
+Older data from `.assistant-data/threads/`, `.assistant-data/deepagent/memories/soul.md`, and per-agent `deepagent/memories/soul.md` files is copied into the current agent layout if the new files do not exist yet.
 
 Additional agents are created through `POST /api/agents`:
 
@@ -86,11 +86,12 @@ Additional agents are created through `POST /api/agents`:
 }
 ```
 
-Each agent gets isolated threads, history, Deep Agents filesystem state, and `soul.md`:
+Each agent gets isolated threads, history, identity configuration, and Deep Agents filesystem state:
 
 ```text
 .assistant-data/agents/research/threads/
-.assistant-data/agents/research/deepagent/memories/soul.md
+.assistant-data/agents/research/configuration/soul.md
+.assistant-data/agents/research/deepagent/
 ```
 
 `POST /api/agent-runs` requires `agentId`, so a thread can only be read and continued through the agent it belongs to.

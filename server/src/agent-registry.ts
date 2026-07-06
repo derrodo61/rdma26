@@ -10,6 +10,7 @@ import type {
 import { createAssistantStorage, type AssistantStorage } from './storage';
 
 const profileFileName = 'agent.json';
+const soulVirtualPath = '/configuration/soul.md';
 
 export class AgentRegistry {
   private readonly agentsDir: string;
@@ -189,7 +190,7 @@ export class AgentRegistry {
       id,
       name: normalizeAgentName(name),
       enabledTools: [],
-      soulVirtualPath: '/memories/soul.md',
+      soulVirtualPath,
       createdAt: now,
       updatedAt: now,
     };
@@ -275,7 +276,7 @@ function parseAgentProfile(value: unknown): AgentProfile | null {
         'enabledTools' in value && Array.isArray(value.enabledTools)
           ? normalizeToolIds(value.enabledTools)
           : [],
-      soulVirtualPath: value.soulVirtualPath,
+      soulVirtualPath: normalizeSoulVirtualPath(value.soulVirtualPath),
       createdAt: value.createdAt,
       updatedAt: value.updatedAt,
     };
@@ -289,8 +290,14 @@ function hasCurrentAgentProfileShape(value: unknown): boolean {
     typeof value === 'object' &&
     value !== null &&
     'enabledTools' in value &&
-    Array.isArray(value.enabledTools)
+    Array.isArray(value.enabledTools) &&
+    'soulVirtualPath' in value &&
+    value.soulVirtualPath === soulVirtualPath
   );
+}
+
+function normalizeSoulVirtualPath(value: string): string {
+  return value === soulVirtualPath ? value : soulVirtualPath;
 }
 
 function normalizeToolIds(toolIds: readonly unknown[]): string[] {

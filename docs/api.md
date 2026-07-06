@@ -124,7 +124,7 @@ Updates the agent display name.
 
 ### `GET /api/agents/:agentId/soul`
 
-Returns the current Markdown content of the agent's `soul.md`.
+Returns the current Markdown content of the agent's identity file, `configuration/soul.md`.
 
 ### `PUT /api/agents/:agentId/soul`
 
@@ -136,7 +136,7 @@ Body:
 }
 ```
 
-Replaces the agent's `soul.md` content.
+Replaces the agent's `configuration/soul.md` content. Use this file for stable identity, role, personality, and operating principles, not arbitrary memories or transient facts.
 
 ### `DELETE /api/agents/:agentId`
 

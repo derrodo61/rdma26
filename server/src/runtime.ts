@@ -244,6 +244,7 @@ export class AssistantRuntime {
       ...this.adminToolsFor(storage.agent.id),
     ];
     const userProfile = await this.readUserProfile();
+    const soulContent = await storage.readSoul();
     const userThread = await storage.appendMessage(request.threadId, {
       role: 'user',
       content: request.prompt,
@@ -254,6 +255,7 @@ export class AssistantRuntime {
       tools,
       isOperatorAgent: storage.agent.id === this.getDefaultAgentId(),
       userProfile,
+      soulContent,
       messages: userThread.messages,
       prompt: request.prompt,
     });

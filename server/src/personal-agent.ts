@@ -12,6 +12,7 @@ export interface PersonalAgentRequest {
   readonly tools: readonly StructuredToolInterface[];
   readonly isOperatorAgent: boolean;
   readonly userProfile: UserProfile;
+  readonly soulContent: string;
   readonly messages: readonly ChatMessage[];
   readonly prompt: string;
 }
@@ -33,7 +34,7 @@ export class PersonalAgent {
           'OpenAI is not configured yet, so this is the local backend fallback.',
           '',
           `I stored your message in thread ${request.threadId}.`,
-          `The ${this.storage.agent.name} memory file is ready at ${this.storage.soulPath}.`,
+          `The ${this.storage.agent.name} identity file is ready at ${this.storage.soulPath}.`,
           '',
           'Set OPENAI_API_KEY in .env and restart the backend to use Deep Agents with OpenAI.',
         ].join('\n'),
@@ -51,12 +52,12 @@ export class PersonalAgent {
         virtualMode: true,
       }),
       tools: request.tools,
-      memory: [this.storage.agent.soulVirtualPath],
       checkpointer: this.checkpointer,
       systemPrompt: createBootloaderPrompt(
         this.storage.agent,
         request.userProfile,
         request.isOperatorAgent,
+        request.soulContent,
       ),
     });
 
@@ -85,6 +86,7 @@ function createBootloaderPrompt(
   agent: { name: string; soulVirtualPath: string },
   userProfile: UserProfile,
   isOperatorAgent: boolean,
+  soulContent: string,
 ): string {
   const operatorGuidance = isOperatorAgent
     ? `
@@ -95,10 +97,13 @@ You may use admin tools when they are available to create agents, rename agents,
 
   return `You are the configured local agent named "${agent.name}".
 
-Your editable identity, role, preferences, and long-term working agreements live in ${agent.soulVirtualPath}.
+Your stable identity, role, personality, and operating principles are loaded from ${agent.soulVirtualPath}. Treat that identity file as the source of truth for who this agent is.
 
-Read ${agent.soulVirtualPath} before answering when it can help. Treat that file as the source of truth for who this agent is. Update it when Rolf explicitly asks you to remember something or when a durable preference is clear.
+Do not use soul.md for arbitrary memories, transient facts, game results, project notes, or conversation history. Those belong in dedicated memory files or threads.
 ${operatorGuidance}
+
+Loaded soul.md:
+${soulContent}
 
 User profile and display preferences:
 - Name: ${userProfile.name || 'not configured'}

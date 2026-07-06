@@ -125,7 +125,7 @@ export class ChatPage {
     const dataDir = this.health()?.dataDir;
     const agentId = this.selectedAgentId();
 
-    return dataDir && agentId ? `${dataDir}/agents/${agentId}/deepagent/memories/soul.md` : '';
+    return dataDir && agentId ? `${dataDir}/agents/${agentId}/configuration/soul.md` : '';
   });
 
   constructor() {
