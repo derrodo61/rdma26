@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+No unreleased changes yet.
+
+## [2026-07-06]
+
 ### Added
 
 - Added dynamic per-agent tool assignment through the backend API, CLI, and agent edit UI.
