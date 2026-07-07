@@ -25,16 +25,10 @@ export class AgentRegistry {
 
   async ensureReady(): Promise<void> {
     await mkdir(this.agentsDir, { recursive: true });
-    let defaultAgent = await this.ensureAgent({
+    const defaultAgent = await this.ensureAgent({
       id: this.defaultAgentId,
       name: this.defaultAgentName,
     });
-
-    if (this.shouldRenameLegacyDefaultAgent(defaultAgent.name)) {
-      defaultAgent = await this.updateAgent(defaultAgent.id, {
-        name: this.defaultAgentName,
-      });
-    }
 
     const storage = await this.storageFor(defaultAgent.id);
     await storage.ensureReady();
@@ -140,7 +134,7 @@ export class AgentRegistry {
     validateAgentId(agentId);
 
     if (agentId === this.defaultAgentId) {
-      throw new Error('The default agent cannot be deleted.');
+      throw new Error('The protected operator agent cannot be deleted.');
     }
 
     const existing = await this.readAgent(agentId);
@@ -174,9 +168,7 @@ export class AgentRegistry {
       throw new Error(`Agent ${agentId} does not exist.`);
     }
 
-    return createAssistantStorage(this.dataDir, agent, {
-      migrateLegacyData: agent.id === this.defaultAgentId,
-    });
+    return createAssistantStorage(this.dataDir, agent);
   }
 
   getDefaultAgentId(): string {
@@ -194,9 +186,7 @@ export class AgentRegistry {
       createdAt: now,
       updatedAt: now,
     };
-    const storage = createAssistantStorage(this.dataDir, agent, {
-      migrateLegacyData: id === this.defaultAgentId,
-    });
+    const storage = createAssistantStorage(this.dataDir, agent);
 
     await mkdir(this.agentDir(id), { recursive: true });
     await writeFile(this.profilePath(id), `${JSON.stringify(agent, null, 2)}\n`, 'utf8');
@@ -215,14 +205,6 @@ export class AgentRegistry {
 
   private async writeAgent(agent: AgentProfile): Promise<void> {
     await writeFile(this.profilePath(agent.id), `${JSON.stringify(agent, null, 2)}\n`, 'utf8');
-  }
-
-  private shouldRenameLegacyDefaultAgent(name: string): boolean {
-    if (this.defaultAgentName !== 'Scotty') {
-      return false;
-    }
-
-    return ['default assistant', 'default agent', 'mina'].includes(name.trim().toLowerCase());
   }
 }
 

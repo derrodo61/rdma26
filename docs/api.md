@@ -19,7 +19,7 @@ The current generated documentation covers routes, request bodies, and path para
 
 ### `GET /api/health`
 
-Returns backend status, configured agents, default agent id, auth status, data directory, and whether `OPENAI_API_KEY` is configured.
+Returns backend status, configured agents, the initial/protected operator agent id, auth status, data directory, and whether `OPENAI_API_KEY` is configured.
 
 ## Authentication
 
@@ -64,7 +64,7 @@ Body:
   "timeStyle": "short",
   "theme": "system",
   "agentSettings": {
-    "default": {
+    "scotty": {
       "model": "gpt-4.1-mini"
     }
   }
@@ -85,13 +85,13 @@ Returns configured OpenAI model options and the default model.
 
 Returns registered tools and their availability. `internet_search` is available when `TAVILY_API_KEY` is configured.
 
-The protected default agent, `Scotty`, also receives controlled admin tools during chat runs for managing agents, `soul.md`, and normal tool grants. Those admin tools are injected by the backend only for the default agent and are not part of the normal assignable tool catalog returned here.
+The protected operator agent, `scotty`, also receives controlled admin tools during chat runs for managing agents, `soul.md`, and normal tool grants. Those admin tools are injected by the backend only for the protected operator agent and are not part of the normal assignable tool catalog returned here.
 
 ## Agents
 
 ### `GET /api/agents`
 
-Returns all configured agents and the default agent id.
+Returns all configured agents and the initial/protected operator agent id.
 
 ### `POST /api/agents`
 
@@ -132,7 +132,7 @@ Body:
 
 ```json
 {
-  "content": "# soul.md\n\nYou are Mina.\n"
+  "content": "# soul.md\n\nYou are Research assistant.\n"
 }
 ```
 
@@ -140,9 +140,9 @@ Replaces the agent's `configuration/soul.md` content. Use this file for stable i
 
 ### `DELETE /api/agents/:agentId`
 
-Deletes an agent and all related threads and Deep Agents data. The default agent cannot be deleted.
+Deletes an agent and all related threads and Deep Agents data. The protected operator agent cannot be deleted.
 
-The protected default agent keeps the internal id `default`. With the built-in configuration its display name is `Scotty`, and it is intended to be the local operator/admin agent.
+The built-in protected operator agent has id `scotty` and display name `Scotty`.
 
 ## Agent Tools
 
@@ -204,7 +204,7 @@ Body:
 
 ```json
 {
-  "agentId": "default",
+  "agentId": "scotty",
   "threadId": "00000000-0000-0000-0000-000000000000",
   "prompt": "Hello",
   "model": "gpt-4.1-mini"
@@ -218,11 +218,3 @@ Streams Server-Sent Events:
 - `thread-updated`
 - `error`
 - `run-finished`
-
-## Legacy Default-Agent Thread Routes
-
-These routes operate on the configured default agent and are kept for compatibility:
-
-- `GET /api/threads`
-- `POST /api/threads`
-- `GET /api/threads/:threadId`

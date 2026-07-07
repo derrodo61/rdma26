@@ -56,7 +56,7 @@ Use `--content "..."` instead of `--file` for short inline updates.
 rdma26 agents:delete --agent research
 ```
 
-The default agent cannot be deleted.
+The protected operator agent cannot be deleted.
 
 ## Profile
 
@@ -77,7 +77,7 @@ All options are optional. Omitted fields keep their current values.
 ### Set an agent model preference
 
 ```bash
-rdma26 profile:agent-model:set --agent default --model gpt-4.1-mini
+rdma26 profile:agent-model:set --agent scotty --model gpt-4.1-mini
 ```
 
 ## Tools
@@ -94,7 +94,7 @@ rdma26 tools:list
 rdma26 agents:tools --agent research
 ```
 
-For the protected default operator agent, the response also includes `controlledTools`, which are read-only admin capabilities injected by the backend.
+For the protected operator agent, the response also includes `controlledTools`, which are read-only admin capabilities injected by the backend.
 
 ### Replace an agent's enabled tools
 
@@ -121,13 +121,13 @@ rdma26 agents:tools:revoke --agent research --tool internet_search
 ### List threads
 
 ```bash
-rdma26 threads:list --agent default
+rdma26 threads:list --agent scotty
 ```
 
 ### Create a thread
 
 ```bash
-rdma26 threads:create --agent default --title "Planning"
+rdma26 threads:create --agent scotty --title "Planning"
 ```
 
 `--title` is optional.
@@ -135,13 +135,13 @@ rdma26 threads:create --agent default --title "Planning"
 ### Read a thread
 
 ```bash
-rdma26 threads:read --agent default --thread <thread-id>
+rdma26 threads:read --agent scotty --thread <thread-id>
 ```
 
 ### Delete a thread
 
 ```bash
-rdma26 threads:delete --agent default --thread <thread-id>
+rdma26 threads:delete --agent scotty --thread <thread-id>
 ```
 
 ## Chat
@@ -149,7 +149,7 @@ rdma26 threads:delete --agent default --thread <thread-id>
 ### Send a message
 
 ```bash
-rdma26 chat:send --agent default --thread <thread-id> --model gpt-4.1-mini --prompt "Hello"
+rdma26 chat:send --agent scotty --thread <thread-id> --model gpt-4.1-mini --prompt "Hello"
 ```
 
 The command appends the user message, runs the selected agent, stores the assistant response, and prints the result as JSON.
@@ -158,7 +158,7 @@ The command appends the user message, runs the selected agent, stores the assist
 
 ### `--agent`
 
-Agent id. Defaults to `ASSISTANT_AGENT_ID` or `default`.
+Agent id. Defaults to `ASSISTANT_AGENT_ID` or `scotty`.
 
 ### Environment
 

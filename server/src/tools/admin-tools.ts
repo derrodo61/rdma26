@@ -29,7 +29,7 @@ const adminToolDefinitions: readonly ToolDefinition[] = [
   {
     id: 'admin_delete_agent',
     label: 'Delete agent',
-    description: 'Delete a non-default agent and all related data.',
+    description: 'Delete a non-protected agent and all related data.',
     provider: 'rdma26-admin',
     available: true,
   },
@@ -78,7 +78,7 @@ export function createAdminTools(runtime: AssistantRuntime): readonly Structured
   return [
     tool(async () => await runtime.agentsResponse(), {
       name: 'admin_list_agents',
-      description: 'List all configured agents. Only available to the default operator agent.',
+      description: 'List all configured agents. Only available to the protected operator agent.',
       schema: z.object({}),
     }),
     tool(
@@ -116,7 +116,7 @@ export function createAdminTools(runtime: AssistantRuntime): readonly Structured
     tool(async ({ agentId }: { agentId: string }) => await runtime.deleteAgent(agentId), {
       name: 'admin_delete_agent',
       description:
-        'Delete an agent and all related data. The protected default agent cannot be deleted.',
+        'Delete an agent and all related data. The protected operator agent cannot be deleted.',
       schema: z.object({
         agentId: z.string().trim().min(1).describe('Agent id to delete.'),
       }),

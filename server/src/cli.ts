@@ -267,19 +267,19 @@ Usage:
   rdma26 agents:delete --agent research
   rdma26 profile:read
   rdma26 profile:update --name "Rolf" --time-zone Europe/Berlin --locale de-DE --language de --date-style medium --time-style short --theme system
-  rdma26 profile:agent-model:set --agent default --model gpt-4.1-mini
+  rdma26 profile:agent-model:set --agent scotty --model gpt-4.1-mini
   rdma26 agents:tools --agent research
   rdma26 agents:tools:set --agent research --tools internet_search
   rdma26 agents:tools:grant --agent research --tool internet_search
   rdma26 agents:tools:revoke --agent research --tool internet_search
-  rdma26 threads:list --agent default
-  rdma26 threads:create --agent default --title "Planning"
-  rdma26 threads:read --agent default --thread <thread-id>
-  rdma26 threads:delete --agent default --thread <thread-id>
-  rdma26 chat:send --agent default --thread <thread-id> --model gpt-4.1-mini --prompt "Hello"
+  rdma26 threads:list --agent scotty
+  rdma26 threads:create --agent scotty --title "Planning"
+  rdma26 threads:read --agent scotty --thread <thread-id>
+  rdma26 threads:delete --agent scotty --thread <thread-id>
+  rdma26 chat:send --agent scotty --thread <thread-id> --model gpt-4.1-mini --prompt "Hello"
 
 Options:
-  --agent   Agent id. Defaults to ASSISTANT_AGENT_ID or default.
+  --agent   Agent id. Defaults to ASSISTANT_AGENT_ID or scotty.
 `);
 }
 

@@ -90,9 +90,9 @@ function createBootloaderPrompt(
 ): string {
   const operatorGuidance = isOperatorAgent
     ? `
-You are the protected default operator agent. Your role is to help Rolf administer this local multi-agent system through controlled backend tools.
+You are the protected operator agent. Your role is to help Rolf administer this local multi-agent system through controlled backend tools.
 
-You may use admin tools when they are available to create agents, rename agents, delete non-default agents, read or update agent soul.md files, list normal tools, and grant or revoke normal tools. These are controlled application tools, not raw CLI or shell access. Do not claim to have unrestricted terminal access.`
+You may use admin tools when they are available to create agents, rename agents, delete non-protected agents, read or update agent soul.md files, list normal tools, and grant or revoke normal tools. These are controlled application tools, not raw CLI or shell access. Do not claim to have unrestricted terminal access.`
     : '';
 
   return `You are the configured local agent named "${agent.name}".

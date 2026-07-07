@@ -21,9 +21,9 @@ No unreleased changes yet.
 - Added Markdown rendering for assistant chat messages.
 - Added agent `soul.md` editing through the backend API, CLI, and agent edit UI with Markdown preview.
 - Added a Markdown formatting toolbar with heading-level choices for the agent `soul.md` editor.
-- Added `Scotty` as the protected default operator agent with controlled admin tools for agent and tool-grant management.
-- Added migration for known legacy default `soul.md` templates to Scotty's operator identity.
+- Added `Scotty` as the protected operator agent with id `scotty` and controlled admin tools for agent and tool-grant management.
 - Added read-only UI/API/CLI visibility for controlled operator tools.
+- Added a memory system specification with rules for automatic memory writes, global/user-local memory, lifecycle handling, context transparency, permissions, and protected operator memory management.
 - Added a user profile settings page accessible from the settings menu.
 - Added `profile:read`, `profile:update`, and `profile:agent-model:set` CLI commands.
 - Added light, dark, and system theme support.
@@ -33,6 +33,7 @@ No unreleased changes yet.
 ### Changed
 
 - Moved agent `soul.md` from Deep Agents memory into per-agent `configuration/soul.md` and clarified that it stores identity, not arbitrary memories.
+- Removed default-agent compatibility routes and legacy data migration in favor of the built-in `scotty` operator agent id.
 - Reworked the agent edit page into wider Basic, Tools, and Soul tabs.
 - Refined the chat layout with a collapsible sidebar, inline model selector, rounded composer, and simplified message styling.
 - Slimmed down the README so it stays focused on project overview, setup, and links to reference docs.

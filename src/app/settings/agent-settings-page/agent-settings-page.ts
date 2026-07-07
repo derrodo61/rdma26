@@ -67,7 +67,7 @@ export class AgentSettingsPage {
 
   protected async deleteAgent(agent: AgentProfile): Promise<void> {
     if (this.isDefaultAgent(agent)) {
-      this.error.set('The default agent cannot be deleted.');
+      this.error.set('The protected operator agent cannot be deleted.');
       return;
     }
 

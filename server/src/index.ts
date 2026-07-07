@@ -48,9 +48,6 @@ const threadParamsSchema = z.object({
   agentId: z.string().trim().min(1),
   threadId: z.string().uuid(),
 });
-const legacyThreadParamsSchema = z.object({
-  threadId: z.string().uuid(),
-});
 const agentRunRequestSchema = z.object({
   agentId: z.string().trim().min(1),
   threadId: z.string().uuid(),
@@ -105,7 +102,6 @@ async function startServer(): Promise<void> {
         { name: 'agents', description: 'Agent profiles.' },
         { name: 'threads', description: 'Agent-specific conversation threads.' },
         { name: 'runs', description: 'Agent runs and streaming responses.' },
-        { name: 'legacy', description: 'Default-agent compatibility routes.' },
       ],
     },
   });
@@ -615,61 +611,6 @@ async function startServer(): Promise<void> {
 
       try {
         return await runtime.deleteThread(params.data.agentId, params.data.threadId);
-      } catch (error) {
-        return reply.code(404).send({
-          message: getErrorMessage(error),
-        });
-      }
-    },
-  );
-
-  server.get(
-    '/api/threads',
-    routeDocs({
-      tags: ['legacy'],
-      summary: 'List threads for the default agent.',
-    }),
-    async () => await runtime.listThreads(runtime.getDefaultAgentId()),
-  );
-
-  server.post(
-    '/api/threads',
-    routeDocs({
-      tags: ['legacy'],
-      summary: 'Create a thread for the default agent.',
-      body: createThreadRequestSchema,
-    }),
-    async (request, reply) => {
-      const parsed = createThreadRequestSchema.safeParse(request.body ?? {});
-
-      if (!parsed.success) {
-        return reply.code(400).send({
-          message: 'Thread title must be text when provided.',
-        });
-      }
-
-      return await runtime.createThread(runtime.getDefaultAgentId(), parsed.data);
-    },
-  );
-
-  server.get(
-    '/api/threads/:threadId',
-    routeDocs({
-      tags: ['legacy'],
-      summary: 'Read one default-agent thread.',
-      params: legacyThreadParamsSchema,
-    }),
-    async (request, reply) => {
-      const params = legacyThreadParamsSchema.safeParse(request.params);
-
-      if (!params.success) {
-        return reply.code(400).send({
-          message: 'A valid thread id is required.',
-        });
-      }
-
-      try {
-        return await runtime.readThread(runtime.getDefaultAgentId(), params.data.threadId);
       } catch (error) {
         return reply.code(404).send({
           message: getErrorMessage(error),

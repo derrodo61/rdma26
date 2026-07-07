@@ -70,6 +70,8 @@ It may contain:
 - stable behavior rules
 - boundaries
 
+It can change when the user intentionally changes the agent's identity, role, or operating principles.
+
 It should not contain:
 
 - arbitrary conversation notes
@@ -100,17 +102,49 @@ Example:
 
 Use for things one agent should remember, but another agent should not automatically know.
 
-### User Memory
+### User Configuration
 
 Belongs to the user and can be useful to all agents.
 
 Example:
 
 ```text
-.assistant-data/user/memories/
+.assistant-data/user/configuration/user.md
 ```
 
-Use for general preferences, profile facts, language style, timezone expectations, and recurring personal context.
+Use for stable user basics and global preferences such as name, language, timezone, date/time format, and general communication style.
+
+This file answers:
+
+> What should all agents know about the user?
+
+### Agent-Local User Memory
+
+Belongs to one agent and describes what that agent has learned about the user in that agent's own context.
+
+Example:
+
+```text
+.assistant-data/agents/agent1/memories/user.md
+```
+
+Use for user information that matters to one agent but should not automatically be shared with all agents.
+
+This file answers:
+
+> What does this agent know about the user in this agent's context?
+
+Example:
+
+```md
+# User Memory
+
+- The user wants this agent to track games.
+- The user prefers match times in Europe/Berlin.
+- The user cares about national-team games more than club games.
+```
+
+This should stay separate from `configuration/soul.md`. `soul.md` can be edited, but it should not become a diary.
 
 ### Shared/System Memory
 
@@ -206,6 +240,10 @@ If the agent notices something likely worth remembering, it can ask:
 
 > Should I remember this for future conversations?
 
+In the first implementation, this should happen directly in chat. If the user confirms, the memory is saved. If the user declines, it is not saved.
+
+Do not add separate approval states in the first implementation. States such as `suggested`, `accepted`, and `rejected` may be useful later if background consolidation creates a review queue, but they should not be required for phase 1.
+
 Agents should ask before saving when one of these is true:
 
 - The information is sensitive.
@@ -251,6 +289,55 @@ The read flow should be:
 4. Inject only the most relevant memory snippets into the run.
 5. Tell the agent where the snippets came from.
 
+## Context Transparency
+
+The system should record which context sources were used for each run.
+
+This should not be shown inline in every assistant answer by default. Normal chat should stay clean.
+
+Instead, UI, API, and CLI should later expose optional run details that answer:
+
+> What did the agent know when it answered?
+
+Run details may include:
+
+- agent id and display name
+- selected model
+- loaded `soul.md`
+- loaded user configuration
+- loaded agent-local memories
+- loaded global memories
+- included thread messages
+- available tools
+- used tools
+- memory retrieval scores
+- token counts
+
+This is useful for debugging, improving memory quality, and understanding surprising answers.
+
+## Memory Lifecycle
+
+Memories should be kept by default. They should not expire just because they are old.
+
+Some old memories remain important, such as stable user preferences, long-term goals, recurring projects, important decisions, and agent-specific working agreements.
+
+Memories should expire, be archived, or be replaced only when they are temporary, completed, contradicted, superseded, or no longer useful.
+
+Future memory records should support lifecycle fields such as:
+
+- `lifetime`: `permanent`, `active`, or `temporary`
+- `status`: `active`, `archived`, or `superseded`
+
+Examples:
+
+- Permanent: "The user prefers plain language."
+- Active: "The user wants agent1 to track the current tournament."
+- Temporary: "The user wants updates about today's game."
+- Superseded: "The user prefers English" replaced by "The user prefers German."
+- Archived: "On 2026-07-07, the user and agent1 discussed the first memory concept."
+
+Phase 1 should keep memories by default and support manual delete or archive. Later phases can add stronger lifecycle rules.
+
 ## User Control
 
 Memory must be inspectable and editable.
@@ -267,6 +354,68 @@ The UI, API, and CLI should eventually support:
 - show memory scope and type
 
 Memory should not be treated as secret internal state.
+
+## Memory Permissions
+
+Memory writes should be allowed by default for all agents, at least for agent-local memory.
+
+Each agent should have a setting that can disable memory writes.
+
+Example future configuration:
+
+```json
+{
+  "memory": {
+    "canWrite": true
+  }
+}
+```
+
+Possible later extension:
+
+```json
+{
+  "memory": {
+    "canRead": true,
+    "canWrite": true,
+    "canWriteUserGlobal": false,
+    "canWriteAgentLocal": true
+  }
+}
+```
+
+Rules:
+
+- Agents can read relevant memory by default.
+- Agents can write agent-local memory by default.
+- The user can turn memory writing off per agent through UI, API, and CLI.
+- Writing global user memory should be more controlled than writing agent-local memory.
+- If memory writing is disabled, the agent may say that it would remember something, but memory writing is disabled.
+
+## Operator Memory Management
+
+The protected operator agent should be able to inspect and manage memory for all agents.
+
+Every installation creates this protected operator agent with id `scotty` and display name `Scotty`.
+
+This should be treated as controlled admin functionality, not normal agent behavior.
+
+The operator agent may support actions such as:
+
+- list memories for an agent
+- read memories for an agent
+- search memories across agents
+- edit or delete incorrect memories
+- archive or supersede old memories
+- inspect memory permissions
+- enable or disable memory writes for an agent
+
+Guardrails:
+
+- The operator agent must clearly explain memory changes.
+- Destructive actions should require confirmation.
+- The protected operator agent cannot bypass backend rules.
+- Normal agents should not automatically gain cross-agent memory access.
 
 ## Storage Direction
 
@@ -305,9 +454,4 @@ This gives the user control and lets us learn what memory should feel like befor
 
 ## Open Questions
 
-- Should there be global user memory shared by all agents from the beginning?
-- Should memory have approval states, such as suggested, accepted, and rejected?
-- Should memories expire?
-- Should the agent show which memories it used in an answer?
-- Should memory writes be allowed for all agents or controlled per agent?
-- Should a protected operator agent be able to inspect and manage memory for all agents?
+No open questions yet.

@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 import type {
@@ -27,10 +27,6 @@ export interface AssistantStorage {
   writeSoul(content: string): Promise<void>;
 }
 
-export interface AssistantStorageOptions {
-  readonly migrateLegacyData: boolean;
-}
-
 interface StoredThreadFile {
   readonly id: string;
   readonly agentId?: string;
@@ -44,7 +40,7 @@ function createDefaultSoul(agent: AgentProfile): string {
   if (agent.name === 'Scotty') {
     return `# soul.md
 
-You are Scotty, Rolf's local personal AI system engineer and default operator agent.
+You are Scotty, Rolf's local personal AI system engineer and protected operator agent.
 
 ## Role
 
@@ -74,21 +70,13 @@ You are ${agent.name}.
 `;
 }
 
-export function createAssistantStorage(
-  dataDir: string,
-  agent: AgentProfile,
-  options: AssistantStorageOptions = { migrateLegacyData: false },
-): AssistantStorage {
+export function createAssistantStorage(dataDir: string, agent: AgentProfile): AssistantStorage {
   const agentDataDir = join(dataDir, 'agents', agent.id);
   const threadsDir = join(agentDataDir, 'threads');
   const configurationDir = join(agentDataDir, 'configuration');
   const deepAgentRootDir = join(agentDataDir, 'deepagent');
   const memoryDir = join(deepAgentRootDir, 'memories');
   const soulPath = join(configurationDir, 'soul.md');
-  const oldAgentSoulPath = join(memoryDir, 'soul.md');
-  const legacySoulPath = join(dataDir, 'deepagent', 'memories', 'soul.md');
-  const legacyThreadsDir = join(dataDir, 'threads');
-  const legacyMigrationMarkerPath = join(agentDataDir, '.legacy-migration-complete');
 
   return {
     dataDir,
@@ -100,22 +88,7 @@ export function createAssistantStorage(
       await mkdir(threadsDir, { recursive: true });
       await mkdir(configurationDir, { recursive: true });
       await mkdir(memoryDir, { recursive: true });
-      await migrateLegacyFile(oldAgentSoulPath, soulPath);
-
-      if (options.migrateLegacyData) {
-        await migrateLegacyDataOnce({
-          agentDataDir,
-          agentId: agent.id,
-          legacyMigrationMarkerPath,
-          legacySoulPath,
-          legacyThreadsDir,
-          soulPath,
-          threadsDir,
-        });
-      }
-
       await writeIfMissing(soulPath, createDefaultSoul(agent));
-      await migrateKnownDefaultSoul(agent, soulPath);
     },
     async listThreads() {
       await this.ensureReady();
@@ -215,45 +188,6 @@ export function createAssistantStorage(
   };
 }
 
-async function migrateKnownDefaultSoul(agent: AgentProfile, soulPath: string): Promise<void> {
-  if (agent.name !== 'Scotty') {
-    return;
-  }
-
-  const content = await readFile(soulPath, 'utf8');
-
-  if (!isLegacyDefaultSoul(content)) {
-    return;
-  }
-
-  await writeFile(soulPath, createDefaultSoul(agent), 'utf8');
-}
-
-function isLegacyDefaultSoul(content: string): boolean {
-  const normalized = content.trim();
-
-  return [
-    createLegacyDefaultSoul('Default assistant').trim(),
-    createLegacyDefaultSoul('Default Agent').trim(),
-    createLegacyDefaultSoul('Mina').trim(),
-    createLegacyDefaultSoul("Rolf's local personal AI agent").trim(),
-  ].includes(normalized);
-}
-
-function createLegacyDefaultSoul(name: string): string {
-  return `# soul.md
-
-You are ${name}.
-
-## Operating principles
-
-- Treat memory as important. Save durable preferences, facts, and working agreements when Rolf asks you to remember them or when they will clearly help future conversations.
-- Keep private information on the local machine unless Rolf explicitly asks you to use an external service.
-- Be practical, direct, and warm. Prefer concrete next steps over vague reflection.
-- Use soul.md for stable identity, role, personality, and operating principles. Do not use it for arbitrary memories or transient facts.
-`;
-}
-
 async function writeIfMissing(path: string, content: string): Promise<void> {
   try {
     await readFile(path, 'utf8');
@@ -264,104 +198,6 @@ async function writeIfMissing(path: string, content: string): Promise<void> {
 
     await mkdir(dirname(path), { recursive: true });
     await writeFile(path, content, 'utf8');
-  }
-}
-
-async function migrateLegacyFile(fromPath: string, toPath: string): Promise<void> {
-  if (await pathExists(toPath)) {
-    return;
-  }
-
-  if (!(await pathExists(fromPath))) {
-    return;
-  }
-
-  await mkdir(dirname(toPath), { recursive: true });
-  await cp(fromPath, toPath);
-}
-
-interface LegacyMigrationOptions {
-  readonly agentDataDir: string;
-  readonly agentId: string;
-  readonly legacyMigrationMarkerPath: string;
-  readonly legacySoulPath: string;
-  readonly legacyThreadsDir: string;
-  readonly soulPath: string;
-  readonly threadsDir: string;
-}
-
-async function migrateLegacyDataOnce(options: LegacyMigrationOptions): Promise<void> {
-  if (await pathExists(options.legacyMigrationMarkerPath)) {
-    return;
-  }
-
-  if ((await pathExists(options.soulPath)) || (await hasThreadFiles(options.threadsDir))) {
-    await writeMigrationMarker(options.legacyMigrationMarkerPath);
-
-    return;
-  }
-
-  await migrateLegacyFile(options.legacySoulPath, options.soulPath);
-  await migrateLegacyThreads(options.legacyThreadsDir, options.threadsDir, options.agentId);
-  await writeMigrationMarker(options.legacyMigrationMarkerPath);
-}
-
-async function writeMigrationMarker(path: string): Promise<void> {
-  await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, `${new Date().toISOString()}\n`, 'utf8');
-}
-
-async function hasThreadFiles(threadsDir: string): Promise<boolean> {
-  try {
-    const fileNames = await readdir(threadsDir);
-
-    return fileNames.some((fileName) => fileName.endsWith('.json'));
-  } catch (error) {
-    if (isNodeError(error) && error.code === 'ENOENT') {
-      return false;
-    }
-
-    throw error;
-  }
-}
-
-async function migrateLegacyThreads(
-  fromDir: string,
-  toDir: string,
-  agentId: string,
-): Promise<void> {
-  if (!(await pathExists(fromDir))) {
-    return;
-  }
-
-  const fileNames = await readdir(fromDir);
-  await mkdir(toDir, { recursive: true });
-
-  await Promise.all(
-    fileNames
-      .filter((fileName) => fileName.endsWith('.json'))
-      .map(async (fileName) => {
-        const targetPath = join(toDir, fileName);
-
-        if (!(await pathExists(targetPath))) {
-          const thread = toChatThread(await readThreadFile(join(fromDir, fileName)), agentId);
-          await writeThread(toDir, thread);
-        }
-      }),
-  );
-}
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await stat(path);
-
-    return true;
-  } catch (error) {
-    if (isNodeError(error) && error.code === 'ENOENT') {
-      return false;
-    }
-
-    throw error;
   }
 }
 

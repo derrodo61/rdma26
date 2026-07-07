@@ -307,7 +307,7 @@ export interface AssistantRuntimeOptions {
 export function readRuntimeOptionsFromEnv(): AssistantRuntimeOptions {
   return {
     dataDir: process.env['ASSISTANT_DATA_DIR'] ?? join(process.cwd(), '.assistant-data'),
-    defaultAgentId: process.env['ASSISTANT_AGENT_ID'] ?? 'default',
+    defaultAgentId: process.env['ASSISTANT_AGENT_ID'] ?? 'scotty',
     defaultAgentName: process.env['ASSISTANT_AGENT_NAME'] ?? 'Scotty',
   };
 }
