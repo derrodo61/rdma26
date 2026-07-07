@@ -4,31 +4,31 @@ This document defines the memory goal for `rdma26` and the first design directio
 
 ## Goal
 
-`rdma26` agents should remember important information across conversations without requiring Rolf to repeat himself.
+`rdma26` agents should remember important information across conversations without requiring the user to repeat themselves.
 
-Memory must make an agent feel continuous over time, but it must not become an invisible black box. Rolf must be able to see, understand, edit, and delete what an agent remembers.
+Memory must make an agent feel continuous over time, but it must not become an invisible black box. The user must be able to see, understand, edit, and delete what an agent remembers.
 
-The memory system should work for all agents, not only one special agent. Ronaldo, Mina, Scotty, and future agents should all use the same memory concepts.
+The memory system should work for all agents, not only one special agent. Existing and future agents should all use the same memory concepts.
 
 The system should support these user expectations:
 
-- If Rolf explicitly says "remember this", the agent should save it.
+- If the user explicitly says "remember this", the agent should save it.
 - If a conversation contains something clearly useful for the future, the agent may suggest saving it or a background process may extract it.
-- If Rolf starts a new thread, the agent should be able to recall relevant past facts, preferences, open tasks, and important conversation summaries.
+- If the user starts a new thread, the agent should be able to recall relevant past facts, preferences, open tasks, and important conversation summaries.
 - The agent should not load all old conversations into the prompt.
 - The agent should retrieve only memory that is relevant to the current conversation.
-- Rolf should be able to inspect and correct memory from the UI, API, and CLI.
-- Memory should remain local-first and stored under `.assistant-data` unless Rolf explicitly chooses another backend.
+- The user should be able to inspect and correct memory from the UI, API, and CLI.
+- Memory should remain local-first and stored under `.assistant-data` unless the user explicitly chooses another backend.
 
 The practical test is simple:
 
-> If Rolf asks Ronaldo in a new thread, "What did we talk about last time?", Ronaldo should be able to answer from saved memory, not pretend the relationship starts from zero.
+> If the user asks an agent in a new thread, "What did we talk about last time?", the agent should be able to answer from saved memory, not pretend the relationship starts from zero.
 
 ## Non-Goals
 
 - Do not store every full conversation as always-loaded prompt context.
 - Do not use `soul.md` as a general memory dump.
-- Do not hide memory in a place Rolf cannot inspect.
+- Do not hide memory in a place the user cannot inspect.
 - Do not make memory agent-specific only if the remembered information clearly belongs to the user globally.
 
 ## LangChain Model
@@ -95,14 +95,14 @@ Belongs to one agent.
 Example:
 
 ```text
-.assistant-data/agents/ronaldo/memories/
+.assistant-data/agents/agent1/memories/
 ```
 
-Use for things Ronaldo should remember, but Mina should not automatically know.
+Use for things one agent should remember, but another agent should not automatically know.
 
 ### User Memory
 
-Belongs to Rolf and can be useful to all agents.
+Belongs to the user and can be useful to all agents.
 
 Example:
 
@@ -134,15 +134,15 @@ A durable statement that may be useful later.
 
 Example:
 
-> Rolf wants Ronaldo to track Brazil vs Norway.
+> The user wants agent1 to track a specific game.
 
 ### Preference
 
-Something Rolf likes, dislikes, or expects.
+Something the user likes, dislikes, or expects.
 
 Example:
 
-> Rolf prefers plain language explanations.
+> The user prefers plain language explanations.
 
 ### Conversation Summary
 
@@ -150,7 +150,7 @@ A short summary of an important conversation or thread.
 
 Example:
 
-> On 2026-07-07, Rolf and Ronaldo discussed tracking World Cup game results.
+> On 2026-07-07, the user and agent1 discussed tracking game results.
 
 ### Open Task
 
@@ -158,7 +158,7 @@ Something still active.
 
 Example:
 
-> Ronaldo should check the final score of Brazil vs Norway later.
+> agent1 should check the final score of a tracked game later.
 
 ### Tracked Topic
 
@@ -166,23 +166,72 @@ A subject that may receive updates over time.
 
 Example:
 
-> World Cup 2026 games.
+> Upcoming games in a tournament.
 
 ## Write Rules
 
 Memory can be written in different ways.
 
+General rule:
+
+> Agents may save memories automatically when the value is clear and the risk is low. They must ask when the content is sensitive, ambiguous, conflicting, or unclear in scope. The user can explicitly ask an agent to save something at any time.
+
 ### Explicit Save
 
-If Rolf says "remember this", the agent should save it.
+If the user says "remember this", the agent should save it.
 
-This is the safest first feature.
+This should always be supported. Even when automatic memory exists, the user must be able to directly tell an agent what to save.
+
+### Automatic Save
+
+Agents should save automatically when all of these are true:
+
+- The information is likely useful in future conversations.
+- The information is not obviously sensitive.
+- The information has a clear type, such as fact, preference, open task, conversation summary, or tracked topic.
+- The information has a clear scope, such as this agent or global user memory.
+- The information is not just temporary chat noise.
+- The information does not silently contradict an existing memory.
+
+Examples:
+
+- The user says they prefer German for football answers.
+- The user asks agent1 to track a specific game.
+- The user explains that an agent has a stable purpose.
+- A conversation produced an important decision or open task.
 
 ### Suggested Save
 
 If the agent notices something likely worth remembering, it can ask:
 
 > Should I remember this for future conversations?
+
+Agents should ask before saving when one of these is true:
+
+- The information is sensitive.
+- The agent is unsure whether the information matters.
+- The agent is unsure where the memory belongs.
+- The memory might strongly affect future behavior.
+- The memory conflicts with an older memory.
+- The user sounded uncertain, speculative, or temporary.
+
+Examples:
+
+- "Should I remember this only for agent1 or for all agents?"
+- "Should I save this as a task or just as a note?"
+- "This seems sensitive. Do you want me to remember it?"
+
+### Never Save Automatically
+
+Agents should not automatically save:
+
+- passwords, API keys, tokens, or credentials
+- payment details
+- sensitive health, financial, or legal information
+- private third-party information
+- raw long conversations
+- casual comments that are probably temporary
+- anything the user explicitly says not to remember
 
 ### Background Consolidation
 
@@ -252,14 +301,13 @@ Suggested first scope:
 - no automatic background summarization yet
 - no embeddings yet
 
-This gives Rolf control and lets us learn what memory should feel like before adding automatic behavior.
+This gives the user control and lets us learn what memory should feel like before adding automatic behavior.
 
 ## Open Questions
 
-- Should agents save memories automatically, or always ask first?
 - Should there be global user memory shared by all agents from the beginning?
 - Should memory have approval states, such as suggested, accepted, and rejected?
 - Should memories expire?
 - Should the agent show which memories it used in an answer?
 - Should memory writes be allowed for all agents or controlled per agent?
-- Should Scotty be able to inspect and manage memory for all agents?
+- Should a protected operator agent be able to inspect and manage memory for all agents?
