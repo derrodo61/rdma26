@@ -1,8 +1,8 @@
 # Research Agent Spec
 
-This document describes the planned shared research capability for `rdma26`.
+This document describes the shared research capability for `rdma26`.
 
-The current implementation has primitive web tools (`internet_search`, `read_web_page`) and a bounded factual verification workflow (`verify_current_facts`). The next step is to treat internet research as a first-class capability agent that can be reused by all normal agents.
+The current implementation has primitive web tools (`internet_search`, `read_web_page`), a bounded factual verification workflow (`verify_current_facts`), and the first high-level `research` tool. The `research` tool is backed by a backend `ResearchAgent` service and is the recommended capability for normal agents that need current external information.
 
 ## Goal
 
@@ -76,24 +76,22 @@ Agent1
 
 The domain agent should get one simple research capability instead of several detailed research instructions.
 
-Initial shape:
+In the UI and CLI this is configured as the `research` capability. Internally it
+is not a normal callable tool. Enabling `research` attaches a Deep Agents
+subagent named `researcher` to the domain agent.
 
-```ts
-research({
-  question: string;
-  mode?: "auto" | "quick" | "deep";
-  expectedOutput?: "answer" | "structured_facts" | "report";
-  requiredItems?: number;
-  requiredFields?: string[];
-  topic?: "general" | "news" | "finance";
-  maxSearches?: number;
-  maxSources?: number;
-})
+```text
+Domain agent
+  -> Deep Agents task tool
+  -> researcher subagent
+  -> search/read/verify sources
+  -> structured research result
+  -> domain agent answers the user
 ```
 
-The exact TypeScript shape can evolve, but the public contract should stay simple:
+The public contract should stay simple:
 
-- question in
+- user question in through the parent agent
 - structured research result out
 - sources included
 - uncertainty explicit
@@ -113,7 +111,6 @@ interface ResearchResult {
   sources: ResearchSource[];
   searches: ResearchSearch[];
   notes: string[];
-  modeUsed: 'quick' | 'deep';
 }
 ```
 
@@ -190,43 +187,12 @@ Full research traces belong in the run inspector or debug/admin views. That
 includes planned queries, searches, tool calls, raw excerpts, verification
 status, unresolved facts, and notes.
 
-## Modes
+## Research Workflow
 
-### Auto
+The first implementation uses one Deep Agents subagent named `researcher`.
 
-Default mode. The research agent chooses quick or deep.
-
-Heuristics:
-
-- use `quick` for precise facts, versions, dates, prices, latest scores, current lists, and next events
-- use `deep` for comparisons, broad summaries, market research, multi-source reports, or unclear questions with many subquestions
-
-### Quick
-
-Bounded factual verification.
-
-This is the current `verify_current_facts` behavior promoted into the research agent.
-
-Quick mode should keep query planning and source verification as separate LLM
-steps. They happen at different phases of the workflow:
-
-- planning happens before search and produces search-friendly queries
-- verification happens after search/page reading and checks whether the evidence
-  answers the question
-
-The planner and verifier models should be configurable separately because they
-have different quality, latency, and cost profiles. The default implementation
-may use the same model for both, but the architecture should support separate
-configuration later.
-
-Example future configuration:
-
-```bash
-RESEARCH_PLANNER_MODEL=gpt-5.4-mini
-RESEARCH_VERIFIER_MODEL=gpt-5.4
-```
-
-Quick mode should:
+The parent domain agent decides when internet research is needed and delegates
+to the researcher through the Deep Agents `task` tool. The researcher then:
 
 - plan search queries
 - search a small number of times
@@ -235,15 +201,9 @@ Quick mode should:
 - return concise structured facts
 - stop quickly when verified or clearly unresolved
 
-### Deep
+Later, the researcher can grow into a longer research workflow for broad
+questions. That may include:
 
-Longer research workflow.
-
-Deep mode is not required for the first implementation. It is reserved for broader research tasks.
-
-Deep mode may later:
-
-- create a research plan
 - split work into focused subquestions
 - use subagents in parallel
 - write intermediate notes into the Deep Agents filesystem
@@ -280,7 +240,7 @@ For general current facts:
 
 ## Subagent Role
 
-The research agent should be a capability agent, not primarily a personality agent.
+The researcher should be a capability subagent, not primarily a personality agent.
 
 It should have:
 
@@ -292,9 +252,8 @@ It should have:
 
 It may be exposed later as a normal chat-selectable agent, but the first purpose is delegation from other agents.
 
-Agent records should support metadata that distinguishes chat-enabled agents from
-internal capability agents. The exact field names can be decided during
-implementation, but the model should support this concept:
+Agent records support metadata that distinguishes chat-enabled agents from
+internal capability agents:
 
 ```ts
 interface AgentVisibility {
@@ -304,18 +263,19 @@ interface AgentVisibility {
 ```
 
 Normal domain agents are `chat` agents with `chatEnabled: true`. Scotty is an
-`operator` agent with `chatEnabled: true`. The research agent is an `internal`
-agent with `chatEnabled: false`.
+`operator` agent with `chatEnabled: true`. If the project later creates a
+persisted research agent record, it should be an `internal` agent with
+`chatEnabled: false`.
 
-The normal chat agent selector should show only chat-enabled agents. Admin,
+The normal chat agent selector shows only chat-enabled agents. Admin,
 settings, and debug views may show internal agents separately, for example under
 system agents or capability agents.
 
 ## Relationship To Existing Tools
 
-The system should keep all research-related tools configurable. The high-level `research`
-capability is the recommended default for normal agents, but primitive tools remain
-available for explicit assignment.
+The system should keep all research-related tools configurable. The `research`
+capability is the recommended default for normal agents, but primitive tools
+remain available for explicit assignment.
 
 Normal agents should not receive primitive web tools by default. If the user grants
 `internet_search` or `read_web_page` to an agent, that is a deliberate power-user,
@@ -323,7 +283,7 @@ debugging, or specialized-agent choice.
 
 Tool descriptions in the UI and CLI should make this distinction clear:
 
-- `research`: recommended high-level internet research workflow
+- `research`: recommended Deep Agents researcher subagent capability
 - `internet_search`: low-level primitive search tool
 - `read_web_page`: low-level primitive page extraction tool
 
@@ -341,51 +301,46 @@ Keep it available for direct inspection and for the research agent.
 
 ### `verify_current_facts`
 
-Current bounded workflow.
-
-Do not throw it away. Promote it into:
-
-```text
-ResearchAgent.quickFacts(...)
-```
-
-The existing public tool can remain temporarily as a compatibility wrapper.
+Legacy bounded workflow. Keep it temporarily as a compatibility tool for agents
+or tests that still explicitly enable it, but prefer the `research` subagent
+capability for normal agents.
 
 ## First Implementation Plan
 
-1. Create a backend `ResearchAgent` service.
-2. Move the current `verifyCurrentFacts()` workflow behind `ResearchAgent.quickFacts()`.
-3. Add a generic `research` tool that normal agents can be granted.
-4. Make `research` call the backend `ResearchAgent` service.
-5. Keep `verify_current_facts` for now, but mark it internally as the quick factual workflow.
-6. Update agent bootloader guidance:
-   - use `research` for current external information
-   - prefer `research` over manual search chains
+Status: implemented as a Deep Agents subagent capability.
+
+1. Added `research` as an assignable capability in the same UI/CLI list as tools.
+2. When `research` is enabled, `PersonalAgent` attaches a Deep Agents subagent named `researcher`.
+3. The domain agent delegates to `researcher` with Deep Agents' built-in `task` tool.
+4. The researcher has private search and page-reading tools.
+5. The researcher returns a structured result with findings, sources, searches, unresolved items, and notes.
+6. Kept `verify_current_facts` as a compatibility tool.
+7. Updated agent bootloader guidance:
+   - use the researcher subagent for current external information
+   - prefer researcher delegation over manual search chains
    - answer from the returned structured result
-7. Store research traces in run-context snapshots:
+8. Research traces are stored in run-context snapshots through tool-call capture:
    - mode
    - searches
    - sources
    - status
    - unresolved facts
-8. Add tests for:
-   - quick factual success
-   - off-topic source rejection
-   - partial result
-   - official-source preference
-   - domain agent receives structured research output
+9. Added tests for:
+   - researcher subagent configuration
+   - structured research result schema
+   - domain-agent bootloader guidance
+   - agent visibility metadata
 
 ## Later Implementation Plan
 
-After quick mode is stable:
+After the first researcher subagent implementation is stable:
 
-1. Add deep mode.
-2. Add a dedicated Deep Agents subagent configuration named `researcher`.
-3. Let the coordinator domain agent delegate broad research to that subagent.
-4. Instruct the subagent to return concise findings and sources instead of raw search/page outputs.
-5. Stream subagent activity into the run inspector.
-6. Add citations or source references to user-visible answers.
-7. Add provider options beyond Tavily if needed.
+1. Add richer report-style research for broad questions.
+2. Add configurable search/read limits.
+3. Add configurable research models if quality/cost tradeoffs require it.
+4. Stream subagent activity into the run inspector.
+5. Add citations or source references to user-visible answers.
+6. Add provider options beyond Tavily if needed.
 
 ## References
 

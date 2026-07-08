@@ -1,5 +1,5 @@
 import { ChatOpenAI } from '@langchain/openai';
-import { createDeepAgent, FilesystemBackend } from 'deepagents';
+import { createDeepAgent, FilesystemBackend, type SubAgent } from 'deepagents';
 import { MemorySaver } from '@langchain/langgraph';
 import type { StructuredToolInterface } from '@langchain/core/tools';
 
@@ -10,12 +10,16 @@ import type {
   RunContextToolCall,
   UserProfile,
 } from '../../shared/agent-contracts';
+import { createResearchSubagents } from './research-agent';
 import type { AssistantStorage } from './storage';
+import { researchToolId } from './tools/tool-registry';
+import { TavilySearchProvider } from './tools/tavily-search-provider';
 
 export interface PersonalAgentRequest {
   readonly threadId: string;
   readonly model: string;
   readonly tools: readonly StructuredToolInterface[];
+  readonly enabledToolIds: readonly string[];
   readonly isOperatorAgent: boolean;
   readonly userProfile: UserProfile;
   readonly soulContent: string;
@@ -63,6 +67,7 @@ export class PersonalAgent {
         virtualMode: true,
       }),
       tools: request.tools,
+      subagents: createEnabledSubagents(request.enabledToolIds),
       checkpointer: this.checkpointer,
       systemPrompt: createBootloaderPromptForTest(
         this.storage.agent,
@@ -71,7 +76,7 @@ export class PersonalAgent {
         request.soulContent,
         request.memories,
         request.memoryWritesEnabled,
-        request.tools.map((tool) => tool.name),
+        request.enabledToolIds,
       ),
     });
 
@@ -98,6 +103,20 @@ export class PersonalAgent {
   }
 }
 
+function createEnabledSubagents(enabledToolIds: readonly string[]): readonly SubAgent[] {
+  if (!enabledToolIds.includes(researchToolId)) {
+    return [];
+  }
+
+  const tavilyApiKey = process.env['TAVILY_API_KEY'];
+
+  if (!tavilyApiKey) {
+    throw new Error('TAVILY_API_KEY is required to use the research capability.');
+  }
+
+  return createResearchSubagents(new TavilySearchProvider(tavilyApiKey));
+}
+
 export function createBootloaderPromptForTest(
   agent: { name: string; soulVirtualPath: string },
   userProfile: UserProfile,
@@ -118,14 +137,24 @@ You may use admin tools when they are available to create agents, rename agents,
     : 'Memory writing is disabled for this agent in the current run. Do not claim that you saved a new memory. If the user asks you to remember something, explain that memory writing is disabled for this agent and that the setting can be changed by the user.';
   const hasInternetSearch = enabledToolNames.includes('internet_search');
   const hasWebPageReader = enabledToolNames.includes('read_web_page');
+  const hasResearch = enabledToolNames.includes('research');
   const hasCurrentFactsVerifier = enabledToolNames.includes('verify_current_facts');
+  const researchGuidance = hasResearch
+    ? `
+Research guidance:
+- A researcher subagent is available through Deep Agents' task tool.
+- Use the task tool to delegate internet research and external information work to the researcher subagent, especially current, latest, recent, or uncertain facts.
+- Give the researcher the full user question and name concrete requirements such as date, teams, final_score, winner, version, price, source, or status.
+- Use the researcher's structured result as your evidence: answer from findings and sources, mention unresolved items when status is partial or unresolved, and do not guess missing values.
+- Do not manually start with internet_search or read_web_page when the researcher subagent is available unless the user asks for low-level browsing or debugging.`
+    : '';
   const currentFactsVerifierGuidance = hasCurrentFactsVerifier
     ? `
 Current fact verification guidance:
-- Use verify_current_facts first for precise current factual questions, including latest, last, current, top-N, results, statuses, dates, rankings, prices, versions, or other concrete values.
-- Use verify_current_facts first when the user asks for multiple current items and every item needs a concrete value.
+- Prefer research when it is available. Use verify_current_facts only as a compatibility fallback for precise current factual questions, including latest, last, current, top-N, results, statuses, dates, rankings, prices, versions, or other concrete values.
+- Use verify_current_facts when research is unavailable and the user asks for multiple current items where every item needs a concrete value.
 - Give verify_current_facts the full user question. Set requiredItems when the user asks for a number of items, and set requiredFields when the answer clearly needs fields such as date, teams, final_score, winner, source, or status.
-- Treat verify_current_facts as the preferred research loop for these questions. Do not manually start with internet_search or read_web_page unless verify_current_facts is unavailable or the user asks for exploratory browsing.
+- Treat verify_current_facts as a compatibility alias for the shared research workflow. Do not manually start with internet_search or read_web_page unless neither research nor verify_current_facts is available or the user asks for exploratory browsing.
 - If verify_current_facts returns partial or unresolved, answer with the verified parts and clearly name what remains unverified. Do not guess missing values.`
     : '';
   const internetSearchGuidance = hasInternetSearch
@@ -183,6 +212,7 @@ User profile and display preferences:
 When presenting dates and times to the user, prefer the user profile's time zone, language, regional format, date style, and time style unless the user asks for a different format.
 
 Use enabled tools when they are useful. Do not claim to have tools that are not available in the current run.
+${researchGuidance}
 ${currentFactsVerifierGuidance}
 ${internetSearchGuidance}
 ${webPageReaderGuidance}

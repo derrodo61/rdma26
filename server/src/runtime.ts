@@ -81,6 +81,7 @@ export class AssistantRuntime {
     await this.memoryStore.ensureReady();
     await this.memoryMaintenanceSettingsStore.ensureReady();
     await this.runContextStore.ensureReady();
+    await this.runContextStore.deleteOrphanedRuns();
   }
 
   async health(): Promise<HealthResponse> {
@@ -448,6 +449,7 @@ export class AssistantRuntime {
       threadId: request.threadId,
       model: request.model,
       tools,
+      enabledToolIds: storage.agent.enabledTools,
       isOperatorAgent: storage.agent.id === this.getDefaultAgentId(),
       userProfile,
       soulContent,

@@ -24,6 +24,7 @@ import type {
   ChatThreadSummary,
   HealthResponse,
   ModelOption,
+  RunContextToolCall,
   ThemePreference,
 } from '../../../../shared/agent-contracts';
 import { AgentSettingsStorage } from '../../settings/agent-settings-storage';
@@ -34,6 +35,19 @@ import { AssistantApi } from '../assistant-api';
 
 interface RenderedChatMessage extends ChatMessage {
   readonly renderedContent: string;
+}
+
+interface ResearchSourceSummary {
+  readonly url: string;
+  readonly title: string;
+  readonly domain: string;
+}
+
+interface ResearchToolResult {
+  readonly sources?: readonly {
+    readonly url?: unknown;
+    readonly title?: unknown;
+  }[];
 }
 
 marked.use({
@@ -81,6 +95,7 @@ export class ChatPage {
   protected readonly threads = signal<readonly ChatThreadSummary[]>([]);
   protected readonly activeThread = signal<ChatThread | null>(null);
   protected readonly latestRunId = signal<string | null>(null);
+  protected readonly latestResearchSources = signal<readonly ResearchSourceSummary[]>([]);
   protected readonly summaryMessage = signal<string | null>(null);
   protected readonly draft = signal('');
   protected readonly isLoading = signal(true);
@@ -119,8 +134,11 @@ export class ChatPage {
   protected readonly activeAgent = computed<AgentProfile | null>(
     () => this.agents().find((agent) => agent.id === this.selectedAgentId()) ?? null,
   );
+  protected readonly chatAgents = computed<readonly AgentProfile[]>(() =>
+    this.agents().filter((agent) => agent.chatEnabled),
+  );
   protected readonly agentOptions = computed<readonly SelectOption[]>(() =>
-    this.agents().map((agent) => ({
+    this.chatAgents().map((agent) => ({
       value: agent.id,
       label: agent.name,
     })),
@@ -181,6 +199,7 @@ export class ChatPage {
     await this.handleAsync(async () => {
       const thread = await this.api.createThread(agentId);
       this.activeThread.set(thread);
+      this.latestResearchSources.set([]);
       await this.refreshThreads();
     });
   }
@@ -194,6 +213,7 @@ export class ChatPage {
 
     await this.handleAsync(async () => {
       this.activeThread.set(await this.api.readThread(agentId, threadId));
+      this.latestResearchSources.set([]);
     });
   }
 
@@ -289,6 +309,7 @@ export class ChatPage {
     this.resizeComposerInput();
     this.isRunning.set(true);
     this.error.set(null);
+    this.latestResearchSources.set([]);
     this.summaryMessage.set(null);
 
     const optimistic: ChatThread = {
@@ -325,6 +346,7 @@ export class ChatPage {
 
           if (event.type === 'run-finished') {
             this.latestRunId.set(event.runId);
+            void this.loadLatestResearchSources(event.runId);
           }
 
           if (event.type === 'error') {
@@ -460,10 +482,13 @@ export class ChatPage {
     await this.userProfileSync.loadAndHydrate(agentsResponse.agents);
     const requestedAgentId = this.route.snapshot.queryParamMap.get('agentId');
     const requestedThreadId = this.route.snapshot.queryParamMap.get('threadId');
+    const chatAgents = agentsResponse.agents.filter((agent) => agent.chatEnabled);
     const initialAgentId =
-      requestedAgentId && agentsResponse.agents.some((agent) => agent.id === requestedAgentId)
+      requestedAgentId && chatAgents.some((agent) => agent.id === requestedAgentId)
         ? requestedAgentId
-        : agentsResponse.defaultAgentId;
+        : (chatAgents.find((agent) => agent.id === agentsResponse.defaultAgentId)?.id ??
+          chatAgents[0]?.id ??
+          agentsResponse.defaultAgentId);
 
     await this.loadAgentThreads(initialAgentId, requestedThreadId ?? undefined);
   }
@@ -484,6 +509,7 @@ export class ChatPage {
     this.selectedModel.set(this.modelForAgent(agentId));
     this.threads.set(threads);
     this.latestRunId.set(null);
+    this.latestResearchSources.set([]);
 
     if (threads.length) {
       const threadId =
@@ -495,6 +521,15 @@ export class ChatPage {
     } else {
       this.activeThread.set(await this.api.createThread(agentId));
       await this.refreshThreads();
+    }
+  }
+
+  private async loadLatestResearchSources(runId: string): Promise<void> {
+    try {
+      const runContext = await this.api.runContext(runId);
+      this.latestResearchSources.set(extractResearchSources(runContext.toolCalls ?? []));
+    } catch {
+      this.latestResearchSources.set([]);
     }
   }
 
@@ -545,4 +580,58 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 function renderMarkdown(content: string): string {
   return marked.parse(content, { async: false, breaks: true, gfm: true });
+}
+
+function extractResearchSources(
+  toolCalls: readonly RunContextToolCall[],
+): readonly ResearchSourceSummary[] {
+  const sources = new Map<string, ResearchSourceSummary>();
+
+  for (const toolCall of toolCalls) {
+    if (
+      toolCall.name !== 'research' &&
+      toolCall.name !== 'verify_current_facts' &&
+      toolCall.name !== 'task'
+    ) {
+      continue;
+    }
+
+    const result = parseResearchToolResult(toolCall.result);
+
+    for (const source of result?.sources ?? []) {
+      if (typeof source.url !== 'string' || !source.url) {
+        continue;
+      }
+
+      sources.set(source.url, {
+        url: source.url,
+        title: typeof source.title === 'string' && source.title.trim() ? source.title : source.url,
+        domain: readUrlDomain(source.url),
+      });
+    }
+  }
+
+  return [...sources.values()];
+}
+
+function parseResearchToolResult(result: string | undefined): ResearchToolResult | null {
+  if (!result) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(result) as unknown;
+
+    return typeof parsed === 'object' && parsed !== null ? (parsed as ResearchToolResult) : null;
+  } catch {
+    return null;
+  }
+}
+
+function readUrlDomain(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
 }

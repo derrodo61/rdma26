@@ -2,12 +2,13 @@ import { tool, type StructuredToolInterface } from '@langchain/core/tools';
 import { z } from 'zod';
 
 import type { ToolDefinition } from '../../../shared/agent-contracts';
-import { createVerifyCurrentFactsDependencies, verifyCurrentFacts } from './current-facts-verifier';
 import type { SearchProvider, SearchTopic } from './search-provider';
 import { withSearchQualityHints } from './search-quality';
 import { TavilySearchProvider } from './tavily-search-provider';
+import { createVerifyCurrentFactsDependencies, verifyCurrentFacts } from './current-facts-verifier';
 import { readWebPage } from './web-page-reader';
 
+export const researchToolId = 'research';
 export const internetSearchToolId = 'internet_search';
 export const readWebPageToolId = 'read_web_page';
 export const verifyCurrentFactsToolId = 'verify_current_facts';
@@ -25,9 +26,21 @@ interface ToolRegistration {
 export class ToolRegistry {
   private readonly registrations: readonly ToolRegistration[] = [
     {
+      id: researchToolId,
+      label: 'Research',
+      description:
+        'Deep Agents researcher subagent capability with source reading and verification.',
+      provider: 'rdma26-research',
+      isAvailable: () => Boolean(process.env['TAVILY_API_KEY'] && process.env['OPENAI_API_KEY']),
+      unavailableReason: 'TAVILY_API_KEY and OPENAI_API_KEY are required.',
+      create: () => {
+        throw new Error('research is a Deep Agents subagent capability, not a direct tool.');
+      },
+    },
+    {
       id: internetSearchToolId,
       label: 'Internet search',
-      description: 'Search the web with Tavily.',
+      description: 'Low-level Tavily search primitive for specialized or debugging workflows.',
       provider: 'tavily',
       isAvailable: () => Boolean(process.env['TAVILY_API_KEY']),
       unavailableReason: 'TAVILY_API_KEY is not configured.',
@@ -36,7 +49,7 @@ export class ToolRegistry {
     {
       id: readWebPageToolId,
       label: 'Read web page',
-      description: 'Fetch a public web page and extract readable text.',
+      description: 'Low-level public web page reader for source inspection workflows.',
       provider: 'web',
       isAvailable: () => true,
       unavailableReason: 'Web page reading is not available.',
@@ -45,7 +58,7 @@ export class ToolRegistry {
     {
       id: verifyCurrentFactsToolId,
       label: 'Verify current facts',
-      description: 'Search, read sources, and verify precise current factual answers.',
+      description: 'Compatibility factual verifier. Prefer the Research tool for new agents.',
       provider: 'rdma26-research',
       isAvailable: () => Boolean(process.env['TAVILY_API_KEY'] && process.env['OPENAI_API_KEY']),
       unavailableReason: 'TAVILY_API_KEY and OPENAI_API_KEY are required.',
@@ -82,15 +95,17 @@ export class ToolRegistry {
   createTools(toolIds: readonly string[]): readonly StructuredToolInterface[] {
     const registrations = this.registrationsById(toolIds);
 
-    return registrations.map((registration) => {
-      if (!registration.isAvailable()) {
-        throw new Error(
-          `Tool ${registration.id} is enabled for this agent but unavailable. ${registration.unavailableReason}`,
-        );
-      }
+    return registrations
+      .filter((registration) => registration.id !== researchToolId)
+      .map((registration) => {
+        if (!registration.isAvailable()) {
+          throw new Error(
+            `Tool ${registration.id} is enabled for this agent but unavailable. ${registration.unavailableReason}`,
+          );
+        }
 
-      return registration.create();
-    });
+        return registration.create();
+      });
   }
 
   private registrationsById(toolIds: readonly string[]): readonly ToolRegistration[] {
@@ -109,6 +124,8 @@ export class ToolRegistry {
 }
 
 function createVerifyCurrentFactsTool(searchProvider: SearchProvider): StructuredToolInterface {
+  const dependencies = createVerifyCurrentFactsDependencies(searchProvider);
+
   return tool(
     async ({
       question,
@@ -134,12 +151,12 @@ function createVerifyCurrentFactsTool(searchProvider: SearchProvider): Structure
           maxSearches,
           maxSources,
         },
-        createVerifyCurrentFactsDependencies(searchProvider),
+        dependencies,
       ),
     {
       name: verifyCurrentFactsToolId,
       description:
-        'Verify a precise current factual question end-to-end. Use this first for latest/last/current/top-N questions, current results, statuses, dates, rankings, prices, versions, or other concrete values that need reliable web evidence.',
+        'Compatibility alias for source-backed research. Prefer research for new agents. Use only when a precise current factual question needs the older verify_current_facts tool name.',
       schema: z.object({
         question: z.string().describe('The precise current factual question to verify.'),
         requiredItems: z

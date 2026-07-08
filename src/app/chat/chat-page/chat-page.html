@@ -304,7 +304,7 @@
             </p>
           }
 
-          @if (latestRunId() || canConsolidateSummary()) {
+          @if (latestRunId() || latestResearchSources().length || canConsolidateSummary()) {
             <div class="mx-auto mb-3 flex max-w-3xl flex-wrap justify-end gap-2">
               @if (canConsolidateSummary()) {
                 <button
@@ -323,6 +323,34 @@
                 >
                   Inspect latest run context
                 </a>
+              }
+              @if (latestResearchSources().length) {
+                <details
+                  class="relative rounded px-2 py-1 text-xs font-medium text-text-muted hover:bg-surface-muted hover:text-text"
+                >
+                  <summary class="cursor-pointer list-none">
+                    Sources {{ latestResearchSources().length }}
+                  </summary>
+                  <div
+                    class="absolute bottom-full right-0 z-20 mb-2 w-80 max-w-[calc(100vw-2rem)] border border-border bg-surface p-3 shadow-lg"
+                  >
+                    <ul class="space-y-2">
+                      @for (source of latestResearchSources(); track source.url) {
+                        <li class="min-w-0">
+                          <a
+                            class="block truncate text-sm text-text hover:underline"
+                            [href]="source.url"
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {{ source.title }}
+                          </a>
+                          <p class="truncate text-xs text-text-muted">{{ source.domain }}</p>
+                        </li>
+                      }
+                    </ul>
+                  </div>
+                </details>
               }
             </div>
           }

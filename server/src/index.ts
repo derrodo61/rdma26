@@ -29,15 +29,20 @@ import { AssistantRuntime } from './runtime';
 
 config({ quiet: true });
 
+const agentKindSchema = z.enum(['chat', 'operator', 'internal']);
 const createAgentRequestSchema = z.object({
   id: z.string().trim().min(1).optional(),
   name: z.string().trim().min(1),
+  kind: agentKindSchema.optional(),
+  chatEnabled: z.boolean().optional(),
 });
 const createThreadRequestSchema = z.object({
   title: z.string().trim().min(1).optional(),
 });
 const updateAgentRequestSchema = z.object({
   name: z.string().trim().min(1).optional(),
+  kind: agentKindSchema.optional(),
+  chatEnabled: z.boolean().optional(),
   memory: z
     .object({
       canWrite: z.boolean().optional(),

@@ -40,6 +40,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Changed `read_web_page` extraction failures, including 403 responses, to return structured warnings instead of aborting the agent run.
 - Added a generic `verify_current_facts` tool that owns the search, page-reading, analysis, and targeted follow-up loop for precise current factual questions.
 - Improved `verify_current_facts` with an internal search-query planning step and stricter latest/current ordering verification.
+- Added a high-level `research` capability with structured findings, sources, searches, unresolved items, and run-context source affordances.
+- Reworked `research` to follow Deep Agents subagent concepts: enabling it now attaches a `researcher` subagent to the domain agent, and the domain agent delegates through the built-in `task` tool instead of calling a wrapper tool.
+- Added agent visibility metadata (`kind` and `chatEnabled`) so future internal capability agents can stay hidden from the normal chat selector.
+- Added separate `RESEARCH_PLANNER_MODEL` and `RESEARCH_VERIFIER_MODEL` environment overrides for the research query-planning and verification steps.
+- Updated agent bootloader guidance to prefer `research` over low-level `internet_search` and `read_web_page` workflows when available.
+- Added a compact chat UI source affordance for the latest research-backed run.
 
 ## [2026-07-06]
 

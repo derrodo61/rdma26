@@ -40,9 +40,13 @@ export interface AgentRunRequest {
   readonly model: string;
 }
 
+export type AgentKind = 'chat' | 'operator' | 'internal';
+
 export interface AgentProfile {
   readonly id: string;
   readonly name: string;
+  readonly kind: AgentKind;
+  readonly chatEnabled: boolean;
   readonly enabledTools: readonly string[];
   readonly memory: AgentMemorySettings;
   readonly soulVirtualPath: string;
@@ -62,10 +66,14 @@ export interface AgentsResponse {
 export interface CreateAgentRequest {
   readonly id?: string;
   readonly name: string;
+  readonly kind?: AgentKind;
+  readonly chatEnabled?: boolean;
 }
 
 export interface UpdateAgentRequest {
   readonly name?: string;
+  readonly kind?: AgentKind;
+  readonly chatEnabled?: boolean;
   readonly memory?: Partial<AgentMemorySettings>;
 }
 

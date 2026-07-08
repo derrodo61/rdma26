@@ -73,6 +73,29 @@ export class RunContextStore {
     return deletedCount;
   }
 
+  async deleteOrphanedRuns(): Promise<number> {
+    await this.ensureReady();
+
+    let deletedCount = 0;
+
+    for (const agentId of await this.listAgentIds()) {
+      const threadIds = await this.listThreadIdsForAgent(agentId);
+
+      for (const runFile of await this.listRunFilesForAgent(agentId)) {
+        const context = await this.readRunContextFileSafely(runFile);
+
+        if (!context || context.agentId !== agentId || threadIds.has(context.threadId)) {
+          continue;
+        }
+
+        await rm(runFile, { force: true });
+        deletedCount += 1;
+      }
+    }
+
+    return deletedCount;
+  }
+
   private legacyRunsDir(): string {
     return join(this.dataDir, 'runs');
   }
@@ -129,6 +152,35 @@ export class RunContextStore {
       }
 
       throw error;
+    }
+  }
+
+  private async listThreadIdsForAgent(agentId: string): Promise<ReadonlySet<string>> {
+    const threadsDir = join(this.agentsDir(), agentId, 'threads');
+
+    try {
+      const fileNames = await readdir(threadsDir);
+
+      return new Set(
+        fileNames
+          .filter((fileName) => fileName.endsWith('.json'))
+          .map((fileName) => fileName.slice(0, -'.json'.length))
+          .filter((threadId) => /^[a-f0-9-]{36}$/i.test(threadId)),
+      );
+    } catch (error) {
+      if (isNodeError(error) && error.code === 'ENOENT') {
+        return new Set();
+      }
+
+      throw error;
+    }
+  }
+
+  private async readRunContextFileSafely(runFile: string): Promise<RunContextDetails | null> {
+    try {
+      return JSON.parse(await readFile(runFile, 'utf8')) as RunContextDetails;
+    } catch {
+      return null;
     }
   }
 

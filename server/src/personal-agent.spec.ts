@@ -137,9 +137,31 @@ describe('PersonalAgent bootloader prompt', () => {
 
     expect(withoutVerifier).not.toContain('Current fact verification guidance');
     expect(withVerifier).toContain('Current fact verification guidance');
-    expect(withVerifier).toContain('Use verify_current_facts first');
+    expect(withVerifier).toContain('Use verify_current_facts only as a compatibility fallback');
     expect(withVerifier).toContain('Set requiredItems when the user asks for a number of items');
     expect(withVerifier).toContain('Do not manually start with internet_search or read_web_page');
+  });
+
+  it('prefers research over low-level internet tools when enabled', () => {
+    const prompt = createBootloaderPromptForTest(
+      {
+        name: 'Agent',
+        soulVirtualPath: '/configuration/soul.md',
+      },
+      testProfile(),
+      false,
+      '# soul',
+      [],
+      true,
+      ['research', 'internet_search', 'read_web_page', 'verify_current_facts'],
+    );
+
+    expect(prompt).toContain('Research guidance');
+    expect(prompt).toContain('A researcher subagent is available through Deep Agents');
+    expect(prompt).toContain('Use the task tool to delegate internet research');
+    expect(prompt).toContain("Use the researcher's structured result as your evidence");
+    expect(prompt).toContain('Prefer research when it is available');
+    expect(prompt).toContain('Do not manually start with internet_search or read_web_page');
   });
 });
 
