@@ -60,10 +60,43 @@ describe('PersonalAgent bootloader prompt', () => {
 
     expect(withoutSearch).not.toContain('Internet search guidance');
     expect(withSearch).toContain('Internet search guidance');
+    expect(withSearch).toContain('qualityHints.likelyNeedsFollowUp');
     expect(withSearch).toContain('latest completed');
     expect(withSearch).toContain('run a narrower follow-up search before answering');
     expect(withSearch).toContain('do not add meta commentary about search quality');
     expect(withSearch).toContain('scheduled or upcoming event');
+  });
+
+  it('adds web page reading guidance only when read_web_page is enabled', () => {
+    const withoutReader = createBootloaderPromptForTest(
+      {
+        name: 'Agent',
+        soulVirtualPath: '/configuration/soul.md',
+      },
+      testProfile(),
+      false,
+      '# soul',
+      [],
+      true,
+      ['internet_search'],
+    );
+    const withReader = createBootloaderPromptForTest(
+      {
+        name: 'Agent',
+        soulVirtualPath: '/configuration/soul.md',
+      },
+      testProfile(),
+      false,
+      '# soul',
+      [],
+      true,
+      ['internet_search', 'read_web_page'],
+    );
+
+    expect(withoutReader).not.toContain('Web page reading guidance');
+    expect(withReader).toContain('Web page reading guidance');
+    expect(withReader).toContain('read one or more promising source pages');
+    expect(withReader).toContain('official sources, reputable news/reporting');
   });
 });
 

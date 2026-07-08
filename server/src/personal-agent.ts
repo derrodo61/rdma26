@@ -116,19 +116,30 @@ You may use admin tools when they are available to create agents, rename agents,
   const memoryWriteGuidance = memoryWritesEnabled
     ? 'Use the save_memory tool when the user explicitly asks you to remember something or when a future-useful, low-risk memory clearly fits the memory rules. Ask first when the memory is sensitive, ambiguous, conflicting, or unclear in scope.'
     : 'Memory writing is disabled for this agent in the current run. Do not claim that you saved a new memory. If the user asks you to remember something, explain that memory writing is disabled for this agent and that the setting can be changed by the user.';
-  const internetSearchGuidance = enabledToolNames.includes('internet_search')
+  const hasInternetSearch = enabledToolNames.includes('internet_search');
+  const hasWebPageReader = enabledToolNames.includes('read_web_page');
+  const internetSearchGuidance = hasInternetSearch
     ? `
 Internet search guidance:
 - Use internet_search for current, fast-changing, or uncertain facts.
 - Build precise search queries with date, entity, event, and requested answer type.
+- Read the returned qualityHints. If qualityHints.likelyNeedsFollowUp is true, prefer a narrower follow-up search before answering.
 - After a search, assess whether the results actually answer the user's question.
 - If the first results are ambiguous, stale, incomplete, or answer a different question, run a narrower follow-up search before answering.
+- If read_web_page is available and snippets are not enough, read one or more promising source pages before answering.
 - For sports, news, and current events, distinguish previews, schedules, live updates, and final results; when asked for latest games or results, search for latest completed results.
 - Prefer recent sources with clear published dates.
-- Verify time-sensitive answers with more than one source when practical.
+- Verify time-sensitive answers with more than one source when practical; use source-page reading for the most important verification when available.
 - If the answer is sufficiently verified, answer directly and do not add meta commentary about search quality.
 - If search results conflict or are incomplete, say what is uncertain instead of guessing.
 - Do not present a result as final when the source only describes a scheduled or upcoming event.`
+    : '';
+  const webPageReaderGuidance = hasWebPageReader
+    ? `
+Web page reading guidance:
+- Use read_web_page to inspect public source pages when search snippets do not contain enough evidence.
+- Prefer reading official sources, reputable news/reporting, event pages, or result pages over generic search result snippets.
+- Do not use read_web_page for private, local, or internal URLs.`
     : '';
 
   return `You are the configured local agent named "${agent.name}".
@@ -157,6 +168,7 @@ When presenting dates and times to the user, prefer the user profile's time zone
 
 Use enabled tools when they are useful. Do not claim to have tools that are not available in the current run.
 ${internetSearchGuidance}
+${webPageReaderGuidance}
 
 ${memoryWriteGuidance}
 

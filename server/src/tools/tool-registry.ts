@@ -3,9 +3,12 @@ import { z } from 'zod';
 
 import type { ToolDefinition } from '../../../shared/agent-contracts';
 import type { SearchProvider, SearchTopic } from './search-provider';
+import { withSearchQualityHints } from './search-quality';
 import { TavilySearchProvider } from './tavily-search-provider';
+import { readWebPage } from './web-page-reader';
 
 export const internetSearchToolId = 'internet_search';
+export const readWebPageToolId = 'read_web_page';
 
 interface ToolRegistration {
   readonly id: string;
@@ -27,6 +30,15 @@ export class ToolRegistry {
       isAvailable: () => Boolean(process.env['TAVILY_API_KEY']),
       unavailableReason: 'TAVILY_API_KEY is not configured.',
       create: () => createInternetSearchTool(readTavilySearchProvider()),
+    },
+    {
+      id: readWebPageToolId,
+      label: 'Read web page',
+      description: 'Fetch a public web page and extract readable text.',
+      provider: 'web',
+      isAvailable: () => true,
+      unavailableReason: 'Web page reading is not available.',
+      create: () => createReadWebPageTool(),
     },
   ];
 
@@ -85,6 +97,28 @@ export class ToolRegistry {
   }
 }
 
+function createReadWebPageTool(): StructuredToolInterface {
+  return tool(
+    async ({ url, maxCharacters = 12_000 }: { url: string; maxCharacters?: number }) =>
+      readWebPage(url, { maxCharacters }),
+    {
+      name: readWebPageToolId,
+      description:
+        'Read a public HTTP/HTTPS web page after search when source details are needed. Rejects localhost and private-network URLs.',
+      schema: z.object({
+        url: z.string().url().describe('The public HTTP or HTTPS URL to read.'),
+        maxCharacters: z
+          .number()
+          .min(1_000)
+          .max(30_000)
+          .optional()
+          .default(12_000)
+          .describe('Maximum number of readable text characters to return.'),
+      }),
+    },
+  );
+}
+
 function createInternetSearchTool(searchProvider: SearchProvider): StructuredToolInterface {
   return tool(
     async ({
@@ -97,7 +131,17 @@ function createInternetSearchTool(searchProvider: SearchProvider): StructuredToo
       maxResults?: number;
       topic?: SearchTopic;
       includeRawContent?: boolean;
-    }) => await searchProvider.search({ query, maxResults, topic, includeRawContent }),
+    }) => {
+      const request = {
+        query,
+        maxResults,
+        topic,
+        includeRawContent,
+      };
+      const result = await searchProvider.search(request);
+
+      return withSearchQualityHints(result, request);
+    },
     {
       name: internetSearchToolId,
       description: 'Run a web search when current internet information would help.',
