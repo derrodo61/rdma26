@@ -88,6 +88,39 @@ describe('RunContextStore', () => {
       await rm(dataDir, { recursive: true, force: true });
     }
   });
+
+  it('deletes orphaned run contexts whose threads no longer exist', async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-runs-'));
+
+    try {
+      const store = new RunContextStore(dataDir);
+      const existingThreadId = crypto.randomUUID();
+      const keptRun = testRunContext({
+        agentId: 'ronaldo',
+        threadId: existingThreadId,
+      });
+      const deletedRun = testRunContext({
+        agentId: 'ronaldo',
+        threadId: crypto.randomUUID(),
+      });
+      await mkdir(join(dataDir, 'agents', 'ronaldo', 'threads'), { recursive: true });
+      await writeFile(
+        join(dataDir, 'agents', 'ronaldo', 'threads', `${existingThreadId}.json`),
+        '{}',
+        'utf8',
+      );
+      await store.writeRunContext(keptRun);
+      await store.writeRunContext(deletedRun);
+
+      await expect(store.deleteOrphanedRuns()).resolves.toBe(1);
+      await expect(store.readRunContext(deletedRun.runId)).resolves.toBeNull();
+      await expect(store.readRunContext(keptRun.runId)).resolves.toMatchObject({
+        runId: keptRun.runId,
+      });
+    } finally {
+      await rm(dataDir, { recursive: true, force: true });
+    }
+  });
 });
 
 async function readJson(path: string): Promise<unknown> {

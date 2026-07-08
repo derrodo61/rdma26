@@ -81,6 +81,7 @@ export class AssistantRuntime {
     await this.memoryStore.ensureReady();
     await this.memoryMaintenanceSettingsStore.ensureReady();
     await this.runContextStore.ensureReady();
+    await this.runContextStore.deleteOrphanedRuns();
   }
 
   async health(): Promise<HealthResponse> {

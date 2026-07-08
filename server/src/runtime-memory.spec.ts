@@ -278,6 +278,64 @@ describe('AssistantRuntime memory behavior', () => {
     }
   });
 
+  it('deletes orphaned run contexts on startup', async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-runtime-memory-'));
+    const previousApiKey = process.env['OPENAI_API_KEY'];
+    delete process.env['OPENAI_API_KEY'];
+
+    try {
+      const runtime = new AssistantRuntime({
+        dataDir,
+        defaultAgentId: 'scotty',
+        defaultAgentName: 'Scotty',
+      });
+      await runtime.ensureReady();
+      const orphanedThread = await runtime.createThread('scotty', {
+        title: 'Orphaned run context',
+      });
+      const keptThread = await runtime.createThread('scotty', {
+        title: 'Kept run context',
+      });
+      const orphanedRun = await runtime.runAgent({
+        agentId: 'scotty',
+        threadId: orphanedThread.id,
+        model: 'gpt-4.1-mini',
+        prompt: 'This run should be cleaned up on startup.',
+      });
+      const keptRun = await runtime.runAgent({
+        agentId: 'scotty',
+        threadId: keptThread.id,
+        model: 'gpt-4.1-mini',
+        prompt: 'This run should survive startup cleanup.',
+      });
+
+      await rm(join(dataDir, 'agents', 'scotty', 'threads', `${orphanedThread.id}.json`), {
+        force: true,
+      });
+
+      const restartedRuntime = new AssistantRuntime({
+        dataDir,
+        defaultAgentId: 'scotty',
+        defaultAgentName: 'Scotty',
+      });
+      await restartedRuntime.ensureReady();
+
+      await expect(restartedRuntime.readRunContext(orphanedRun.runId)).rejects.toThrow(
+        'does not exist',
+      );
+      await expect(restartedRuntime.readRunContext(keptRun.runId)).resolves.toMatchObject({
+        runId: keptRun.runId,
+      });
+    } finally {
+      if (previousApiKey === undefined) {
+        delete process.env['OPENAI_API_KEY'];
+      } else {
+        process.env['OPENAI_API_KEY'] = previousApiKey;
+      }
+      await rm(dataDir, { recursive: true, force: true });
+    }
+  });
+
   it('bulk consolidation requires an LLM for non-empty threads', async () => {
     const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-runtime-memory-'));
     const previousApiKey = process.env['OPENAI_API_KEY'];
