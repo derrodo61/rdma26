@@ -395,6 +395,7 @@ export interface RunContextDetails {
   readonly createdAt: string;
   readonly prompt?: string;
   readonly assistantResponse?: string;
+  readonly assistantMessageId?: string;
   readonly soulVirtualPath: string;
   readonly soulContent: string;
   readonly userProfile: UserProfile;

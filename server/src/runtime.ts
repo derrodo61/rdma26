@@ -294,6 +294,15 @@ export class AssistantRuntime {
     return await this.runContextStore.readLatestRunContextForThread(agentId, threadId);
   }
 
+  async listThreadRunContexts(
+    agentId: string,
+    threadId: string,
+  ): Promise<readonly RunContextDetails[]> {
+    await this.readThread(agentId, threadId);
+
+    return await this.runContextStore.listRunContextsForThread(agentId, threadId);
+  }
+
   async readAgent(agentId: string): Promise<AgentProfile> {
     const agent = await this.registry.readAgent(agentId);
 
@@ -480,6 +489,7 @@ export class AssistantRuntime {
       role: 'assistant',
       content: agentResponse.content,
     });
+    const assistantMessage = thread.messages.at(-1);
     const runContext = await this.runContextStore.writeRunContext({
       runId,
       agentId: storage.agent.id,
@@ -490,6 +500,7 @@ export class AssistantRuntime {
       createdAt: new Date().toISOString(),
       prompt: request.prompt,
       assistantResponse: agentResponse.content,
+      assistantMessageId: assistantMessage?.role === 'assistant' ? assistantMessage.id : undefined,
       soulVirtualPath: storage.agent.soulVirtualPath,
       soulContent,
       userProfile,

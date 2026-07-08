@@ -69,6 +69,29 @@ export class RunContextStore {
     return row ? runContextFromRow(row) : null;
   }
 
+  async listRunContextsForThread(
+    agentId: string,
+    threadId: string,
+  ): Promise<readonly RunContextDetails[]> {
+    validateAgentId(agentId);
+    validateThreadId(threadId);
+
+    const rows = this.database
+      .get()
+      .prepare(
+        `
+          select context_json
+          from run_contexts
+          where agent_id = ?
+            and thread_id = ?
+          order by created_at desc
+        `,
+      )
+      .all(agentId, threadId);
+
+    return rows.map((row) => runContextFromRow(row));
+  }
+
   async deleteRunsForThread(agentId: string, threadId: string): Promise<number> {
     validateAgentId(agentId);
     validateThreadId(threadId);

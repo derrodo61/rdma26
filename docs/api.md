@@ -379,7 +379,11 @@ The frontend exposes this data at `/settings/runs/:runId`.
 
 ### `GET /api/agents/:agentId/threads/:threadId/latest-run-context`
 
-Returns the latest run context for one thread, or `null` when the thread has no runs yet. The chat UI uses this to restore latest-run inspection and source links after a page reload.
+Returns the latest run context for one thread, or `null` when the thread has no runs yet.
+
+### `GET /api/agents/:agentId/threads/:threadId/run-contexts`
+
+Returns all run contexts for one thread, newest first. The chat UI uses this to attach research sources to the specific assistant message they support after live runs and page reloads.
 
 The response includes:
 

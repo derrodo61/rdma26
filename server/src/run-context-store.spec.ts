@@ -113,6 +113,10 @@ describe('RunContextStore', () => {
           runId: latestRun.runId,
         },
       );
+      await expect(store.listRunContextsForThread('ronaldo', threadId)).resolves.toEqual([
+        latestRun,
+        olderRun,
+      ]);
     } finally {
       await rm(dataDir, { recursive: true, force: true });
     }

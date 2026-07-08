@@ -974,6 +974,32 @@ async function startServer(): Promise<void> {
     },
   );
 
+  server.get(
+    '/api/agents/:agentId/threads/:threadId/run-contexts',
+    routeDocs({
+      tags: ['run-context'],
+      summary: 'List run contexts for one thread.',
+      params: threadParamsSchema,
+    }),
+    async (request, reply) => {
+      const params = threadParamsSchema.safeParse(request.params);
+
+      if (!params.success) {
+        return reply.code(400).send({
+          message: 'A valid agent id and thread id are required.',
+        });
+      }
+
+      try {
+        return await runtime.listThreadRunContexts(params.data.agentId, params.data.threadId);
+      } catch (error) {
+        return reply.code(404).send({
+          message: getErrorMessage(error),
+        });
+      }
+    },
+  );
+
   server.post(
     '/api/agents/:agentId/threads/:threadId/summary',
     routeDocs({

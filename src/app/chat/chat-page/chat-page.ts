@@ -23,6 +23,7 @@ import type {
   ChatThreadSummary,
   HealthResponse,
   ModelOption,
+  RunContextDetails,
   RunContextToolCall,
   ThemePreference,
 } from '../../../../shared/agent-contracts';
@@ -94,7 +95,9 @@ export class ChatPage {
   protected readonly threads = signal<readonly ChatThreadSummary[]>([]);
   protected readonly activeThread = signal<ChatThread | null>(null);
   protected readonly latestRunId = signal<string | null>(null);
-  protected readonly latestResearchSources = signal<readonly ResearchSourceSummary[]>([]);
+  protected readonly messageResearchSources = signal<
+    Readonly<Record<string, readonly ResearchSourceSummary[]>>
+  >({});
   protected readonly summaryMessage = signal<string | null>(null);
   protected readonly runActivity = signal<{
     readonly label: string;
@@ -203,7 +206,7 @@ export class ChatPage {
       const thread = await this.api.createThread(agentId);
       this.activeThread.set(thread);
       this.latestRunId.set(null);
-      this.latestResearchSources.set([]);
+      this.messageResearchSources.set({});
       await this.refreshThreads();
     });
   }
@@ -252,7 +255,7 @@ export class ChatPage {
       } else {
         this.activeThread.set(await this.api.createThread(agentId));
         this.latestRunId.set(null);
-        this.latestResearchSources.set([]);
+        this.messageResearchSources.set({});
         await this.refreshThreads();
       }
     });
@@ -322,7 +325,6 @@ export class ChatPage {
       label: 'Starting run',
     });
     this.error.set(null);
-    this.latestResearchSources.set([]);
     this.summaryMessage.set(null);
 
     const optimistic: ChatThread = {
@@ -366,7 +368,7 @@ export class ChatPage {
 
           if (event.type === 'run-finished') {
             this.latestRunId.set(event.runId);
-            void this.loadLatestResearchSources(event.runId);
+            void this.loadMessageSourcesFromRun(event.runId);
           }
 
           if (event.type === 'error') {
@@ -474,6 +476,10 @@ export class ChatPage {
     this.isSettingsMenuOpen.set(false);
   }
 
+  protected sourcesForMessage(messageId: string): readonly ResearchSourceSummary[] {
+    return this.messageResearchSources()[messageId] ?? [];
+  }
+
   protected stopThreadClick(event: Event): void {
     event.stopPropagation();
   }
@@ -532,7 +538,7 @@ export class ChatPage {
     this.selectedModel.set(this.modelForAgent(agentId));
     this.threads.set(threads);
     this.latestRunId.set(null);
-    this.latestResearchSources.set([]);
+    this.messageResearchSources.set({});
 
     if (threads.length) {
       const threadId =
@@ -546,28 +552,33 @@ export class ChatPage {
     } else {
       this.activeThread.set(await this.api.createThread(agentId));
       this.latestRunId.set(null);
-      this.latestResearchSources.set([]);
+      this.messageResearchSources.set({});
       await this.refreshThreads();
     }
   }
 
   private async loadLatestThreadRunContext(agentId: string, threadId: string): Promise<void> {
     try {
-      const runContext = await this.api.latestThreadRunContext(agentId, threadId);
-      this.latestRunId.set(runContext?.runId ?? null);
-      this.latestResearchSources.set(extractResearchSources(runContext?.toolCalls ?? []));
+      const runContexts = await this.api.threadRunContexts(agentId, threadId);
+      this.latestRunId.set(runContexts[0]?.runId ?? null);
+      this.messageResearchSources.set(
+        buildMessageResearchSources(this.activeThread(), runContexts),
+      );
     } catch {
       this.latestRunId.set(null);
-      this.latestResearchSources.set([]);
+      this.messageResearchSources.set({});
     }
   }
 
-  private async loadLatestResearchSources(runId: string): Promise<void> {
+  private async loadMessageSourcesFromRun(runId: string): Promise<void> {
     try {
       const runContext = await this.api.runContext(runId);
-      this.latestResearchSources.set(extractResearchSources(runContext.toolCalls ?? []));
+      this.latestRunId.set(runContext.runId);
+      this.messageResearchSources.set(
+        mergeMessageResearchSources(this.messageResearchSources(), this.activeThread(), runContext),
+      );
     } catch {
-      this.latestResearchSources.set([]);
+      return;
     }
   }
 
@@ -659,6 +670,68 @@ function extractResearchSources(
   }
 
   return [...sources.values()];
+}
+
+function buildMessageResearchSources(
+  thread: ChatThread | null,
+  runContexts: readonly RunContextDetails[],
+): Readonly<Record<string, readonly ResearchSourceSummary[]>> {
+  return runContexts.reduce<Readonly<Record<string, readonly ResearchSourceSummary[]>>>(
+    (sourcesByMessageId, runContext) =>
+      mergeMessageResearchSources(sourcesByMessageId, thread, runContext),
+    {},
+  );
+}
+
+function mergeMessageResearchSources(
+  current: Readonly<Record<string, readonly ResearchSourceSummary[]>>,
+  thread: ChatThread | null,
+  runContext: RunContextDetails,
+): Readonly<Record<string, readonly ResearchSourceSummary[]>> {
+  const sources = extractResearchSources(runContext.toolCalls ?? []);
+
+  if (!sources.length) {
+    return current;
+  }
+
+  const messageId = resolveAssistantMessageId(thread, runContext, current);
+
+  if (!messageId) {
+    return current;
+  }
+
+  return {
+    ...current,
+    [messageId]: sources,
+  };
+}
+
+function resolveAssistantMessageId(
+  thread: ChatThread | null,
+  runContext: RunContextDetails,
+  current: Readonly<Record<string, readonly ResearchSourceSummary[]>>,
+): string | null {
+  if (
+    runContext.assistantMessageId &&
+    thread?.messages.some((message) => message.id === runContext.assistantMessageId)
+  ) {
+    return runContext.assistantMessageId;
+  }
+
+  const assistantResponse = runContext.assistantResponse?.trim();
+
+  if (!assistantResponse) {
+    return null;
+  }
+
+  return (
+    thread?.messages.find(
+      (message) =>
+        message.role === 'assistant' &&
+        message.content.trim() === assistantResponse &&
+        !current[message.id],
+    )?.id ?? null
+  );
 }
 
 function readAnswerSourceUrls(result: ResearchToolResult | null): ReadonlySet<string> {
