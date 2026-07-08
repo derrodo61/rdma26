@@ -52,6 +52,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added stricter research-agent guardrails for latest/current temporal ordering, claim-status nuance, and contradiction warnings.
 - Added current date/time context to researcher subagents so relative-date questions such as "today" and "heute" are resolved before searching.
 - Added latest thread run-context lookup so source links and run inspection are restored after reloading an existing chat thread.
+- Added adaptive research search guidance so researcher subagents can stop early on strong evidence or escalate to local-language and regional sources when broad results are weak.
 - Changed web page DNS/URL validation failures to return structured reader warnings instead of aborting chat runs.
 - Changed thread-summary consolidation to return an existing summary instead of regenerating it, and added readable `contentLines` for multiline memory JSON files.
 - Changed `save_memory` so agents can save agent, agent-user, or global user memories, and may save sensitive personal data when the user explicitly asks for it.

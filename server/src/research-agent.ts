@@ -227,6 +227,13 @@ Rules:
 - Do not treat an older source as today's answer merely because it contains words like "today", "heute", "current", or "aktuell". Check the source publication/event date against the requested date.
 - Prefer primary, official, authoritative, or directly relevant sources when possible.
 - Match source type to the question. Use official sources for official records; use reputable reporting to evaluate allegations, controversy, or what people reportedly did.
+- Use an adaptive search strategy, not a rigid checklist:
+  - start with the shortest broad query that includes the key entities, location, date, and requested fact;
+  - stop early when read sources already provide strong, current, directly relevant evidence for the answer;
+  - for sensitive, high-risk, fast-changing, or safety-related topics, prefer at least two independent supporting sources when practical;
+  - continue searching when the first results are stale, ambiguous, snippet-only, incomplete, contradictory, or about a different event;
+  - for local or regional events, if broad searches are weak or no authoritative source appears, search in the likely local language and include local official sources or reputable regional media;
+  - do not run extra searches just to complete every possible strategy step when the evidence is already sufficient.
 - Search snippets are leads, not final evidence. Read pages before relying on exact dates, scores, versions, prices, rankings, statuses, or other concrete values.
 - If sources conflict, search or read again. If still unresolved, report partial/unresolved instead of guessing.
 - For lists, return every requested item if evidence allows. If an item is missing, put it in unresolved.

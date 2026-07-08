@@ -12,11 +12,11 @@ import {
   lucideListOrdered,
   lucideQuote,
 } from '@ng-icons/lucide';
-import { marked } from 'marked';
 
 import type { AgentProfile, ModelOption, ToolDefinition } from '../../../../shared/agent-contracts';
 import { AssistantApi } from '../../chat/assistant-api';
 import { AppSelect, type SelectOption } from '../../shared/app-select/app-select';
+import { renderMarkdown } from '../../shared/markdown/render-markdown';
 import { AgentSettingsStorage } from '../agent-settings-storage';
 import { UserProfileSyncService } from '../user-profile-sync';
 
@@ -464,10 +464,6 @@ function replaceSelection(
     selectionStart: selection.start,
     selectionEnd: selection.end,
   };
-}
-
-function renderMarkdown(content: string): string {
-  return marked.parse(content, { async: false, breaks: true, gfm: true });
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {

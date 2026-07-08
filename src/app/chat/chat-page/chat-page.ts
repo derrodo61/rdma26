@@ -14,7 +14,6 @@ import {
   lucideSun,
   lucideTrash2,
 } from '@ng-icons/lucide';
-import { marked } from 'marked';
 
 import type {
   AgentProfile,
@@ -31,6 +30,7 @@ import { AgentSettingsStorage } from '../../settings/agent-settings-storage';
 import { ThemePreferenceService } from '../../settings/theme-preference';
 import { UserProfileSyncService } from '../../settings/user-profile-sync';
 import { AppSelect, type SelectOption } from '../../shared/app-select/app-select';
+import { renderMarkdown } from '../../shared/markdown/render-markdown';
 import { AssistantApi } from '../assistant-api';
 
 interface RenderedChatMessage extends ChatMessage {
@@ -54,12 +54,6 @@ interface ResearchToolResult {
     readonly title?: unknown;
   }[];
 }
-
-marked.use({
-  async: false,
-  breaks: true,
-  gfm: true,
-});
 
 @Component({
   selector: 'app-chat-page',
@@ -620,10 +614,6 @@ function getErrorMessage(error: unknown, fallback: string): string {
   }
 
   return error instanceof Error ? error.message : fallback;
-}
-
-function renderMarkdown(content: string): string {
-  return marked.parse(content, { async: false, breaks: true, gfm: true });
 }
 
 function extractResearchSources(

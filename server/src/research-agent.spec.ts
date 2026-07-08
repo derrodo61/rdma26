@@ -125,4 +125,20 @@ describe('research subagent capability', () => {
     expect(systemPrompt).toContain('Include the absolute date');
     expect(systemPrompt).toContain('Do not treat an older source as today');
   });
+
+  it('instructs the researcher to use adaptive local-language search only when needed', () => {
+    const searchProvider: SearchProvider = {
+      search: vi.fn(),
+    };
+
+    const subagents = createResearchSubagents(searchProvider, testUserProfile);
+    const systemPrompt = (subagents[0] as unknown as { systemPrompt: string }).systemPrompt;
+
+    expect(systemPrompt).toContain('Use an adaptive search strategy');
+    expect(systemPrompt).toContain('stop early when read sources already provide strong');
+    expect(systemPrompt).toContain('search in the likely local language');
+    expect(systemPrompt).toContain(
+      'do not run extra searches just to complete every possible strategy step',
+    );
+  });
 });
