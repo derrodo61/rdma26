@@ -83,7 +83,12 @@ Returns configured OpenAI model options and the default model.
 
 ### `GET /api/tools`
 
-Returns registered tools and their availability. `internet_search` is available when `TAVILY_API_KEY` is configured.
+Returns registered tools and their availability.
+
+- `research` is the recommended high-level internet research workflow. It is available when `TAVILY_API_KEY` and `OPENAI_API_KEY` are configured.
+- `verify_current_facts` remains available as a compatibility factual verifier when `TAVILY_API_KEY` and `OPENAI_API_KEY` are configured.
+- `internet_search` is a low-level Tavily search primitive and is available when `TAVILY_API_KEY` is configured.
+- `read_web_page` is a low-level public web page reader.
 
 The protected operator agent, `scotty`, also receives controlled admin tools during chat runs for managing agents, `soul.md`, and normal tool grants. Those admin tools are injected by the backend only for the protected operator agent and are not part of the normal assignable tool catalog returned here.
 
@@ -193,6 +198,13 @@ Body:
 ```
 
 Creates a new agent. `id` is optional; when omitted, the backend derives it from the name.
+
+Agent profiles also include visibility metadata:
+
+- `kind`: `chat`, `operator`, or `internal`
+- `chatEnabled`: whether the agent appears in the normal chat selector
+
+Normal created agents default to `kind: "chat"` and `chatEnabled: true`. The built-in `scotty` agent is an operator agent.
 
 ### `GET /api/agents/:agentId`
 

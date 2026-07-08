@@ -178,7 +178,7 @@ For the protected operator agent, the response also includes `controlledTools`, 
 ### Replace an agent's enabled tools
 
 ```bash
-rdma26 agents:tools:set --agent research --tools internet_search
+rdma26 agents:tools:set --agent ronaldo --tools research
 ```
 
 Use a comma-separated list for multiple tools.
@@ -186,14 +186,16 @@ Use a comma-separated list for multiple tools.
 ### Grant one tool
 
 ```bash
-rdma26 agents:tools:grant --agent research --tool internet_search
+rdma26 agents:tools:grant --agent ronaldo --tool research
 ```
 
 ### Revoke one tool
 
 ```bash
-rdma26 agents:tools:revoke --agent research --tool internet_search
+rdma26 agents:tools:revoke --agent ronaldo --tool research
 ```
+
+`research` is the recommended high-level internet research workflow for normal agents. `internet_search` and `read_web_page` are lower-level primitives for specialized or debugging workflows. `verify_current_facts` remains as a compatibility factual verifier.
 
 ## Threads
 

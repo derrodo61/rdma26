@@ -2,6 +2,7 @@ import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import type {
+  AgentKind,
   AgentMemorySettings,
   AgentProfile,
   CreateAgentRequest,
@@ -92,7 +93,12 @@ export class AgentRegistry {
       throw new Error(`Agent ${id} already exists.`);
     }
 
-    return await this.writeNewAgent(id, request.name);
+    return await this.writeNewAgent(
+      id,
+      request.name,
+      normalizeAgentKind(request.kind ?? (id === this.defaultAgentId ? 'operator' : 'chat')),
+      request.chatEnabled ?? request.kind !== 'internal',
+    );
   }
 
   async updateAgent(agentId: string, request: UpdateAgentRequest): Promise<AgentProfile> {
@@ -105,6 +111,9 @@ export class AgentRegistry {
     const updated: AgentProfile = {
       ...existing,
       name: request.name === undefined ? existing.name : normalizeAgentName(request.name),
+      kind: request.kind === undefined ? existing.kind : normalizeAgentKind(request.kind),
+      chatEnabled:
+        request.chatEnabled === undefined ? existing.chatEnabled : Boolean(request.chatEnabled),
       memory: normalizeAgentMemorySettings({
         ...existing.memory,
         ...request.memory,
@@ -163,7 +172,14 @@ export class AgentRegistry {
       return existing;
     }
 
-    return await this.writeNewAgent(request.id, request.name);
+    return await this.writeNewAgent(
+      request.id,
+      request.name,
+      normalizeAgentKind(
+        request.kind ?? (request.id === this.defaultAgentId ? 'operator' : 'chat'),
+      ),
+      request.chatEnabled ?? request.kind !== 'internal',
+    );
   }
 
   async storageFor(agentId: string): Promise<AssistantStorage> {
@@ -180,12 +196,19 @@ export class AgentRegistry {
     return this.defaultAgentId;
   }
 
-  private async writeNewAgent(id: string, name: string): Promise<AgentProfile> {
+  private async writeNewAgent(
+    id: string,
+    name: string,
+    kind: AgentKind = id === this.defaultAgentId ? 'operator' : 'chat',
+    chatEnabled: boolean = kind !== 'internal',
+  ): Promise<AgentProfile> {
     validateAgentId(id);
     const now = new Date().toISOString();
     const agent: AgentProfile = {
       id,
       name: normalizeAgentName(name),
+      kind,
+      chatEnabled,
       enabledTools: [],
       memory: { canWrite: true },
       soulVirtualPath,
@@ -260,6 +283,11 @@ function parseAgentProfile(value: unknown): AgentProfile | null {
     return {
       id: value.id,
       name: value.name,
+      kind: 'kind' in value ? normalizeAgentKind(value.kind) : defaultAgentKindForId(value.id),
+      chatEnabled:
+        'chatEnabled' in value && typeof value.chatEnabled === 'boolean'
+          ? value.chatEnabled
+          : defaultAgentKindForId(value.id) !== 'internal',
       enabledTools:
         'enabledTools' in value && Array.isArray(value.enabledTools)
           ? normalizeToolIds(value.enabledTools)
@@ -278,6 +306,12 @@ function hasCurrentAgentProfileShape(value: unknown): boolean {
   return (
     typeof value === 'object' &&
     value !== null &&
+    'kind' in value &&
+    ['chat', 'operator', 'internal'].includes(
+      (value as { readonly kind?: unknown }).kind as string,
+    ) &&
+    'chatEnabled' in value &&
+    typeof value.chatEnabled === 'boolean' &&
     'enabledTools' in value &&
     Array.isArray(value.enabledTools) &&
     'memory' in value &&
@@ -288,6 +322,18 @@ function hasCurrentAgentProfileShape(value: unknown): boolean {
     'soulVirtualPath' in value &&
     value.soulVirtualPath === soulVirtualPath
   );
+}
+
+function normalizeAgentKind(value: unknown): AgentKind {
+  if (value === 'chat' || value === 'operator' || value === 'internal') {
+    return value;
+  }
+
+  throw new Error('Agent kind must be chat, operator, or internal.');
+}
+
+function defaultAgentKindForId(agentId: string): AgentKind {
+  return agentId === 'scotty' ? 'operator' : 'chat';
 }
 
 function normalizeSoulVirtualPath(value: string): string {

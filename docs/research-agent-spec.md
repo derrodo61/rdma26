@@ -1,8 +1,8 @@
 # Research Agent Spec
 
-This document describes the planned shared research capability for `rdma26`.
+This document describes the shared research capability for `rdma26`.
 
-The current implementation has primitive web tools (`internet_search`, `read_web_page`) and a bounded factual verification workflow (`verify_current_facts`). The next step is to treat internet research as a first-class capability agent that can be reused by all normal agents.
+The current implementation has primitive web tools (`internet_search`, `read_web_page`), a bounded factual verification workflow (`verify_current_facts`), and the first high-level `research` tool. The `research` tool is backed by a backend `ResearchAgent` service and is the recommended capability for normal agents that need current external information.
 
 ## Goal
 
@@ -239,7 +239,7 @@ Quick mode should:
 
 Longer research workflow.
 
-Deep mode is not required for the first implementation. It is reserved for broader research tasks.
+Deep mode is not implemented yet. It is reserved for broader research tasks.
 
 Deep mode may later:
 
@@ -292,9 +292,8 @@ It should have:
 
 It may be exposed later as a normal chat-selectable agent, but the first purpose is delegation from other agents.
 
-Agent records should support metadata that distinguishes chat-enabled agents from
-internal capability agents. The exact field names can be decided during
-implementation, but the model should support this concept:
+Agent records support metadata that distinguishes chat-enabled agents from
+internal capability agents:
 
 ```ts
 interface AgentVisibility {
@@ -307,7 +306,7 @@ Normal domain agents are `chat` agents with `chatEnabled: true`. Scotty is an
 `operator` agent with `chatEnabled: true`. The research agent is an `internal`
 agent with `chatEnabled: false`.
 
-The normal chat agent selector should show only chat-enabled agents. Admin,
+The normal chat agent selector shows only chat-enabled agents. Admin,
 settings, and debug views may show internal agents separately, for example under
 system agents or capability agents.
 
@@ -353,27 +352,29 @@ The existing public tool can remain temporarily as a compatibility wrapper.
 
 ## First Implementation Plan
 
-1. Create a backend `ResearchAgent` service.
-2. Move the current `verifyCurrentFacts()` workflow behind `ResearchAgent.quickFacts()`.
-3. Add a generic `research` tool that normal agents can be granted.
-4. Make `research` call the backend `ResearchAgent` service.
-5. Keep `verify_current_facts` for now, but mark it internally as the quick factual workflow.
-6. Update agent bootloader guidance:
+Status: implemented for quick mode.
+
+1. Created a backend `ResearchAgent` service.
+2. Moved the current `verifyCurrentFacts()` workflow behind `ResearchAgent.quickFacts()`.
+3. Added a generic `research` tool that normal agents can be granted.
+4. Made `research` call the backend `ResearchAgent` service.
+5. Kept `verify_current_facts` as a compatibility wrapper around the quick factual workflow.
+6. Updated agent bootloader guidance:
    - use `research` for current external information
    - prefer `research` over manual search chains
    - answer from the returned structured result
-7. Store research traces in run-context snapshots:
+7. Research traces are stored in run-context snapshots through tool-call capture:
    - mode
    - searches
    - sources
    - status
    - unresolved facts
-8. Add tests for:
+8. Added tests for:
    - quick factual success
-   - off-topic source rejection
    - partial result
-   - official-source preference
-   - domain agent receives structured research output
+   - research service result shape
+   - domain-agent bootloader guidance
+   - agent visibility metadata
 
 ## Later Implementation Plan
 

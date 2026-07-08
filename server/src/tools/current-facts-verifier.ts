@@ -50,6 +50,11 @@ export interface VerifyCurrentFactsDependencies {
   readonly analyze: (request: AnalyzeFactsRequest) => Promise<AnalyzeFactsResult>;
 }
 
+export interface VerifyCurrentFactsDependencyOptions {
+  readonly plannerModel?: string;
+  readonly verifierModel?: string;
+}
+
 export interface PlanSearchQueriesRequest {
   readonly question: string;
   readonly requiredItems?: number;
@@ -181,9 +186,11 @@ export async function verifyCurrentFacts(
 
 export function createVerifyCurrentFactsDependencies(
   searchProvider: SearchProvider,
+  options: VerifyCurrentFactsDependencyOptions = {},
 ): VerifyCurrentFactsDependencies {
   return {
-    planSearchQueries: planSearchQueriesWithOpenAI,
+    planSearchQueries: async (request) =>
+      await planSearchQueriesWithOpenAI(request, options.plannerModel),
     search: async ({ question, topic }) =>
       parseSearchPayload(
         await searchProvider.search({
@@ -194,12 +201,15 @@ export function createVerifyCurrentFactsDependencies(
         }),
       ),
     readPage: async (url, query) => await readWebPage(url, { query, maxCharacters: 12_000 }),
-    analyze: analyzeFactsWithOpenAI,
+    analyze: async (request) => await analyzeFactsWithOpenAI(request, options.verifierModel),
   };
 }
 
 async function planSearchQueriesWithOpenAI(
   request: PlanSearchQueriesRequest,
+  modelName = process.env['RESEARCH_PLANNER_MODEL'] ??
+    process.env['OPENAI_MODEL'] ??
+    'gpt-4.1-mini',
 ): Promise<readonly string[]> {
   const apiKey = process.env['OPENAI_API_KEY'];
 
@@ -209,7 +219,7 @@ async function planSearchQueriesWithOpenAI(
 
   const model = new ChatOpenAI({
     apiKey,
-    model: process.env['OPENAI_MODEL'] ?? 'gpt-4.1-mini',
+    model: modelName,
     temperature: 0,
   });
   const result = await model.invoke([
@@ -244,7 +254,12 @@ async function planSearchQueriesWithOpenAI(
   return parseSearchQueryPlan(readModelText(result));
 }
 
-async function analyzeFactsWithOpenAI(request: AnalyzeFactsRequest): Promise<AnalyzeFactsResult> {
+async function analyzeFactsWithOpenAI(
+  request: AnalyzeFactsRequest,
+  modelName = process.env['RESEARCH_VERIFIER_MODEL'] ??
+    process.env['OPENAI_MODEL'] ??
+    'gpt-4.1-mini',
+): Promise<AnalyzeFactsResult> {
   const apiKey = process.env['OPENAI_API_KEY'];
 
   if (!apiKey) {
@@ -260,7 +275,7 @@ async function analyzeFactsWithOpenAI(request: AnalyzeFactsRequest): Promise<Ana
 
   const model = new ChatOpenAI({
     apiKey,
-    model: process.env['OPENAI_MODEL'] ?? 'gpt-4.1-mini',
+    model: modelName,
     temperature: 0,
   });
   const result = await model.invoke([

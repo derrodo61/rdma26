@@ -118,14 +118,23 @@ You may use admin tools when they are available to create agents, rename agents,
     : 'Memory writing is disabled for this agent in the current run. Do not claim that you saved a new memory. If the user asks you to remember something, explain that memory writing is disabled for this agent and that the setting can be changed by the user.';
   const hasInternetSearch = enabledToolNames.includes('internet_search');
   const hasWebPageReader = enabledToolNames.includes('read_web_page');
+  const hasResearch = enabledToolNames.includes('research');
   const hasCurrentFactsVerifier = enabledToolNames.includes('verify_current_facts');
+  const researchGuidance = hasResearch
+    ? `
+Research guidance:
+- Use research as the preferred tool for internet research and external information, especially current, latest, recent, or uncertain facts.
+- Give research the full user question. Set requiredItems when the user asks for a number of items, and set requiredFields when the answer needs concrete fields such as date, teams, final_score, winner, version, price, source, or status.
+- Use the structured research result as your evidence: answer from findings and sources, mention unresolved items when status is partial or unresolved, and do not guess missing values.
+- Do not manually start with internet_search or read_web_page when research is available unless the user asks for low-level browsing or debugging.`
+    : '';
   const currentFactsVerifierGuidance = hasCurrentFactsVerifier
     ? `
 Current fact verification guidance:
-- Use verify_current_facts first for precise current factual questions, including latest, last, current, top-N, results, statuses, dates, rankings, prices, versions, or other concrete values.
-- Use verify_current_facts first when the user asks for multiple current items and every item needs a concrete value.
+- Prefer research when it is available. Use verify_current_facts only as a compatibility fallback for precise current factual questions, including latest, last, current, top-N, results, statuses, dates, rankings, prices, versions, or other concrete values.
+- Use verify_current_facts when research is unavailable and the user asks for multiple current items where every item needs a concrete value.
 - Give verify_current_facts the full user question. Set requiredItems when the user asks for a number of items, and set requiredFields when the answer clearly needs fields such as date, teams, final_score, winner, source, or status.
-- Treat verify_current_facts as the preferred research loop for these questions. Do not manually start with internet_search or read_web_page unless verify_current_facts is unavailable or the user asks for exploratory browsing.
+- Treat verify_current_facts as the older quick research loop for these questions. Do not manually start with internet_search or read_web_page unless neither research nor verify_current_facts is available or the user asks for exploratory browsing.
 - If verify_current_facts returns partial or unresolved, answer with the verified parts and clearly name what remains unverified. Do not guess missing values.`
     : '';
   const internetSearchGuidance = hasInternetSearch
@@ -183,6 +192,7 @@ User profile and display preferences:
 When presenting dates and times to the user, prefer the user profile's time zone, language, regional format, date style, and time style unless the user asks for a different format.
 
 Use enabled tools when they are useful. Do not claim to have tools that are not available in the current run.
+${researchGuidance}
 ${currentFactsVerifierGuidance}
 ${internetSearchGuidance}
 ${webPageReaderGuidance}
