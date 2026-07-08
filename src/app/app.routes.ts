@@ -1,11 +1,6 @@
 import { Routes } from '@angular/router';
 
-import { AgentEditPage } from './settings/agent-edit-page/agent-edit-page';
-import { AgentSettingsPage } from './settings/agent-settings-page/agent-settings-page';
 import { ChatPage } from './chat/chat-page/chat-page';
-import { MemorySettingsPage } from './settings/memory-settings-page/memory-settings-page';
-import { RunContextPage } from './settings/run-context-page/run-context-page';
-import { UserProfilePage } from './settings/user-profile-page/user-profile-page';
 
 export const routes: Routes = [
   {
@@ -15,23 +10,36 @@ export const routes: Routes = [
   },
   {
     path: 'settings/agents',
-    component: AgentSettingsPage,
+    loadComponent: () =>
+      import('./settings/agent-settings-page/agent-settings-page').then(
+        (module) => module.AgentSettingsPage,
+      ),
   },
   {
     path: 'settings/agents/:agentId',
-    component: AgentEditPage,
+    loadComponent: () =>
+      import('./settings/agent-edit-page/agent-edit-page').then((module) => module.AgentEditPage),
   },
   {
     path: 'settings/profile',
-    component: UserProfilePage,
+    loadComponent: () =>
+      import('./settings/user-profile-page/user-profile-page').then(
+        (module) => module.UserProfilePage,
+      ),
   },
   {
     path: 'settings/memories',
-    component: MemorySettingsPage,
+    loadComponent: () =>
+      import('./settings/memory-settings-page/memory-settings-page').then(
+        (module) => module.MemorySettingsPage,
+      ),
   },
   {
     path: 'settings/runs/:runId',
-    component: RunContextPage,
+    loadComponent: () =>
+      import('./settings/run-context-page/run-context-page').then(
+        (module) => module.RunContextPage,
+      ),
   },
   {
     path: '**',
