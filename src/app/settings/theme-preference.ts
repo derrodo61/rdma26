@@ -42,6 +42,6 @@ export class ThemePreferenceService {
   }
 }
 
-export function isThemePreference(value: unknown): value is ThemePreference {
+function isThemePreference(value: unknown): value is ThemePreference {
   return value === 'light' || value === 'dark' || value === 'system';
 }

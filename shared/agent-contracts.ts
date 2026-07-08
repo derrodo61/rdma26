@@ -1,4 +1,4 @@
-export type ChatRole = 'user' | 'assistant';
+type ChatRole = 'user' | 'assistant';
 export type ThemePreference = 'light' | 'dark' | 'system';
 export type DateStylePreference = 'short' | 'medium' | 'long' | 'full';
 export type TimeStylePreference = 'short' | 'medium';
@@ -214,7 +214,7 @@ export type MemoryType =
 export type MemoryStatus = 'active' | 'archived' | 'superseded';
 export type MemoryLifetime = 'permanent' | 'active' | 'temporary';
 
-export interface MemorySource {
+interface MemorySource {
   readonly agentId?: string;
   readonly threadId?: string;
   readonly messageId?: string;
@@ -344,7 +344,7 @@ export interface MemoryContextSource {
   readonly score: number;
 }
 
-export interface RunContextMessage {
+interface RunContextMessage {
   readonly id: string;
   readonly role: ChatRole;
   readonly createdAt: string;

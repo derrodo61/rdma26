@@ -4,7 +4,7 @@ Local-first Angular and Fastify app for rdma26, a personal multi-agent Deep Agen
 
 The backend runs currently on a MacBook and exposes a browser-friendly API for any frontend that can reach it. The first frontend is Angular. Conversations are organized as agent-specific threads, model selection starts with OpenAI model IDs, and each configured agent gets its own stable identity file at `.assistant-data/agents/<agent-id>/configuration/soul.md`.
 
-Agents can also have tools assigned dynamically. The first registered normal tool is `internet_search`, backed by Tavily when `TAVILY_API_KEY` is configured. The protected operator agent is `Scotty` with id `scotty`, a local operator agent with controlled admin tools for managing agents and tool grants.
+Agents can also have capabilities and tools assigned dynamically. The recommended internet research capability is `research`, which attaches a Deep Agents researcher subagent when `TAVILY_API_KEY` and `OPENAI_API_KEY` are configured. Lower-level `internet_search` and `read_web_page` tools remain available for specialized or debugging workflows. The protected operator agent is `Scotty` with id `scotty`, a local operator agent with controlled admin tools for managing agents and tool grants.
 
 The project is designed around one shared backend runtime. API endpoints and CLI commands call the same `AssistantRuntime` service, so functionality exposed through the browser is also available from the command line without maintaining a second implementation.
 
@@ -96,13 +96,14 @@ Each agent gets isolated threads, history, identity configuration, and Deep Agen
 
 `POST /api/agent-runs` requires `agentId`, so a thread can only be read and continued through the agent it belongs to.
 
-Tool grants are agent-specific too. The agent profile stores `enabledTools`, while the backend registry owns the tool implementation and required secrets. Scotty's admin tools are injected only for the protected operator agent and are not part of the normal tool grant list. To enable Tavily search for an agent:
+Tool grants are agent-specific too. The agent profile stores `enabledTools`, while the backend registry owns the capability/tool implementation and required secrets. Scotty's admin tools are injected only for the protected operator agent and are not part of the normal tool grant list. To enable internet research for an agent:
 
 ```bash
 TAVILY_API_KEY=tvly-...
+OPENAI_API_KEY=sk-...
 ```
 
-Then grant `internet_search` through the UI, API, or CLI. If a tool is enabled but its provider is not configured, the tool list reports it as unavailable and a chat run fails with a clear configuration error instead of silently pretending the tool exists.
+Then grant `research` through the UI, API, or CLI. If a capability or tool is enabled but its provider is not configured, the tool list reports it as unavailable and a chat run fails with a clear configuration error instead of silently pretending the capability exists.
 
 ## CLI
 

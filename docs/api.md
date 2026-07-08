@@ -263,11 +263,15 @@ Body:
 
 ```json
 {
-  "enabledTools": ["internet_search"]
+  "enabledTools": ["research"]
 }
 ```
 
 Replaces the agent's enabled tool list.
+
+Use `research` for normal agents that need current external information. Use
+`internet_search` and `read_web_page` only when you explicitly want the
+low-level primitives.
 
 ### `POST /api/agents/:agentId/tools/:toolId`
 

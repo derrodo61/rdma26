@@ -543,7 +543,7 @@ export class MemoryStore {
   }
 }
 
-export interface MemorySearchResult {
+interface MemorySearchResult {
   readonly memory: MemoryRecord;
   readonly source: MemoryContextSource;
 }

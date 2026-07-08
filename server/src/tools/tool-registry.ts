@@ -8,8 +8,8 @@ import { TavilySearchProvider } from './tavily-search-provider';
 import { readWebPage } from './web-page-reader';
 
 export const researchToolId = 'research';
-export const internetSearchToolId = 'internet_search';
-export const readWebPageToolId = 'read_web_page';
+const internetSearchToolId = 'internet_search';
+const readWebPageToolId = 'read_web_page';
 
 interface ToolRegistration {
   readonly id: string;

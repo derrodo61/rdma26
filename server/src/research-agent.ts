@@ -6,52 +6,6 @@ import type { SearchProvider, SearchTopic } from './tools/search-provider';
 import { readWebPage } from './tools/web-page-reader';
 import type { UserProfile } from '../../shared/agent-contracts';
 
-export type ResearchMode = 'auto' | 'deep';
-export type ResearchExpectedOutput = 'answer' | 'structured_facts' | 'report';
-export type ResearchStatus = 'verified' | 'partial' | 'unresolved';
-export type ResearchClaimStatus =
-  'confirmed' | 'reported' | 'disputed' | 'unsupported' | 'false' | 'unclear' | 'not_applicable';
-
-export interface ResearchFinding {
-  readonly item: string;
-  readonly values: Record<string, string>;
-  readonly sourceUrls: readonly string[];
-}
-
-export interface ResearchSource {
-  readonly url: string;
-  readonly title?: string;
-  readonly excerpt?: string;
-  readonly extractionProvider?: string;
-  readonly extractionWarning?: string;
-}
-
-export interface ResearchSearch {
-  readonly query: string;
-  readonly resultCount: number;
-}
-
-export interface ResearchTemporalCandidate {
-  readonly label: string;
-  readonly date: string;
-  readonly sourceUrls: readonly string[];
-  readonly notes?: string;
-}
-
-export interface ResearchResult {
-  readonly status: ResearchStatus;
-  readonly claimStatus?: ResearchClaimStatus;
-  readonly answer: string;
-  readonly answerSourceUrls: readonly string[];
-  readonly findings: readonly ResearchFinding[];
-  readonly unresolved: readonly string[];
-  readonly sources: readonly ResearchSource[];
-  readonly searches: readonly ResearchSearch[];
-  readonly temporalCandidates: readonly ResearchTemporalCandidate[];
-  readonly warnings: readonly string[];
-  readonly notes: readonly string[];
-}
-
 interface SearchResultItem {
   readonly title?: string;
   readonly url?: string;

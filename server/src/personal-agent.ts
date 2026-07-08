@@ -15,7 +15,7 @@ import type { AssistantStorage } from './storage';
 import { researchToolId } from './tools/tool-registry';
 import { TavilySearchProvider } from './tools/tavily-search-provider';
 
-export interface PersonalAgentRequest {
+interface PersonalAgentRequest {
   readonly threadId: string;
   readonly model: string;
   readonly tools: readonly StructuredToolInterface[];

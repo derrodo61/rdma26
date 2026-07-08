@@ -2,11 +2,10 @@ import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import { TavilyExtract } from '@langchain/tavily';
 import * as cheerio from 'cheerio';
-import type { AnyNode } from 'domhandler';
 
-export type WebPageExtractionProvider = 'tavily_extract' | 'local_fetch';
+type WebPageExtractionProvider = 'tavily_extract' | 'local_fetch';
 
-export interface WebPageReadResult {
+interface WebPageReadResult {
   readonly url: string;
   readonly finalUrl: string;
   readonly title?: string;
@@ -18,7 +17,7 @@ export interface WebPageReadResult {
   readonly extractionWarning?: string;
 }
 
-export interface WebPageReaderOptions {
+interface WebPageReaderOptions {
   readonly timeoutMs?: number;
   readonly maxBytes?: number;
   readonly maxCharacters?: number;
@@ -315,7 +314,7 @@ function isTavilyExtractResponseLike(value: unknown): value is TavilyExtractResp
   );
 }
 
-export async function assertAllowedWebUrl(url: string): Promise<URL> {
+async function assertAllowedWebUrl(url: string): Promise<URL> {
   const parsed = parseWebUrl(url);
   const hostname = parsed.hostname.toLowerCase();
 
@@ -565,7 +564,10 @@ function normalizeWhitespace(text: string): string {
     .trim();
 }
 
-function extractTextFromElement($: cheerio.CheerioAPI, element: AnyNode | undefined): string {
+function extractTextFromElement(
+  $: cheerio.CheerioAPI,
+  element: Parameters<cheerio.CheerioAPI>[0] | undefined,
+): string {
   if (!element) {
     return '';
   }

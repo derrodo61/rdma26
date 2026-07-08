@@ -540,7 +540,10 @@ rdma26 runs:context --run <run-id>
 
 UI:
 
-The chat page links to the latest run context after a run. The detail page is:
+The chat page links to the latest run context after a run. Research-backed
+assistant messages can also show a per-message `Sources` control, so source
+links stay attached to the answer they support after live runs and page reloads.
+The run-context detail page is:
 
 ```text
 /settings/runs/<run-id>
@@ -600,6 +603,7 @@ Available memory setting:
 Chat UI:
 
 - shows a latest run-context link after a run
+- shows per-message source controls for research-backed assistant answers
 - offers per-thread memory summary creation controls
 
 Run context UI:

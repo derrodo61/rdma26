@@ -779,25 +779,25 @@ async function readFileUpdatedAt(path: string): Promise<string> {
   return (await stat(path)).mtime.toISOString();
 }
 
-export interface RunAgentResult {
+interface RunAgentResult {
   readonly agentResponse: PersonalAgentResponse;
   readonly runContext: RunContextDetails;
   readonly runId: string;
   readonly thread: ChatThread;
 }
 
-export interface RunAgentOptions {
+interface RunAgentOptions {
   readonly runId?: string;
   readonly onActivity?: (activity: { readonly label: string; readonly detail?: string }) => void;
 }
 
-export interface AssistantRuntimeOptions {
+interface AssistantRuntimeOptions {
   readonly dataDir: string;
   readonly defaultAgentId: string;
   readonly defaultAgentName: string;
 }
 
-export function readRuntimeOptionsFromEnv(): AssistantRuntimeOptions {
+function readRuntimeOptionsFromEnv(): AssistantRuntimeOptions {
   return {
     dataDir: process.env['ASSISTANT_DATA_DIR'] ?? join(process.cwd(), '.assistant-data'),
     defaultAgentId: process.env['ASSISTANT_AGENT_ID'] ?? 'scotty',

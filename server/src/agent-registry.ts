@@ -282,7 +282,7 @@ export class AgentRegistry {
   }
 }
 
-export function normalizeAgentId(input: string): string {
+function normalizeAgentId(input: string): string {
   const normalized = input
     .trim()
     .toLowerCase()

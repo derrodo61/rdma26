@@ -6,7 +6,7 @@ import type { AuthSessionResponse, LoginRequest } from '../../shared/agent-contr
 const cookieName = 'rdma26_session';
 const sessionTtlMs = 7 * 24 * 60 * 60 * 1000;
 
-export interface AuthConfig {
+interface AuthConfig {
   readonly enabled: boolean;
   readonly username?: string;
   readonly password?: string;

@@ -1,9 +1,9 @@
 import type { SearchRequest } from './search-provider';
 
-export type SearchResultKind =
+type SearchResultKind =
   'direct_answer' | 'preview_or_schedule' | 'live_update' | 'analysis_or_recap' | 'unknown';
 
-export interface SearchQualityHints {
+interface SearchQualityHints {
   readonly resultCount: number;
   readonly directAnswerCount: number;
   readonly previewOrScheduleCount: number;
@@ -16,7 +16,7 @@ export interface SearchQualityHints {
   readonly results: readonly SearchResultQuality[];
 }
 
-export interface SearchResultQuality {
+interface SearchResultQuality {
   readonly index: number;
   readonly kind: SearchResultKind;
   readonly title?: string;
