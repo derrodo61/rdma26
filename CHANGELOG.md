@@ -51,6 +51,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added stricter research-agent guardrails for latest/current temporal ordering, claim-status nuance, and contradiction warnings.
 - Changed web page DNS/URL validation failures to return structured reader warnings instead of aborting chat runs.
 - Changed thread-summary consolidation to return an existing summary instead of regenerating it, and added readable `contentLines` for multiline memory JSON files.
+- Changed `save_memory` so agents can save agent, agent-user, or global user memories, and may save sensitive personal data when the user explicitly asks for it.
+- Tightened memory-scope guidance so per-agent interaction preferences are saved as `agent_user` unless the user clearly wants a global preference.
+- Added a best-effort new-thread trigger that creates a one-time summary for the previous latest non-empty thread when summary creation is available.
+- Added a phased SQLite storage plan and moved memory records to `.assistant-data/rdma26.sqlite`, with one-time import of legacy JSON memory files.
+- Added memory browsing filters for lifetime, tag, and created/updated date ranges across the API, CLI, and memory settings UI.
+- Moved thread and message records to `.assistant-data/rdma26.sqlite`, with one-time import of legacy per-agent thread JSON files.
+- Updated orphaned run-context cleanup and agent deletion to use SQLite-backed thread, memory, and run-context ownership.
+- Moved run-context records to `.assistant-data/rdma26.sqlite`, with one-time import of legacy global and per-agent run-context JSON files.
+- Changed SQLite migration cleanup so imported JSON memory, thread, and run-context files are removed after successful import.
 
 ## [2026-07-06]
 

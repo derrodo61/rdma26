@@ -93,14 +93,20 @@ rdma26 profile:agent-model:set --agent scotty --model gpt-4.1-mini
 ### List or search memories
 
 ```bash
-rdma26 memories:list --agent scotty --query "football"
+rdma26 memories:list --agent scotty --query "football" --tag world-cup --updated-from 2026-07-01
 ```
 
 Useful filters:
 
 - `--scope agent|agent_user|user`
 - `--type fact|preference|conversation_summary|open_task|tracked_topic`
+- `--lifetime permanent|active|temporary`
 - `--status active|archived|superseded`
+- `--tag <tag>`
+- `--created-from YYYY-MM-DD`
+- `--created-to YYYY-MM-DD`
+- `--updated-from YYYY-MM-DD`
+- `--updated-to YYYY-MM-DD`
 - `--limit 20`
 
 ### Read one memory
@@ -212,6 +218,8 @@ rdma26 threads:create --agent scotty --title "Planning"
 ```
 
 `--title` is optional.
+
+When possible, creating a new thread also creates a one-time summary for the previous latest non-empty thread for the same agent. The new thread is still created if summary creation is unavailable.
 
 ### Read a thread
 

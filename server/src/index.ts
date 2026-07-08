@@ -75,7 +75,13 @@ const memoryListQuerySchema = z.object({
   agentId: z.string().trim().min(1).optional(),
   scope: memoryScopeSchema.optional(),
   type: memoryTypeSchema.optional(),
+  lifetime: memoryLifetimeSchema.optional(),
   status: memoryStatusSchema.optional(),
+  tag: z.string().trim().min(1).optional(),
+  createdFrom: z.string().trim().min(1).optional(),
+  createdTo: z.string().trim().min(1).optional(),
+  updatedFrom: z.string().trim().min(1).optional(),
+  updatedTo: z.string().trim().min(1).optional(),
   query: z.string().trim().min(1).optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
 });
@@ -831,7 +837,7 @@ async function startServer(): Promise<void> {
     '/api/agents/:agentId/threads',
     routeDocs({
       tags: ['threads'],
-      summary: 'Create a thread for one agent.',
+      summary: 'Create a thread and summarize the previous thread when possible.',
       params: agentParamsSchema,
       body: createThreadRequestSchema,
     }),

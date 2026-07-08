@@ -7,6 +7,7 @@ import type {
   ChatThread,
   ChatThreadSummary,
 } from '../../shared/agent-contracts';
+import { LocalDatabase } from './local-database';
 
 export interface AssistantStorage {
   readonly dataDir: string;
@@ -34,6 +35,22 @@ interface StoredThreadFile {
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly messages: readonly ChatMessage[];
+}
+
+interface ThreadRow {
+  readonly id: string;
+  readonly agent_id: string;
+  readonly title: string;
+  readonly created_at: string;
+  readonly updated_at: string;
+  readonly message_count: number;
+}
+
+interface MessageRow {
+  readonly id: string;
+  readonly role: ChatMessage['role'];
+  readonly content: string;
+  readonly created_at: string;
 }
 
 function createDefaultSoul(agent: AgentProfile): string {
@@ -76,8 +93,8 @@ export function createAssistantStorage(dataDir: string, agent: AgentProfile): As
   const threadsDir = join(agentDataDir, 'threads');
   const configurationDir = join(agentDataDir, 'configuration');
   const deepAgentRootDir = join(agentDataDir, 'deepagent');
-  const memoryDir = join(deepAgentRootDir, 'memories');
   const soulPath = join(configurationDir, 'soul.md');
+  const database = new LocalDatabase(dataDir);
 
   return {
     dataDir,
@@ -86,23 +103,35 @@ export function createAssistantStorage(dataDir: string, agent: AgentProfile): As
     deepAgentRootDir,
     soulPath,
     async ensureReady() {
-      await mkdir(threadsDir, { recursive: true });
       await mkdir(configurationDir, { recursive: true });
-      await mkdir(memoryDir, { recursive: true });
+      await mkdir(deepAgentRootDir, { recursive: true });
+      await database.ensureReady();
+      await importThreadJsonFiles(database, threadsDir, agent.id);
       await writeIfMissing(soulPath, createDefaultSoul(agent));
     },
     async listThreads() {
       await this.ensureReady();
-      const fileNames = await readdir(threadsDir);
-      const threads = await Promise.all(
-        fileNames
-          .filter((fileName) => fileName.endsWith('.json'))
-          .map(async (fileName) => readThreadFile(join(threadsDir, fileName))),
-      );
+      const rows = database
+        .get()
+        .prepare(
+          `
+            select
+              threads.id,
+              threads.agent_id,
+              threads.title,
+              threads.created_at,
+              threads.updated_at,
+              count(messages.id) as message_count
+            from threads
+            left join messages on messages.thread_id = threads.id
+            where threads.agent_id = ?
+            group by threads.id
+            order by threads.updated_at desc
+          `,
+        )
+        .all(agent.id);
 
-      return threads
-        .map((thread) => toThreadSummary(thread, agent.id))
-        .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+      return rows.map((row) => threadSummaryFromRow(row));
     },
     async createThread(title) {
       await this.ensureReady();
@@ -116,37 +145,23 @@ export function createAssistantStorage(dataDir: string, agent: AgentProfile): As
         messageCount: 0,
         messages: [],
       };
-      await writeThread(threadsDir, thread);
+      insertThread(database, thread);
 
       return thread;
     },
     async readThread(threadId) {
       await this.ensureReady();
 
-      try {
-        return toChatThread(await readThreadFile(threadPath(threadsDir, threadId)), agent.id);
-      } catch (error) {
-        if (isNodeError(error) && error.code === 'ENOENT') {
-          return null;
-        }
-
-        throw error;
-      }
+      return readThreadFromDatabase(database, agent.id, threadId);
     },
     async deleteThread(threadId) {
       await this.ensureReady();
+      const result = database
+        .get()
+        .prepare('delete from threads where id = ? and agent_id = ?')
+        .run(threadId, agent.id);
 
-      try {
-        await rm(threadPath(threadsDir, threadId));
-
-        return true;
-      } catch (error) {
-        if (isNodeError(error) && error.code === 'ENOENT') {
-          return false;
-        }
-
-        throw error;
-      }
+      return result.changes > 0;
     },
     async appendMessage(threadId, message) {
       const thread = await this.readThread(threadId);
@@ -173,7 +188,7 @@ export function createAssistantStorage(dataDir: string, agent: AgentProfile): As
         messages: [...thread.messages, nextMessage],
       };
 
-      await writeThread(threadsDir, nextThread);
+      appendMessageToDatabase(database, nextThread, nextMessage);
 
       return nextThread;
     },
@@ -212,16 +227,176 @@ async function readThreadFile(path: string): Promise<StoredThreadFile> {
   return raw;
 }
 
-async function writeThread(threadsDir: string, thread: ChatThread): Promise<void> {
-  await writeFile(
-    threadPath(threadsDir, thread.id),
-    `${JSON.stringify(thread, null, 2)}\n`,
-    'utf8',
+function threadPath(threadsDir: string, threadId: string): string {
+  return join(threadsDir, `${threadId}.json`);
+}
+
+export async function importThreadJsonFiles(
+  database: LocalDatabase,
+  threadsDir: string,
+  agentId: string,
+  markerKey = `thread_json_imported_at:${agentId}`,
+): Promise<void> {
+  const importMarker = database
+    .get()
+    .prepare('select value from schema_metadata where key = ?')
+    .get(markerKey);
+
+  if (importMarker) {
+    await deleteImportedThreadJsonFiles(database, threadsDir);
+    return;
+  }
+
+  const fileNames = await readJsonFileNames(threadsDir);
+  const threads = await Promise.all(
+    fileNames.map(async (fileName) => readThreadFile(join(threadsDir, fileName))),
+  );
+
+  for (const thread of threads) {
+    insertThreadWithMessages(database, toChatThread(thread, agentId), 'insert-or-ignore');
+  }
+
+  database
+    .get()
+    .prepare(
+      `
+        insert into schema_metadata (key, value)
+        values (?, ?)
+      `,
+    )
+    .run(markerKey, new Date().toISOString());
+  await deleteImportedThreadJsonFiles(database, threadsDir);
+}
+
+async function deleteImportedThreadJsonFiles(
+  database: LocalDatabase,
+  threadsDir: string,
+): Promise<void> {
+  const fileNames = await readJsonFileNames(threadsDir);
+
+  await Promise.all(
+    fileNames.map(async (fileName) => {
+      const path = join(threadsDir, fileName);
+      const thread = await readThreadFile(path);
+      const row = database.get().prepare('select id from threads where id = ?').get(thread.id);
+
+      if (row) {
+        await rm(path, { force: true });
+      }
+    }),
   );
 }
 
-function threadPath(threadsDir: string, threadId: string): string {
-  return join(threadsDir, `${threadId}.json`);
+async function readJsonFileNames(dir: string): Promise<readonly string[]> {
+  try {
+    return (await readdir(dir)).filter((fileName) => fileName.endsWith('.json'));
+  } catch (error) {
+    if (isNodeError(error) && error.code === 'ENOENT') {
+      return [];
+    }
+
+    throw error;
+  }
+}
+
+function insertThread(database: LocalDatabase, thread: ChatThread): void {
+  database
+    .get()
+    .prepare(
+      `
+        insert into threads (id, agent_id, title, created_at, updated_at)
+        values (?, ?, ?, ?, ?)
+      `,
+    )
+    .run(thread.id, thread.agentId, thread.title, thread.createdAt, thread.updatedAt);
+}
+
+function insertThreadWithMessages(
+  database: LocalDatabase,
+  thread: ChatThread,
+  mode: 'insert' | 'insert-or-ignore',
+): void {
+  const insertMode = mode === 'insert-or-ignore' ? 'insert or ignore' : 'insert';
+  const transaction = database.get().transaction(() => {
+    database
+      .get()
+      .prepare(
+        `
+          ${insertMode} into threads (id, agent_id, title, created_at, updated_at)
+          values (?, ?, ?, ?, ?)
+        `,
+      )
+      .run(thread.id, thread.agentId, thread.title, thread.createdAt, thread.updatedAt);
+
+    for (const [index, message] of thread.messages.entries()) {
+      database
+        .get()
+        .prepare(
+          `
+            ${insertMode} into messages (id, thread_id, role, content, created_at, position)
+            values (?, ?, ?, ?, ?, ?)
+          `,
+        )
+        .run(message.id, thread.id, message.role, message.content, message.createdAt, index);
+    }
+  });
+
+  transaction();
+}
+
+function appendMessageToDatabase(
+  database: LocalDatabase,
+  thread: ChatThread,
+  message: ChatMessage,
+): void {
+  const position = thread.messages.length - 1;
+  const transaction = database.get().transaction(() => {
+    database
+      .get()
+      .prepare('update threads set title = ?, updated_at = ? where id = ? and agent_id = ?')
+      .run(thread.title, thread.updatedAt, thread.id, thread.agentId);
+    database
+      .get()
+      .prepare(
+        `
+          insert into messages (id, thread_id, role, content, created_at, position)
+          values (?, ?, ?, ?, ?, ?)
+        `,
+      )
+      .run(message.id, thread.id, message.role, message.content, message.createdAt, position);
+  });
+
+  transaction();
+}
+
+function readThreadFromDatabase(
+  database: LocalDatabase,
+  agentId: string,
+  threadId: string,
+): ChatThread | null {
+  const threadRow = database
+    .get()
+    .prepare('select * from threads where id = ? and agent_id = ?')
+    .get(threadId, agentId);
+
+  if (!threadRow) {
+    return null;
+  }
+
+  const messageRows = database
+    .get()
+    .prepare('select * from messages where thread_id = ? order by position asc')
+    .all(threadId);
+  const messages = messageRows.map((row) => messageFromRow(row));
+  const summary = threadSummaryFromRow({
+    ...threadRow,
+    message_count: messages.length,
+  });
+
+  return {
+    ...summary,
+    messages,
+  };
 }
 
 function toThreadSummary(thread: StoredThreadFile, fallbackAgentId: string): ChatThreadSummary {
@@ -239,6 +414,34 @@ function toChatThread(thread: StoredThreadFile, fallbackAgentId: string): ChatTh
   return {
     ...toThreadSummary(thread, fallbackAgentId),
     messages: thread.messages,
+  };
+}
+
+function threadSummaryFromRow(row: unknown): ChatThreadSummary {
+  if (!isThreadRow(row)) {
+    throw new Error('Invalid thread database row.');
+  }
+
+  return {
+    id: row.id,
+    agentId: row.agent_id,
+    title: row.title,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    messageCount: Number(row.message_count),
+  };
+}
+
+function messageFromRow(row: unknown): ChatMessage {
+  if (!isMessageRow(row)) {
+    throw new Error('Invalid message database row.');
+  }
+
+  return {
+    id: row.id,
+    role: row.role,
+    content: row.content,
+    createdAt: row.created_at,
   };
 }
 
@@ -268,6 +471,30 @@ function isStoredThreadFile(value: unknown): value is StoredThreadFile {
     typeof value.createdAt === 'string' &&
     typeof value.updatedAt === 'string' &&
     Array.isArray(value.messages)
+  );
+}
+
+function isThreadRow(value: unknown): value is ThreadRow {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as ThreadRow).id === 'string' &&
+    typeof (value as ThreadRow).agent_id === 'string' &&
+    typeof (value as ThreadRow).title === 'string' &&
+    typeof (value as ThreadRow).created_at === 'string' &&
+    typeof (value as ThreadRow).updated_at === 'string' &&
+    typeof (value as ThreadRow).message_count === 'number'
+  );
+}
+
+function isMessageRow(value: unknown): value is MessageRow {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as MessageRow).id === 'string' &&
+    ((value as MessageRow).role === 'user' || (value as MessageRow).role === 'assistant') &&
+    typeof (value as MessageRow).content === 'string' &&
+    typeof (value as MessageRow).created_at === 'string'
   );
 }
 

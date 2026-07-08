@@ -9,7 +9,8 @@ import type {
   UpdateAgentRequest,
   UpdateAgentToolsRequest,
 } from '../../shared/agent-contracts';
-import { createAssistantStorage, type AssistantStorage } from './storage';
+import { LocalDatabase } from './local-database';
+import { createAssistantStorage, importThreadJsonFiles, type AssistantStorage } from './storage';
 
 const profileFileName = 'agent.json';
 const soulVirtualPath = '/configuration/soul.md';
@@ -34,6 +35,8 @@ export class AgentRegistry {
 
     const storage = await this.storageFor(defaultAgent.id);
     await storage.ensureReady();
+    await this.ensureAllAgentStorageReady();
+    await this.importRootThreadJsonFiles(defaultAgent.id);
   }
 
   async listAgents(): Promise<AgentProfile[]> {
@@ -161,6 +164,7 @@ export class AgentRegistry {
       recursive: true,
       force: true,
     });
+    await this.deleteAgentDatabaseRows(agentId);
 
     return true;
   }
@@ -235,6 +239,47 @@ export class AgentRegistry {
   private async writeAgent(agent: AgentProfile): Promise<void> {
     await writeFile(this.profilePath(agent.id), `${JSON.stringify(agent, null, 2)}\n`, 'utf8');
   }
+
+  private async deleteAgentDatabaseRows(agentId: string): Promise<void> {
+    const database = new LocalDatabase(this.dataDir);
+    await database.ensureReady();
+    const transaction = database.get().transaction(() => {
+      database.get().prepare('delete from threads where agent_id = ?').run(agentId);
+      database.get().prepare('delete from memory_records where agent_id = ?').run(agentId);
+      database.get().prepare('delete from run_contexts where agent_id = ?').run(agentId);
+    });
+
+    transaction();
+  }
+
+  private async ensureAllAgentStorageReady(): Promise<void> {
+    const entries = await readdir(this.agentsDir, { withFileTypes: true });
+    const agentIds = entries
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .filter((agentId) => isValidAgentId(agentId));
+
+    for (const agentId of agentIds) {
+      const agent = await this.readAgent(agentId);
+
+      if (!agent) {
+        continue;
+      }
+
+      await createAssistantStorage(this.dataDir, agent).ensureReady();
+    }
+  }
+
+  private async importRootThreadJsonFiles(defaultAgentId: string): Promise<void> {
+    const database = new LocalDatabase(this.dataDir);
+    await database.ensureReady();
+    await importThreadJsonFiles(
+      database,
+      join(this.dataDir, 'threads'),
+      defaultAgentId,
+      'thread_json_imported_at:root',
+    );
+  }
 }
 
 export function normalizeAgentId(input: string): string {
@@ -252,6 +297,16 @@ export function normalizeAgentId(input: string): string {
 export function validateAgentId(agentId: string): void {
   if (!/^[a-z0-9][a-z0-9_-]*$/i.test(agentId)) {
     throw new Error('Agent id may only contain letters, numbers, underscores, and dashes.');
+  }
+}
+
+function isValidAgentId(agentId: string): boolean {
+  try {
+    validateAgentId(agentId);
+
+    return true;
+  } catch {
+    return false;
   }
 }
 

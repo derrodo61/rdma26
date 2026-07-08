@@ -238,7 +238,13 @@ export interface MemoryListRequest {
   readonly agentId?: string;
   readonly scope?: MemoryScope;
   readonly type?: MemoryType;
+  readonly lifetime?: MemoryLifetime;
   readonly status?: MemoryStatus;
+  readonly tag?: string;
+  readonly createdFrom?: string;
+  readonly createdTo?: string;
+  readonly updatedFrom?: string;
+  readonly updatedTo?: string;
   readonly query?: string;
   readonly limit?: number;
 }

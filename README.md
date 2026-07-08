@@ -57,7 +57,7 @@ Then open `http://<macbook-lan-ip>:4200` from the other computer.
 
 All backend routes delegate to the shared runtime used by the CLI. The API reference lives in [docs/api.md](./docs/api.md).
 
-Thread JSON files live under the configured agent folder. Agent identity lives in `configuration/soul.md`. Deep Agents filesystem state remains under the configured agent folder in `deepagent/`.
+Thread/message records, memory records, and run-context records live in the local SQLite database at `.assistant-data/rdma26.sqlite`. Older JSON thread, memory, and run-context files are imported once on startup and removed after successful import. Agent identity lives in `configuration/soul.md`. Deep Agents filesystem state remains under the configured agent folder in `deepagent/`.
 
 ## Agent Configuration
 
@@ -72,9 +72,8 @@ At runtime the backend loads the configured agent's `configuration/soul.md` and 
 
 The built-in protected operator agent has id `scotty` and display name `Scotty`. Scotty receives controlled backend admin tools during chat runs so Rolf can ask him to list agents, create agents, rename agents, delete non-protected agents, read or update agent `soul.md`, list normal tools, and grant or revoke normal tools. These are application tools backed by `AssistantRuntime`, not shell or unrestricted CLI access.
 
-Scotty's local paths:
+Scotty's local file paths:
 
-- threads: `.assistant-data/agents/scotty/threads/`
 - identity file: `.assistant-data/agents/scotty/configuration/soul.md`
 - Deep Agents root: `.assistant-data/agents/scotty/deepagent/`
 
@@ -90,7 +89,7 @@ Additional agents are created through `POST /api/agents`:
 Each agent gets isolated threads, history, identity configuration, and Deep Agents filesystem state:
 
 ```text
-.assistant-data/agents/research/threads/
+.assistant-data/rdma26.sqlite
 .assistant-data/agents/research/configuration/soul.md
 .assistant-data/agents/research/deepagent/
 ```

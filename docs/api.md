@@ -103,7 +103,11 @@ Query parameters:
 - `agentId`
 - `scope`: `agent`, `agent_user`, or `user`
 - `type`: `fact`, `preference`, `conversation_summary`, `open_task`, or `tracked_topic`
+- `lifetime`: `permanent`, `active`, or `temporary`
 - `status`: `active`, `archived`, or `superseded`
+- `tag`: exact tag filter
+- `createdFrom` and `createdTo`: ISO timestamp or `YYYY-MM-DD`
+- `updatedFrom` and `updatedTo`: ISO timestamp or `YYYY-MM-DD`
 - `query`
 - `limit`
 
@@ -290,6 +294,8 @@ Body:
 ```
 
 Creates a thread. `title` is optional.
+
+When possible, this also creates a one-time summary for the previous latest non-empty thread for the same agent. The new thread is still created if summary creation is unavailable.
 
 ### `GET /api/agents/:agentId/threads/:threadId`
 

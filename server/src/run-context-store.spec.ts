@@ -1,9 +1,10 @@
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { describe, expect, it } from 'vitest';
 
 import type { RunContextDetails } from '../../shared/agent-contracts';
+import { LocalDatabase } from './local-database';
 import { RunContextStore } from './run-context-store';
 
 describe('RunContextStore', () => {
@@ -18,12 +19,6 @@ describe('RunContextStore', () => {
 
       await store.writeRunContext(context);
 
-      await expect(
-        readJson(join(dataDir, 'agents', 'ronaldo', 'runs', `${context.runId}.json`)),
-      ).resolves.toMatchObject({
-        runId: context.runId,
-        agentId: 'ronaldo',
-      });
       await expect(store.readRunContext(context.runId)).resolves.toMatchObject({
         runId: context.runId,
         agentId: 'ronaldo',
@@ -48,9 +43,7 @@ describe('RunContextStore', () => {
       const store = new RunContextStore(dataDir);
       await store.ensureReady();
 
-      await expect(
-        readJson(join(dataDir, 'agents', 'ronaldo', 'runs', `${runId}.json`)),
-      ).resolves.toMatchObject({
+      await expect(store.readRunContext(runId)).resolves.toMatchObject({
         runId,
         agentId: 'ronaldo',
       });
@@ -103,12 +96,23 @@ describe('RunContextStore', () => {
         agentId: 'ronaldo',
         threadId: crypto.randomUUID(),
       });
-      await mkdir(join(dataDir, 'agents', 'ronaldo', 'threads'), { recursive: true });
-      await writeFile(
-        join(dataDir, 'agents', 'ronaldo', 'threads', `${existingThreadId}.json`),
-        '{}',
-        'utf8',
-      );
+      const database = new LocalDatabase(dataDir);
+      await database.ensureReady();
+      database
+        .get()
+        .prepare(
+          `
+            insert into threads (id, agent_id, title, created_at, updated_at)
+            values (?, ?, ?, ?, ?)
+          `,
+        )
+        .run(
+          existingThreadId,
+          'ronaldo',
+          'Existing thread',
+          new Date().toISOString(),
+          new Date().toISOString(),
+        );
       await store.writeRunContext(keptRun);
       await store.writeRunContext(deletedRun);
 
@@ -122,10 +126,6 @@ describe('RunContextStore', () => {
     }
   });
 });
-
-async function readJson(path: string): Promise<unknown> {
-  return JSON.parse(await readFile(path, 'utf8')) as unknown;
-}
 
 function testRunContext(overrides: Partial<RunContextDetails> = {}): RunContextDetails {
   const now = new Date().toISOString();

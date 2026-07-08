@@ -50,6 +50,13 @@ export class MemorySettingsPage {
   protected readonly selectedAgentId = signal('');
   protected readonly selectedScope = signal<MemoryScope>('agent');
   protected readonly selectedStatus = signal<MemoryStatus>('active');
+  protected readonly selectedType = signal<MemoryType | ''>('');
+  protected readonly selectedLifetime = signal<MemoryLifetime | ''>('');
+  protected readonly selectedTag = signal('');
+  protected readonly createdFrom = signal('');
+  protected readonly createdTo = signal('');
+  protected readonly updatedFrom = signal('');
+  protected readonly updatedTo = signal('');
   protected readonly query = signal('');
   protected readonly draftContent = signal('');
   protected readonly draftType = signal<MemoryType>('fact');
@@ -126,8 +133,50 @@ export class MemorySettingsPage {
     void this.loadMemories();
   }
 
+  protected updateType(type: MemoryType | ''): void {
+    this.selectedType.set(type);
+    void this.loadMemories();
+  }
+
+  protected updateLifetime(lifetime: MemoryLifetime | ''): void {
+    this.selectedLifetime.set(lifetime);
+    void this.loadMemories();
+  }
+
+  protected updateSelectedTag(tag: string): void {
+    this.selectedTag.set(tag);
+  }
+
+  protected updateCreatedFrom(value: string): void {
+    this.createdFrom.set(value);
+  }
+
+  protected updateCreatedTo(value: string): void {
+    this.createdTo.set(value);
+  }
+
+  protected updateUpdatedFrom(value: string): void {
+    this.updatedFrom.set(value);
+  }
+
+  protected updateUpdatedTo(value: string): void {
+    this.updatedTo.set(value);
+  }
+
   protected updateQuery(query: string): void {
     this.query.set(query);
+  }
+
+  protected clearFilters(): void {
+    this.selectedType.set('');
+    this.selectedLifetime.set('');
+    this.selectedTag.set('');
+    this.createdFrom.set('');
+    this.createdTo.set('');
+    this.updatedFrom.set('');
+    this.updatedTo.set('');
+    this.query.set('');
+    void this.loadMemories();
   }
 
   protected updateDraftType(type: MemoryType): void {
@@ -358,7 +407,14 @@ export class MemorySettingsPage {
     const response = await this.api.memories({
       agentId: this.selectedScope() === 'user' ? undefined : this.selectedAgentId(),
       scope: this.selectedScope(),
+      type: this.selectedType() || undefined,
+      lifetime: this.selectedLifetime() || undefined,
       status: this.selectedStatus(),
+      tag: this.selectedTag().trim() || undefined,
+      createdFrom: this.createdFrom() || undefined,
+      createdTo: this.createdTo() || undefined,
+      updatedFrom: this.updatedFrom() || undefined,
+      updatedTo: this.updatedTo() || undefined,
       query: this.query().trim() || undefined,
     });
 

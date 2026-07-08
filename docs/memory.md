@@ -24,33 +24,31 @@ All memory data is local-first under `.assistant-data`.
 
 ```text
 .assistant-data/
+  rdma26.sqlite
   agents/
     <agent-id>/
       configuration/
         soul.md
-      memories/
-        <memory-id>.json
-      threads/
-        <thread-id>.json
       deepagent/
-  user/
-    memories/
-      <memory-id>.json
   memory-index/
     openai-embeddings.json
   memory-maintenance-settings.json
-  runs/
-    <run-id>.json
 ```
 
 Important paths:
 
 - Agent identity: `.assistant-data/agents/<agent-id>/configuration/soul.md`
-- Agent memory records: `.assistant-data/agents/<agent-id>/memories/`
-- Global user memory records: `.assistant-data/user/memories/`
+- Memory, thread, message, and run-context records: `.assistant-data/rdma26.sqlite`
+- Legacy JSON import paths: `.assistant-data/agents/<agent-id>/memories/`, `.assistant-data/user/memories/`, `.assistant-data/agents/<agent-id>/threads/`, `.assistant-data/runs/`, and `.assistant-data/agents/<agent-id>/runs/`
 - Embedding cache: `.assistant-data/memory-index/openai-embeddings.json`
 - Maintenance schedule: `.assistant-data/memory-maintenance-settings.json`
-- Run-context snapshots: `.assistant-data/runs/`
+
+SQLite is the source of truth for memory, thread, message, and run-context
+records. On startup, the backend creates the schema if needed and imports
+existing legacy JSON memory, thread, and run-context files once with
+`insert or ignore`. JSON source files are removed after their corresponding
+SQLite row exists. After that import, new memory, thread, and run-context creates,
+updates, deletes, and searches operate on SQLite.
 
 The backend code for long-term memory lives mainly in:
 
@@ -89,15 +87,15 @@ A memory record is a JSON object with this shape:
 
 `agent`
 
-Memory that belongs to one agent. It is stored under `.assistant-data/agents/<agent-id>/memories/`.
+Memory that belongs to one agent. It is stored in SQLite with that agent id.
 
 `agent_user`
 
-Memory about the user that is relevant only for one agent. It is also stored under `.assistant-data/agents/<agent-id>/memories/`.
+Memory about the user that is relevant only for one agent. It is also stored in SQLite with that agent id.
 
 `user`
 
-Global user memory that can be relevant to all agents. It is stored under `.assistant-data/user/memories/`.
+Global user memory that can be relevant to all agents. It is stored in SQLite without an agent id.
 
 ### Types
 
@@ -178,11 +176,12 @@ rdma26 memories:delete --memory <memory-id>
 
 When an agent has memory writes enabled, the backend injects the controlled `save_memory` tool into the chat run.
 
-The tool creates an agent-scoped memory:
+The tool can create memories in three scopes:
 
 ```text
-scope: agent
-agentId: current agent id
+scope: agent      -> memory for the current agent
+scope: agent_user -> user-related memory only relevant to the current agent
+scope: user       -> global user memory available to all agents
 source.note: Saved by agent during chat run.
 ```
 
@@ -191,15 +190,23 @@ The bootloader prompt tells the agent to use `save_memory` when:
 - the user explicitly asks it to remember something
 - the information is future-useful, low-risk, and clearly scoped
 
-The prompt tells the agent to ask first when the memory is sensitive, ambiguous, conflicting, or unclear in scope.
+Sensitive personal data may be saved when the user explicitly asks for it. The prompt tells the agent to use the narrowest sensible scope, never save secrets or credentials, and ask first when sensitive information was not explicitly requested for memory or when the content, consent, or scope is ambiguous or conflicting.
+
+Interaction preferences given inside one agent chat, such as "always speak German with me", should usually be saved as `agent_user` for that agent. Use global `user` scope only when the user clearly says the preference should apply to all agents.
 
 If memory writes are disabled for the agent, `save_memory` is not injected and the prompt explicitly tells the agent not to claim it saved a new memory.
 
 ### Thread Summary Writes
 
-Chat runs do not automatically create or update `conversation_summary` memories.
+Chat runs do not automatically create or update `conversation_summary` memories after every message.
 
-Summaries are created only through explicit thread-summary consolidation or visible memory maintenance:
+Summaries are created through a small set of lifecycle events:
+
+- starting a new thread attempts to summarize the previous latest non-empty thread for that agent
+- explicit thread-summary consolidation
+- visible memory maintenance
+
+The new-thread trigger is best-effort. It runs only when memory writes are enabled for the agent, the previous thread has messages, no summary exists yet, and an LLM summary model/API key is available. Starting the new thread still succeeds when summary creation is unavailable.
 
 - `POST /api/agents/:agentId/threads/:threadId/summary`
 - `POST /api/agents/:agentId/threads/summaries`
@@ -252,16 +259,16 @@ The current run flow is:
 
 If the prompt looks like a recall question, for example "What did we talk about last time?", retrieval boosts recent `conversation_summary` memories even when there is little keyword overlap.
 
-The original thread JSON remains the detailed source of truth until the thread is deleted. When a thread is deleted, the backend also deletes `conversation_summary` memories whose source points to that thread.
+The original thread messages remain the detailed source of truth in SQLite until the thread is deleted. When a thread is deleted, the backend also deletes `conversation_summary` memories whose source points to that thread.
 
 ```mermaid
 flowchart TD
-    A["User sends message in a thread"] --> B["Backend stores user message in thread JSON"]
+    A["User sends message in a thread"] --> B["Backend stores user message in SQLite"]
     B --> C["Backend loads current thread messages"]
     C --> D["Backend searches memories for this agent"]
     D --> E["Relevant memories injected into agent prompt"]
     E --> F["Agent/model creates reply"]
-    F --> G["Backend stores assistant reply in thread JSON"]
+    F --> G["Backend stores assistant reply in SQLite"]
 
     G --> H["No automatic summary write"]
 
@@ -442,7 +449,7 @@ Embeddings are cached locally in:
 
 If embeddings are unavailable or fail, retrieval falls back to lexical and recall-aware scoring.
 
-There is no external vector database yet. The current implementation is local JSON records plus a local embedding cache.
+There is no external vector database yet. The current implementation is local SQLite records plus a local embedding cache.
 
 ## Prompt Injection
 
@@ -515,11 +522,7 @@ These controlled tools are visible in the agent edit page and run-context inspec
 
 ## Run Context Transparency
 
-Every chat run writes a run-context snapshot under:
-
-```text
-.assistant-data/runs/<run-id>.json
-```
+Every chat run writes a run-context record to `.assistant-data/rdma26.sqlite`.
 
 The run id is emitted in the `run-started` Server-Sent Event.
 
@@ -674,10 +677,10 @@ rdma26 runs:context --run <run-id>
 
 The current implementation is intentionally local-first:
 
-- records are JSON files, not a database
+- memory, thread, message, and run-context records are stored in local SQLite, with legacy JSON imported once
 - semantic ranking uses a local embedding cache, not an external vector store
 - scheduled maintenance runs only while the backend process is running
 - token usage and tool-call metadata are stored only when the Deep Agents/model response exposes them
 - memory extraction beyond thread summaries still depends on explicit saves, the `save_memory` tool, or user-triggered maintenance
 
-These limits are compatible with later migration to SQLite, LangGraph Store, Postgres, or an external vector database.
+These limits are compatible with later migration to LangGraph Store, Postgres, or an external vector database.

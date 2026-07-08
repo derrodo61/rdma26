@@ -303,8 +303,16 @@ export class AssistantRuntime {
 
   async createThread(agentId: string, request: CreateThreadRequest = {}): Promise<ChatThread> {
     const storage = await this.storageFor(agentId);
+    const previousThread = (await storage.listThreads()).find((thread) => thread.messageCount > 0);
+    const thread = await storage.createThread(request.title);
 
-    return await storage.createThread(request.title);
+    await this.createPreviousThreadSummaryIfPossible(
+      storage.agent.memory.canWrite,
+      previousThread?.id,
+      async (threadId) => await storage.readThread(threadId),
+    );
+
+    return thread;
   }
 
   async readThread(agentId: string, threadId: string): Promise<ChatThread> {
@@ -590,6 +598,28 @@ export class AssistantRuntime {
         ...request,
       }),
     };
+  }
+
+  private async createPreviousThreadSummaryIfPossible(
+    memoryWritesEnabled: boolean,
+    previousThreadId: string | undefined,
+    readThread: (threadId: string) => Promise<ChatThread | null>,
+  ): Promise<void> {
+    if (!memoryWritesEnabled || !previousThreadId || !process.env['OPENAI_API_KEY']) {
+      return;
+    }
+
+    try {
+      const previousThread = await readThread(previousThreadId);
+
+      if (!previousThread?.messages.length) {
+        return;
+      }
+
+      await this.createThreadSummaryMemoryIfMissing(previousThread);
+    } catch {
+      // Starting a new thread should not fail because memory maintenance is unavailable.
+    }
   }
 
   private async createThreadSummaryContent(

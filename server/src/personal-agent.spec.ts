@@ -28,6 +28,12 @@ describe('PersonalAgent bootloader prompt', () => {
     );
 
     expect(enabledPrompt).toContain('Use the save_memory tool');
+    expect(enabledPrompt).toContain('Use agent_user for user preferences');
+    expect(enabledPrompt).toContain('Use user only when the user clearly wants the memory shared');
+    expect(enabledPrompt).toContain(
+      'If the user explicitly asks you to remember sensitive personal data',
+    );
+    expect(enabledPrompt).toContain('never save secrets or credentials');
     expect(disabledPrompt).toContain('Memory writing is disabled for this agent');
     expect(disabledPrompt).not.toContain('Use the save_memory tool');
   });

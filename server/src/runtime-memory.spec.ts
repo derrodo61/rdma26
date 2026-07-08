@@ -1,9 +1,10 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { LocalDatabase } from './local-database';
 import { AssistantRuntime } from './runtime';
 
 describe('AssistantRuntime memory behavior', () => {
@@ -240,6 +241,111 @@ describe('AssistantRuntime memory behavior', () => {
     }
   });
 
+  it('does not fail new thread creation when previous-thread summary creation is unavailable', async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-runtime-memory-'));
+    const previousApiKey = process.env['OPENAI_API_KEY'];
+    delete process.env['OPENAI_API_KEY'];
+
+    try {
+      const runtime = new AssistantRuntime({
+        dataDir,
+        defaultAgentId: 'scotty',
+        defaultAgentName: 'Scotty',
+      });
+      await runtime.ensureReady();
+      const previousThread = await runtime.createThread('scotty', {
+        title: 'Previous conversation',
+      });
+      await runtime.runAgent({
+        agentId: 'scotty',
+        threadId: previousThread.id,
+        model: 'gpt-4.1-mini',
+        prompt: 'This previous thread has messages.',
+      });
+      const nextThread = await runtime.createThread('scotty', {
+        title: 'Next conversation',
+      });
+
+      expect(nextThread.title).toBe('Next conversation');
+      await expect(
+        runtime.listMemories({
+          agentId: 'scotty',
+          type: 'conversation_summary',
+        }),
+      ).resolves.toEqual({
+        memories: [],
+      });
+    } finally {
+      if (previousApiKey === undefined) {
+        delete process.env['OPENAI_API_KEY'];
+      } else {
+        process.env['OPENAI_API_KEY'] = previousApiKey;
+      }
+      await rm(dataDir, { recursive: true, force: true });
+    }
+  });
+
+  it('does not create a duplicate previous-thread summary when starting a new thread', async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-runtime-memory-'));
+    const previousApiKey = process.env['OPENAI_API_KEY'];
+    delete process.env['OPENAI_API_KEY'];
+
+    try {
+      const runtime = new AssistantRuntime({
+        dataDir,
+        defaultAgentId: 'scotty',
+        defaultAgentName: 'Scotty',
+      });
+      await runtime.ensureReady();
+      const previousThread = await runtime.createThread('scotty', {
+        title: 'Already summarized before leaving',
+      });
+      await runtime.runAgent({
+        agentId: 'scotty',
+        threadId: previousThread.id,
+        model: 'gpt-4.1-mini',
+        prompt: 'This thread already has a summary.',
+      });
+      const existingSummary = await runtime.createMemory({
+        scope: 'agent',
+        agentId: 'scotty',
+        type: 'conversation_summary',
+        content: 'Existing summary content.',
+        tags: ['thread-summary'],
+        source: {
+          agentId: 'scotty',
+          threadId: previousThread.id,
+        },
+      });
+
+      process.env['OPENAI_API_KEY'] = 'test-key';
+      await runtime.createThread('scotty', {
+        title: 'New thread after summary',
+      });
+
+      await expect(
+        runtime.listMemories({
+          agentId: 'scotty',
+          type: 'conversation_summary',
+        }),
+      ).resolves.toMatchObject({
+        memories: [
+          {
+            id: existingSummary.id,
+            content: 'Existing summary content.',
+          },
+        ],
+      });
+    } finally {
+      if (previousApiKey === undefined) {
+        delete process.env['OPENAI_API_KEY'];
+      } else {
+        process.env['OPENAI_API_KEY'] = previousApiKey;
+      }
+      await rm(dataDir, { recursive: true, force: true });
+    }
+  });
+
   it('deletes thread summary memories when a thread is deleted', async () => {
     const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-runtime-memory-'));
 
@@ -372,9 +478,9 @@ describe('AssistantRuntime memory behavior', () => {
         prompt: 'This run should survive startup cleanup.',
       });
 
-      await rm(join(dataDir, 'agents', 'scotty', 'threads', `${orphanedThread.id}.json`), {
-        force: true,
-      });
+      const database = new LocalDatabase(dataDir);
+      await database.ensureReady();
+      database.get().prepare('delete from threads where id = ?').run(orphanedThread.id);
 
       const restartedRuntime = new AssistantRuntime({
         dataDir,
@@ -395,6 +501,112 @@ describe('AssistantRuntime memory behavior', () => {
       } else {
         process.env['OPENAI_API_KEY'] = previousApiKey;
       }
+      await rm(dataDir, { recursive: true, force: true });
+    }
+  });
+
+  it('imports legacy thread JSON into SQLite once and does not resurrect deleted threads', async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-runtime-memory-'));
+    const threadId = crypto.randomUUID();
+    const rootThreadId = crypto.randomUUID();
+
+    try {
+      const legacyThreadDir = join(dataDir, 'agents', 'scotty', 'threads');
+      const legacyRootThreadDir = join(dataDir, 'threads');
+      await mkdir(legacyThreadDir, { recursive: true });
+      await mkdir(legacyRootThreadDir, { recursive: true });
+      await writeFile(
+        join(legacyThreadDir, `${threadId}.json`),
+        `${JSON.stringify(
+          {
+            id: threadId,
+            agentId: 'scotty',
+            title: 'Legacy thread',
+            createdAt: '2026-07-08T00:00:00.000Z',
+            updatedAt: '2026-07-08T00:01:00.000Z',
+            messages: [
+              {
+                id: crypto.randomUUID(),
+                role: 'user',
+                content: 'Legacy hello',
+                createdAt: '2026-07-08T00:01:00.000Z',
+              },
+            ],
+          },
+          null,
+          2,
+        )}\n`,
+        'utf8',
+      );
+      await writeFile(
+        join(legacyRootThreadDir, `${rootThreadId}.json`),
+        `${JSON.stringify(
+          {
+            id: rootThreadId,
+            title: 'Legacy root thread',
+            createdAt: '2026-07-08T00:02:00.000Z',
+            updatedAt: '2026-07-08T00:03:00.000Z',
+            messages: [
+              {
+                id: crypto.randomUUID(),
+                role: 'user',
+                content: 'Legacy root hello',
+                createdAt: '2026-07-08T00:03:00.000Z',
+              },
+            ],
+          },
+          null,
+          2,
+        )}\n`,
+        'utf8',
+      );
+
+      const runtime = new AssistantRuntime({
+        dataDir,
+        defaultAgentId: 'scotty',
+        defaultAgentName: 'Scotty',
+      });
+      await runtime.ensureReady();
+
+      await expect(runtime.readThread('scotty', threadId)).resolves.toMatchObject({
+        id: threadId,
+        messageCount: 1,
+        messages: [
+          {
+            content: 'Legacy hello',
+          },
+        ],
+      });
+      await expect(runtime.readThread('scotty', rootThreadId)).resolves.toMatchObject({
+        id: rootThreadId,
+        agentId: 'scotty',
+        messageCount: 1,
+        messages: [
+          {
+            content: 'Legacy root hello',
+          },
+        ],
+      });
+      await expect(stat(join(legacyThreadDir, `${threadId}.json`))).rejects.toMatchObject({
+        code: 'ENOENT',
+      });
+      await expect(stat(join(legacyRootThreadDir, `${rootThreadId}.json`))).rejects.toMatchObject({
+        code: 'ENOENT',
+      });
+
+      await runtime.deleteThread('scotty', threadId);
+
+      const restartedRuntime = new AssistantRuntime({
+        dataDir,
+        defaultAgentId: 'scotty',
+        defaultAgentName: 'Scotty',
+      });
+      await restartedRuntime.ensureReady();
+
+      await expect(restartedRuntime.readThread('scotty', threadId)).rejects.toThrow(
+        'does not exist',
+      );
+    } finally {
       await rm(dataDir, { recursive: true, force: true });
     }
   });
@@ -487,6 +699,73 @@ describe('AssistantRuntime memory behavior', () => {
       } else {
         process.env['OPENAI_API_KEY'] = previousApiKey;
       }
+      await rm(dataDir, { recursive: true, force: true });
+    }
+  });
+
+  it('deletes SQLite-backed thread and memory data when deleting an agent', async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-runtime-memory-'));
+
+    try {
+      const runtime = new AssistantRuntime({
+        dataDir,
+        defaultAgentId: 'scotty',
+        defaultAgentName: 'Scotty',
+      });
+      await runtime.ensureReady();
+      await runtime.createAgent({
+        id: 'ronaldo',
+        name: 'Ronaldo',
+      });
+      const thread = await runtime.createThread('ronaldo', {
+        title: 'Delete me',
+      });
+      await runtime.runAgent({
+        agentId: 'ronaldo',
+        threadId: thread.id,
+        model: 'gpt-4.1-mini',
+        prompt: 'Create a run context before deletion.',
+      });
+      await runtime.createMemory({
+        scope: 'agent',
+        agentId: 'ronaldo',
+        type: 'fact',
+        content: 'Temporary agent memory.',
+      });
+
+      await expect(runtime.deleteAgent('ronaldo')).resolves.toEqual({
+        deleted: true,
+        agentId: 'ronaldo',
+      });
+
+      const database = new LocalDatabase(dataDir);
+      await database.ensureReady();
+
+      expect(
+        database
+          .get()
+          .prepare('select count(*) as count from threads where agent_id = ?')
+          .get('ronaldo'),
+      ).toMatchObject({
+        count: 0,
+      });
+      expect(
+        database
+          .get()
+          .prepare('select count(*) as count from memory_records where agent_id = ?')
+          .get('ronaldo'),
+      ).toMatchObject({
+        count: 0,
+      });
+      expect(
+        database
+          .get()
+          .prepare('select count(*) as count from run_contexts where agent_id = ?')
+          .get('ronaldo'),
+      ).toMatchObject({
+        count: 0,
+      });
+    } finally {
       await rm(dataDir, { recursive: true, force: true });
     }
   });

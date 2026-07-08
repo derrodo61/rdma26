@@ -72,6 +72,95 @@
               </select>
             </label>
 
+            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+              <label class="block text-sm font-medium text-text-muted">
+                <span>Type</span>
+                <select
+                  class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                  [ngModel]="selectedType()"
+                  name="filterType"
+                  (ngModelChange)="updateType($event)"
+                >
+                  <option value="">All types</option>
+                  @for (type of types; track type) {
+                    <option [value]="type">{{ type }}</option>
+                  }
+                </select>
+              </label>
+
+              <label class="block text-sm font-medium text-text-muted">
+                <span>Lifetime</span>
+                <select
+                  class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                  [ngModel]="selectedLifetime()"
+                  name="filterLifetime"
+                  (ngModelChange)="updateLifetime($event)"
+                >
+                  <option value="">All lifetimes</option>
+                  @for (lifetime of lifetimes; track lifetime) {
+                    <option [value]="lifetime">{{ lifetime }}</option>
+                  }
+                </select>
+              </label>
+            </div>
+
+            <label class="block text-sm font-medium text-text-muted">
+              <span>Tag</span>
+              <input
+                class="mt-1 h-10 w-full border border-border bg-surface px-3 text-sm text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                placeholder="single tag"
+                [ngModel]="selectedTag()"
+                name="selectedTag"
+                (ngModelChange)="updateSelectedTag($event)"
+              />
+            </label>
+
+            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+              <label class="block text-sm font-medium text-text-muted">
+                <span>Created from</span>
+                <input
+                  type="date"
+                  class="mt-1 h-10 w-full border border-border bg-surface px-3 text-sm text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                  [ngModel]="createdFrom()"
+                  name="createdFrom"
+                  (ngModelChange)="updateCreatedFrom($event)"
+                />
+              </label>
+
+              <label class="block text-sm font-medium text-text-muted">
+                <span>Created to</span>
+                <input
+                  type="date"
+                  class="mt-1 h-10 w-full border border-border bg-surface px-3 text-sm text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                  [ngModel]="createdTo()"
+                  name="createdTo"
+                  (ngModelChange)="updateCreatedTo($event)"
+                />
+              </label>
+
+              <label class="block text-sm font-medium text-text-muted">
+                <span>Updated from</span>
+                <input
+                  type="date"
+                  class="mt-1 h-10 w-full border border-border bg-surface px-3 text-sm text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                  [ngModel]="updatedFrom()"
+                  name="updatedFrom"
+                  (ngModelChange)="updateUpdatedFrom($event)"
+                />
+              </label>
+
+              <label class="block text-sm font-medium text-text-muted">
+                <span>Updated to</span>
+                <input
+                  type="date"
+                  class="mt-1 h-10 w-full border border-border bg-surface px-3 text-sm text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                  [ngModel]="updatedTo()"
+                  name="updatedTo"
+                  (ngModelChange)="updateUpdatedTo($event)"
+                />
+              </label>
+            </div>
+
             <form class="flex gap-2" (submit)="$event.preventDefault(); search()">
               <input
                 class="h-10 min-w-0 flex-1 border border-border bg-surface px-3 text-sm text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
@@ -87,6 +176,14 @@
                 Search
               </button>
             </form>
+
+            <button
+              type="button"
+              class="h-10 border border-border bg-surface px-3 text-sm font-medium text-text-muted hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+              (click)="clearFilters()"
+            >
+              Clear filters
+            </button>
           </div>
 
           @if (selectedScope() !== 'user') {
