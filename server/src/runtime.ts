@@ -325,6 +325,8 @@ export class AssistantRuntime {
       throw new Error(`Thread ${threadId} does not exist for agent ${agentId}.`);
     }
 
+    await this.memoryStore.deleteThreadSummaryMemories(agentId, threadId);
+
     return {
       deleted: true,
       agentId,

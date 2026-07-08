@@ -168,6 +168,21 @@ export class MemoryStore {
     return true;
   }
 
+  async deleteThreadSummaryMemories(agentId: string, threadId: string): Promise<number> {
+    validateAgentId(agentId);
+    const memories = await this.readMemoriesFromDir(this.agentMemoriesDir(agentId));
+    const summaries = memories.filter(
+      (memory) =>
+        memory.type === 'conversation_summary' &&
+        memory.source?.agentId === agentId &&
+        memory.source.threadId === threadId,
+    );
+
+    await Promise.all(summaries.map(async (memory) => await this.deleteMemory(memory.id)));
+
+    return summaries.length;
+  }
+
   async requireMemory(memoryId: string): Promise<MemoryRecord> {
     const memory = await this.readMemory(memoryId);
 

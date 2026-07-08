@@ -177,6 +177,60 @@ describe('AssistantRuntime memory behavior', () => {
     }
   });
 
+  it('deletes thread summary memories when a thread is deleted', async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-runtime-memory-'));
+
+    try {
+      const runtime = new AssistantRuntime({
+        dataDir,
+        defaultAgentId: 'scotty',
+        defaultAgentName: 'Scotty',
+      });
+      await runtime.ensureReady();
+      const thread = await runtime.createThread('scotty', {
+        title: 'Delete summary',
+      });
+      const unrelatedThread = await runtime.createThread('scotty', {
+        title: 'Keep summary',
+      });
+      const summary = await runtime.createMemory({
+        scope: 'agent',
+        agentId: 'scotty',
+        type: 'conversation_summary',
+        content: 'This summary should be deleted with its source thread.',
+        tags: ['thread-summary'],
+        source: {
+          agentId: 'scotty',
+          threadId: thread.id,
+        },
+      });
+      const unrelatedSummary = await runtime.createMemory({
+        scope: 'agent',
+        agentId: 'scotty',
+        type: 'conversation_summary',
+        content: 'This summary belongs to another thread.',
+        tags: ['thread-summary'],
+        source: {
+          agentId: 'scotty',
+          threadId: unrelatedThread.id,
+        },
+      });
+
+      await expect(runtime.deleteThread('scotty', thread.id)).resolves.toEqual({
+        deleted: true,
+        agentId: 'scotty',
+        threadId: thread.id,
+      });
+
+      await expect(runtime.readMemory(summary.id)).rejects.toThrow('does not exist');
+      await expect(runtime.readMemory(unrelatedSummary.id)).resolves.toMatchObject({
+        id: unrelatedSummary.id,
+      });
+    } finally {
+      await rm(dataDir, { recursive: true, force: true });
+    }
+  });
+
   it('bulk consolidation requires an LLM for non-empty threads', async () => {
     const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-runtime-memory-'));
     const previousApiKey = process.env['OPENAI_API_KEY'];

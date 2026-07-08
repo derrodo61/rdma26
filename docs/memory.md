@@ -227,6 +227,67 @@ If that is unset, the backend uses the first configured model option.
 
 If no LLM provider or API key is configured, no summary is created. Explicit summary and maintenance calls return an error. Automatic chat runs still complete, but they skip summary creation.
 
+## How Summaries Are Used In New Threads
+
+Starting a new thread does not automatically load every old thread or every old summary into the context window.
+
+For each chat run, the backend searches active memories for the selected agent before calling the model. `conversation_summary` memories are included in that searchable memory set.
+
+The current run flow is:
+
+1. The user sends a prompt.
+2. `MemoryStore.searchForRun()` searches active user and agent memories.
+3. The backend selects the most relevant memories, currently up to 8.
+4. The selected memories are injected into the agent bootloader prompt under `Retrieved long-term memories`.
+5. The model answers with those selected memories in context.
+
+If the prompt looks like a recall question, for example "What did we talk about last time?", retrieval boosts recent `conversation_summary` memories even when there is little keyword overlap.
+
+The original thread JSON remains the detailed source of truth until the thread is deleted. When a thread is deleted, the backend also deletes `conversation_summary` memories whose source points to that thread.
+
+```mermaid
+flowchart TD
+    A["User sends message in a thread"] --> B["Backend stores user message in thread JSON"]
+    B --> C["Backend loads current thread messages"]
+    C --> D["Backend searches memories for this agent"]
+    D --> E["Relevant memories injected into agent prompt"]
+    E --> F["Agent/model creates reply"]
+    F --> G["Backend stores assistant reply in thread JSON"]
+
+    G --> H{"Memory writes enabled?"}
+    H -- "No" --> I["No summary update"]
+    H -- "Yes" --> J{"LLM available for summaries?"}
+    J -- "No" --> K["Chat still succeeds; summary skipped"]
+    J -- "Yes" --> L["LLM creates or updates conversation_summary memory"]
+    L --> M["Summary stored as agent memory with source.threadId"]
+
+    N["New thread starts"] --> O["User asks a question"]
+    O --> P["Backend searches active memories before model call"]
+
+    P --> Q["String/token scoring"]
+    P --> R{"Recall-style prompt?"}
+    P --> S{"OpenAI API key available?"}
+
+    Q --> T["Match prompt words against memory content, tags, and type"]
+    R -- "Yes" --> U["Boost recent conversation_summary memories"]
+    R -- "No" --> V["No recall boost"]
+    S -- "Yes" --> W["Embedding ranking adds semantic score"]
+    S -- "No" --> X["Use string/recall scores only"]
+
+    T --> Y["Combine scores"]
+    U --> Y
+    V --> Y
+    W --> Y
+    X --> Y
+
+    Y --> Z["Sort memories by score and recency"]
+    Z --> AA["Take top relevant memories, currently up to 8"]
+    AA --> AB["Inject selected summaries and memories into prompt"]
+    AB --> AC["Agent answers with retrieved memory context"]
+
+    M -. "available for future retrieval" .-> P
+```
+
 ## Manual Maintenance
 
 Memory maintenance is a visible operation that consolidates thread summaries for one agent or all agents.
