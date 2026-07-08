@@ -1,5 +1,10 @@
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
+import { TavilyExtract } from '@langchain/tavily';
+import * as cheerio from 'cheerio';
+import type { AnyNode } from 'domhandler';
+
+export type WebPageExtractionProvider = 'tavily_extract' | 'local_fetch';
 
 export interface WebPageReadResult {
   readonly url: string;
@@ -9,6 +14,8 @@ export interface WebPageReadResult {
   readonly text: string;
   readonly truncated: boolean;
   readonly fetchedAt: string;
+  readonly extractionProvider: WebPageExtractionProvider;
+  readonly extractionWarning?: string;
 }
 
 export interface WebPageReaderOptions {
@@ -16,12 +23,30 @@ export interface WebPageReaderOptions {
   readonly maxBytes?: number;
   readonly maxCharacters?: number;
   readonly maxRedirects?: number;
+  readonly query?: string;
+  readonly tavilyApiKey?: string;
+  readonly tavilyExtract?: TavilyExtractFunction;
 }
 
 interface ReadBodyResult {
   readonly text: string;
   readonly truncated: boolean;
 }
+
+interface TavilyExtractResultLike {
+  readonly url?: string;
+  readonly raw_content?: string;
+}
+
+interface TavilyExtractResponseLike {
+  readonly results?: readonly TavilyExtractResultLike[];
+  readonly failed_results?: readonly { readonly url?: string; readonly error?: string }[];
+}
+
+type TavilyExtractFunction = (request: {
+  readonly url: string;
+  readonly query?: string;
+}) => Promise<unknown>;
 
 const defaultTimeoutMs = 10_000;
 const defaultMaxBytes = 1_000_000;
@@ -32,15 +57,49 @@ export async function readWebPage(
   url: string,
   options: WebPageReaderOptions = {},
 ): Promise<WebPageReadResult> {
+  const parsedUrl = await assertAllowedWebUrl(url);
   const timeoutMs = options.timeoutMs ?? defaultTimeoutMs;
   const maxBytes = options.maxBytes ?? defaultMaxBytes;
   const maxCharacters = options.maxCharacters ?? defaultMaxCharacters;
   const maxRedirects = options.maxRedirects ?? defaultMaxRedirects;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const tavilyApiKey = options.tavilyApiKey ?? process.env['TAVILY_API_KEY'];
+
+  if (tavilyApiKey || options.tavilyExtract) {
+    const tavilyResult = await tryReadWithTavilyExtract(parsedUrl.toString(), options);
+
+    if (tavilyResult) {
+      return tavilyResult;
+    }
+  }
 
   try {
-    const response = await fetchWithSafeRedirects(url, maxRedirects, controller.signal);
+    return await readWebPageLocally(parsedUrl.toString(), {
+      timeoutMs,
+      maxBytes,
+      maxCharacters,
+      maxRedirects,
+    });
+  } catch (error) {
+    return failedReadResult(
+      parsedUrl.toString(),
+      'local_fetch',
+      `Page could not be read. ${readErrorMessage(error)}`,
+    );
+  }
+}
+
+async function readWebPageLocally(
+  url: string,
+  options: Required<
+    Pick<WebPageReaderOptions, 'timeoutMs' | 'maxBytes' | 'maxCharacters' | 'maxRedirects'>
+  >,
+  extractionWarning?: string,
+): Promise<WebPageReadResult> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
+
+  try {
+    const response = await fetchWithSafeRedirects(url, options.maxRedirects, controller.signal);
     const contentType = response.headers.get('content-type') ?? undefined;
 
     if (!isReadableContentType(contentType)) {
@@ -51,13 +110,18 @@ export async function readWebPage(
 
     const contentLength = response.headers.get('content-length');
 
-    if (contentLength && Number(contentLength) > maxBytes) {
-      throw new Error(`Page is too large to read safely. Limit is ${maxBytes} bytes.`);
+    if (contentLength && Number(contentLength) > options.maxBytes) {
+      throw new Error(`Page is too large to read safely. Limit is ${options.maxBytes} bytes.`);
     }
 
-    const body = await readResponseBody(response, maxBytes);
+    const body = await readResponseBody(response, options.maxBytes);
     const readable = extractReadableText(body.text, contentType);
-    const clipped = clipText(readable.text, maxCharacters);
+    const clipped = clipText(readable.text, options.maxCharacters);
+    const warning =
+      extractionWarning ??
+      (clipped.text
+        ? undefined
+        : 'No readable page text could be extracted. The page may be JavaScript-rendered or block extraction.');
 
     return {
       url,
@@ -67,10 +131,177 @@ export async function readWebPage(
       text: clipped.text,
       truncated: body.truncated || clipped.truncated,
       fetchedAt: new Date().toISOString(),
+      extractionProvider: 'local_fetch',
+      extractionWarning: warning,
     };
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function tryReadWithTavilyExtract(
+  url: string,
+  options: WebPageReaderOptions,
+): Promise<WebPageReadResult | null> {
+  const extract = options.tavilyExtract ?? createTavilyExtractFunction(options.tavilyApiKey);
+
+  if (!extract) {
+    return null;
+  }
+
+  try {
+    const rawResult = await extract({
+      url,
+      query: options.query,
+    });
+    const extracted = parseTavilyExtractResult(rawResult, url);
+
+    if (!extracted.text) {
+      return await readWebPageLocallySafely(
+        url,
+        options,
+        extracted.warning ?? 'Tavily Extract returned no readable content; used local fallback.',
+      );
+    }
+
+    const clipped = clipText(extracted.text, options.maxCharacters ?? defaultMaxCharacters);
+
+    return {
+      url,
+      finalUrl: extracted.url ?? url,
+      contentType: 'text/markdown',
+      text: clipped.text,
+      truncated: clipped.truncated,
+      fetchedAt: new Date().toISOString(),
+      extractionProvider: 'tavily_extract',
+      extractionWarning: extracted.warning,
+    };
+  } catch (error) {
+    return await readWebPageLocallySafely(
+      url,
+      options,
+      `Tavily Extract failed; used local fallback. ${readErrorMessage(error)}`,
+    );
+  }
+}
+
+async function readWebPageLocallySafely(
+  url: string,
+  options: WebPageReaderOptions,
+  extractionWarning: string,
+): Promise<WebPageReadResult> {
+  try {
+    return await readWebPageLocally(
+      url,
+      {
+        timeoutMs: options.timeoutMs ?? defaultTimeoutMs,
+        maxBytes: options.maxBytes ?? defaultMaxBytes,
+        maxCharacters: options.maxCharacters ?? defaultMaxCharacters,
+        maxRedirects: options.maxRedirects ?? defaultMaxRedirects,
+      },
+      extractionWarning,
+    );
+  } catch (error) {
+    return failedReadResult(
+      url,
+      'local_fetch',
+      `${extractionWarning} Local fallback also failed. ${readErrorMessage(error)}`,
+    );
+  }
+}
+
+function failedReadResult(
+  url: string,
+  extractionProvider: WebPageExtractionProvider,
+  extractionWarning: string,
+): WebPageReadResult {
+  return {
+    url,
+    finalUrl: url,
+    contentType: undefined,
+    text: '',
+    truncated: false,
+    fetchedAt: new Date().toISOString(),
+    extractionProvider,
+    extractionWarning,
+  };
+}
+
+function createTavilyExtractFunction(
+  apiKey: string | undefined,
+): TavilyExtractFunction | undefined {
+  if (!apiKey) {
+    return undefined;
+  }
+
+  return async ({ url, query }) => {
+    const tavilyExtract = new TavilyExtract({
+      tavilyApiKey: apiKey,
+      extractDepth: 'advanced',
+      format: 'markdown',
+      includeImages: false,
+      query,
+    });
+
+    return await tavilyExtract._call({
+      urls: [url],
+      extractDepth: 'advanced',
+      query,
+    });
+  };
+}
+
+export function parseTavilyExtractResult(
+  rawResult: unknown,
+  fallbackUrl: string,
+): { readonly url?: string; readonly text: string; readonly warning?: string } {
+  if (isTavilyExtractError(rawResult)) {
+    return {
+      text: '',
+      warning: `Tavily Extract failed. ${rawResult.error}`,
+    };
+  }
+
+  if (!isTavilyExtractResponseLike(rawResult)) {
+    return {
+      text: '',
+      warning: 'Tavily Extract returned an unexpected response shape.',
+    };
+  }
+
+  const result =
+    rawResult.results?.find((candidate) => candidate.url === fallbackUrl) ?? rawResult.results?.[0];
+  const text = normalizeWhitespace(result?.raw_content ?? '');
+  const failedResult = rawResult.failed_results?.[0];
+
+  return {
+    url: result?.url,
+    text,
+    warning:
+      text || !failedResult?.error
+        ? undefined
+        : `Tavily Extract failed for ${failedResult.url ?? fallbackUrl}. ${failedResult.error}`,
+  };
+}
+
+function isTavilyExtractError(value: unknown): value is { readonly error: string } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'error' in value &&
+    typeof (value as { readonly error?: unknown }).error === 'string'
+  );
+}
+
+function isTavilyExtractResponseLike(value: unknown): value is TavilyExtractResponseLike {
+  const candidate = value as TavilyExtractResponseLike;
+
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    (!('results' in value) || Array.isArray(candidate.results)) &&
+    (!('failed_results' in value) || Array.isArray(candidate.failed_results))
+  );
 }
 
 export async function assertAllowedWebUrl(url: string): Promise<URL> {
@@ -111,19 +342,35 @@ export function extractReadableText(
     };
   }
 
-  const title = decodeHtmlEntities(
-    content.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? '',
-  ).trim();
-  const withoutNoise = content
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, ' ')
-    .replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/gi, ' ')
-    .replace(/<!--[\s\S]*?-->/g, ' ')
-    .replace(/<\/(p|div|section|article|header|footer|main|aside|li|h[1-6]|tr)>/gi, '\n')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<[^>]+>/g, ' ');
-  const text = normalizeWhitespace(decodeHtmlEntities(withoutNoise));
+  const $ = cheerio.load(content);
+  const title = normalizeWhitespace($('title').first().text());
+
+  $(
+    [
+      'script',
+      'style',
+      'noscript',
+      'svg',
+      'canvas',
+      'iframe',
+      'nav',
+      'footer',
+      'form',
+      'button',
+      'input',
+      'select',
+      'textarea',
+      '[aria-hidden="true"]',
+      '[hidden]',
+    ].join(','),
+  ).remove();
+
+  const candidates = $('article, main, [role="main"], .article, .post, .entry-content')
+    .toArray()
+    .map((element) => extractTextFromElement($, element))
+    .filter((text) => text.length > 0)
+    .sort((a, b) => b.length - a.length);
+  const text = candidates[0] ?? extractTextFromElement($, $('body').get(0) ?? $.root().get(0));
 
   return {
     title: title || undefined,
@@ -307,6 +554,21 @@ function normalizeWhitespace(text: string): string {
     .trim();
 }
 
+function extractTextFromElement($: cheerio.CheerioAPI, element: AnyNode | undefined): string {
+  if (!element) {
+    return '';
+  }
+
+  const clone = $(element).clone();
+
+  clone.find('br').replaceWith('\n');
+  clone
+    .find('p, div, section, article, header, aside, li, h1, h2, h3, h4, h5, h6, tr')
+    .append('\n');
+
+  return normalizeWhitespace(clone.text());
+}
+
 function decodeHtmlEntities(text: string): string {
   return text
     .replace(/&nbsp;/gi, ' ')
@@ -320,4 +582,8 @@ function decodeHtmlEntities(text: string): string {
     .replace(/&#x([a-f0-9]+);/gi, (_match, code: string) =>
       String.fromCodePoint(Number.parseInt(code, 16)),
     );
+}
+
+function readErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

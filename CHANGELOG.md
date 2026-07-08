@@ -32,6 +32,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added direct server tests for the memory store.
 - Added general `internet_search` prompt guidance and search-result quality hints for current facts, follow-up searches, recency checks, and uncertainty handling.
 - Added a safe `read_web_page` tool so agents can inspect public source pages after search before answering.
+- Added generic verification guidance for precise current-list questions so search-enabled agents verify each requested item before answering.
+- Improved `read_web_page` extraction with parser-based article/main-content cleanup instead of regex-only HTML stripping.
+- Moved run-context files into per-agent `runs` folders and delete a thread's run contexts when the thread is deleted.
+- Tightened search/page-read guidance so precise current-list and current-result answers should not rely on snippets alone when source-page reading is available.
+- Updated `read_web_page` to prefer Tavily Extract when `TAVILY_API_KEY` is configured, with local extraction as fallback.
+- Changed `read_web_page` extraction failures, including 403 responses, to return structured warnings instead of aborting the agent run.
+- Added a generic `verify_current_facts` tool that owns the search, page-reading, analysis, and targeted follow-up loop for precise current factual questions.
+- Improved `verify_current_facts` with an internal search-query planning step and stricter latest/current ordering verification.
 
 ## [2026-07-06]
 

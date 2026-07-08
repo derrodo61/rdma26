@@ -63,6 +63,10 @@ describe('PersonalAgent bootloader prompt', () => {
     expect(withSearch).toContain('qualityHints.likelyNeedsFollowUp');
     expect(withSearch).toContain('latest completed');
     expect(withSearch).toContain('run a narrower follow-up search before answering');
+    expect(withSearch).toContain('For precise current-list questions');
+    expect(withSearch).toContain('verify each item separately before answering');
+    expect(withSearch).toContain('run a targeted follow-up search for that exact item');
+    expect(withSearch).toContain('do not answer from search snippets alone');
     expect(withSearch).toContain('do not add meta commentary about search quality');
     expect(withSearch).toContain('scheduled or upcoming event');
   });
@@ -97,6 +101,45 @@ describe('PersonalAgent bootloader prompt', () => {
     expect(withReader).toContain('Web page reading guidance');
     expect(withReader).toContain('read one or more promising source pages');
     expect(withReader).toContain('official sources, reputable news/reporting');
+    expect(withReader).toContain(
+      'read the best available source page for each requested item before finalizing the answer',
+    );
+    expect(withReader).toContain(
+      'continue searching or reading until the remaining items are confirmed',
+    );
+  });
+
+  it('prefers verify_current_facts for precise current factual questions when enabled', () => {
+    const withoutVerifier = createBootloaderPromptForTest(
+      {
+        name: 'Agent',
+        soulVirtualPath: '/configuration/soul.md',
+      },
+      testProfile(),
+      false,
+      '# soul',
+      [],
+      true,
+      ['internet_search', 'read_web_page'],
+    );
+    const withVerifier = createBootloaderPromptForTest(
+      {
+        name: 'Agent',
+        soulVirtualPath: '/configuration/soul.md',
+      },
+      testProfile(),
+      false,
+      '# soul',
+      [],
+      true,
+      ['internet_search', 'read_web_page', 'verify_current_facts'],
+    );
+
+    expect(withoutVerifier).not.toContain('Current fact verification guidance');
+    expect(withVerifier).toContain('Current fact verification guidance');
+    expect(withVerifier).toContain('Use verify_current_facts first');
+    expect(withVerifier).toContain('Set requiredItems when the user asks for a number of items');
+    expect(withVerifier).toContain('Do not manually start with internet_search or read_web_page');
   });
 });
 

@@ -326,6 +326,7 @@ export class AssistantRuntime {
     }
 
     await this.memoryStore.deleteThreadSummaryMemories(agentId, threadId);
+    await this.runContextStore.deleteRunsForThread(agentId, threadId);
 
     return {
       deleted: true,

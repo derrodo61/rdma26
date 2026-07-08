@@ -231,6 +231,53 @@ describe('AssistantRuntime memory behavior', () => {
     }
   });
 
+  it('deletes run contexts when a thread is deleted', async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-runtime-memory-'));
+    const previousApiKey = process.env['OPENAI_API_KEY'];
+    delete process.env['OPENAI_API_KEY'];
+
+    try {
+      const runtime = new AssistantRuntime({
+        dataDir,
+        defaultAgentId: 'scotty',
+        defaultAgentName: 'Scotty',
+      });
+      await runtime.ensureReady();
+      const deletedThread = await runtime.createThread('scotty', {
+        title: 'Delete run context',
+      });
+      const keptThread = await runtime.createThread('scotty', {
+        title: 'Keep run context',
+      });
+      const deletedRun = await runtime.runAgent({
+        agentId: 'scotty',
+        threadId: deletedThread.id,
+        model: 'gpt-4.1-mini',
+        prompt: 'This run should disappear with its thread.',
+      });
+      const keptRun = await runtime.runAgent({
+        agentId: 'scotty',
+        threadId: keptThread.id,
+        model: 'gpt-4.1-mini',
+        prompt: 'This run should remain.',
+      });
+
+      await runtime.deleteThread('scotty', deletedThread.id);
+
+      await expect(runtime.readRunContext(deletedRun.runId)).rejects.toThrow('does not exist');
+      await expect(runtime.readRunContext(keptRun.runId)).resolves.toMatchObject({
+        runId: keptRun.runId,
+      });
+    } finally {
+      if (previousApiKey === undefined) {
+        delete process.env['OPENAI_API_KEY'];
+      } else {
+        process.env['OPENAI_API_KEY'] = previousApiKey;
+      }
+      await rm(dataDir, { recursive: true, force: true });
+    }
+  });
+
   it('bulk consolidation requires an LLM for non-empty threads', async () => {
     const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-runtime-memory-'));
     const previousApiKey = process.env['OPENAI_API_KEY'];

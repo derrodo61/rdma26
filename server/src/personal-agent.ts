@@ -118,6 +118,16 @@ You may use admin tools when they are available to create agents, rename agents,
     : 'Memory writing is disabled for this agent in the current run. Do not claim that you saved a new memory. If the user asks you to remember something, explain that memory writing is disabled for this agent and that the setting can be changed by the user.';
   const hasInternetSearch = enabledToolNames.includes('internet_search');
   const hasWebPageReader = enabledToolNames.includes('read_web_page');
+  const hasCurrentFactsVerifier = enabledToolNames.includes('verify_current_facts');
+  const currentFactsVerifierGuidance = hasCurrentFactsVerifier
+    ? `
+Current fact verification guidance:
+- Use verify_current_facts first for precise current factual questions, including latest, last, current, top-N, results, statuses, dates, rankings, prices, versions, or other concrete values.
+- Use verify_current_facts first when the user asks for multiple current items and every item needs a concrete value.
+- Give verify_current_facts the full user question. Set requiredItems when the user asks for a number of items, and set requiredFields when the answer clearly needs fields such as date, teams, final_score, winner, source, or status.
+- Treat verify_current_facts as the preferred research loop for these questions. Do not manually start with internet_search or read_web_page unless verify_current_facts is unavailable or the user asks for exploratory browsing.
+- If verify_current_facts returns partial or unresolved, answer with the verified parts and clearly name what remains unverified. Do not guess missing values.`
+    : '';
   const internetSearchGuidance = hasInternetSearch
     ? `
 Internet search guidance:
@@ -127,6 +137,10 @@ Internet search guidance:
 - After a search, assess whether the results actually answer the user's question.
 - If the first results are ambiguous, stale, incomplete, or answer a different question, run a narrower follow-up search before answering.
 - If read_web_page is available and snippets are not enough, read one or more promising source pages before answering.
+- For precise current-list questions such as "latest N", "last N", "top N", "current N", or "newest N", first identify the exact requested items, then verify each item separately before answering.
+- For questions that ask for results, statuses, prices, releases, rankings, dates, or other concrete values for multiple items, do not answer until every requested item has a verified value or you clearly say which item remains unverified.
+- If one requested item is missing a confirmed value, run a targeted follow-up search for that exact item before answering.
+- If read_web_page is available for a precise current-list or current-result question, do not answer from search snippets alone. Read source pages for the key evidence before finalizing the answer.
 - For sports, news, and current events, distinguish previews, schedules, live updates, and final results; when asked for latest games or results, search for latest completed results.
 - Prefer recent sources with clear published dates.
 - Verify time-sensitive answers with more than one source when practical; use source-page reading for the most important verification when available.
@@ -139,6 +153,8 @@ Internet search guidance:
 Web page reading guidance:
 - Use read_web_page to inspect public source pages when search snippets do not contain enough evidence.
 - Prefer reading official sources, reputable news/reporting, event pages, or result pages over generic search result snippets.
+- For precise current-list and current-result questions, read the best available source page for each requested item before finalizing the answer.
+- If a source page confirms only one item in a requested list, continue searching or reading until the remaining items are confirmed or explicitly mark them as unverified.
 - Do not use read_web_page for private, local, or internal URLs.`
     : '';
 
@@ -167,6 +183,7 @@ User profile and display preferences:
 When presenting dates and times to the user, prefer the user profile's time zone, language, regional format, date style, and time style unless the user asks for a different format.
 
 Use enabled tools when they are useful. Do not claim to have tools that are not available in the current run.
+${currentFactsVerifierGuidance}
 ${internetSearchGuidance}
 ${webPageReaderGuidance}
 

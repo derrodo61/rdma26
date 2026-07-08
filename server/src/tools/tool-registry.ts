@@ -2,6 +2,7 @@ import { tool, type StructuredToolInterface } from '@langchain/core/tools';
 import { z } from 'zod';
 
 import type { ToolDefinition } from '../../../shared/agent-contracts';
+import { createVerifyCurrentFactsDependencies, verifyCurrentFacts } from './current-facts-verifier';
 import type { SearchProvider, SearchTopic } from './search-provider';
 import { withSearchQualityHints } from './search-quality';
 import { TavilySearchProvider } from './tavily-search-provider';
@@ -9,6 +10,7 @@ import { readWebPage } from './web-page-reader';
 
 export const internetSearchToolId = 'internet_search';
 export const readWebPageToolId = 'read_web_page';
+export const verifyCurrentFactsToolId = 'verify_current_facts';
 
 interface ToolRegistration {
   readonly id: string;
@@ -39,6 +41,15 @@ export class ToolRegistry {
       isAvailable: () => true,
       unavailableReason: 'Web page reading is not available.',
       create: () => createReadWebPageTool(),
+    },
+    {
+      id: verifyCurrentFactsToolId,
+      label: 'Verify current facts',
+      description: 'Search, read sources, and verify precise current factual answers.',
+      provider: 'rdma26-research',
+      isAvailable: () => Boolean(process.env['TAVILY_API_KEY'] && process.env['OPENAI_API_KEY']),
+      unavailableReason: 'TAVILY_API_KEY and OPENAI_API_KEY are required.',
+      create: () => createVerifyCurrentFactsTool(readTavilySearchProvider()),
     },
   ];
 
@@ -97,14 +108,90 @@ export class ToolRegistry {
   }
 }
 
+function createVerifyCurrentFactsTool(searchProvider: SearchProvider): StructuredToolInterface {
+  return tool(
+    async ({
+      question,
+      requiredItems,
+      requiredFields = [],
+      topic = 'news',
+      maxSearches = 4,
+      maxSources = 6,
+    }: {
+      question: string;
+      requiredItems?: number;
+      requiredFields?: readonly string[];
+      topic?: SearchTopic;
+      maxSearches?: number;
+      maxSources?: number;
+    }) =>
+      await verifyCurrentFacts(
+        {
+          question,
+          requiredItems,
+          requiredFields,
+          topic,
+          maxSearches,
+          maxSources,
+        },
+        createVerifyCurrentFactsDependencies(searchProvider),
+      ),
+    {
+      name: verifyCurrentFactsToolId,
+      description:
+        'Verify a precise current factual question end-to-end. Use this first for latest/last/current/top-N questions, current results, statuses, dates, rankings, prices, versions, or other concrete values that need reliable web evidence.',
+      schema: z.object({
+        question: z.string().describe('The precise current factual question to verify.'),
+        requiredItems: z
+          .number()
+          .min(1)
+          .max(20)
+          .optional()
+          .describe('Number of requested items, if the question asks for a list.'),
+        requiredFields: z
+          .array(z.string())
+          .optional()
+          .default([])
+          .describe('Concrete fields needed in the answer, such as teams, final_score, date.'),
+        topic: z
+          .enum(['general', 'news', 'finance'])
+          .optional()
+          .default('news')
+          .describe('Search topic category.'),
+        maxSearches: z
+          .number()
+          .min(1)
+          .max(5)
+          .optional()
+          .default(4)
+          .describe('Maximum search/follow-up search rounds.'),
+        maxSources: z
+          .number()
+          .min(1)
+          .max(12)
+          .optional()
+          .default(6)
+          .describe('Maximum source pages to read/extract.'),
+      }),
+    },
+  );
+}
+
 function createReadWebPageTool(): StructuredToolInterface {
   return tool(
-    async ({ url, maxCharacters = 12_000 }: { url: string; maxCharacters?: number }) =>
-      readWebPage(url, { maxCharacters }),
+    async ({
+      url,
+      maxCharacters = 12_000,
+      query,
+    }: {
+      url: string;
+      maxCharacters?: number;
+      query?: string;
+    }) => readWebPage(url, { maxCharacters, query }),
     {
       name: readWebPageToolId,
       description:
-        'Read a public HTTP/HTTPS web page after search when source details are needed. Rejects localhost and private-network URLs.',
+        'Read a public HTTP/HTTPS web page after search to verify source details. For precise current-list or current-result questions, use this before finalizing the answer. Rejects localhost and private-network URLs.',
       schema: z.object({
         url: z.string().url().describe('The public HTTP or HTTPS URL to read.'),
         maxCharacters: z
@@ -114,6 +201,10 @@ function createReadWebPageTool(): StructuredToolInterface {
           .optional()
           .default(12_000)
           .describe('Maximum number of readable text characters to return.'),
+        query: z
+          .string()
+          .optional()
+          .describe('Optional user intent query to focus extraction on the needed evidence.'),
       }),
     },
   );
