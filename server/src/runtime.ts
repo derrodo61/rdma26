@@ -43,20 +43,20 @@ import type {
   UserProfile,
 } from '../../shared/agent-contracts';
 import { readAuthConfig } from './auth';
-import { AgentRegistry, validateAgentId } from './agent-registry';
-import { MemoryMaintenanceSettingsStore } from './memory-maintenance-settings-store';
-import { MemoryStore } from './memory-store';
+import { AgentRegistry, validateAgentId } from './agents/agent-registry';
+import { MemoryMaintenanceSettingsStore } from './memory/memory-maintenance-settings-store';
+import { MemoryStore } from './memory/memory-store';
 import { PersonalAgent, type PersonalAgentResponse } from './agents/personal-agent';
-import { RunContextStore } from './run-context-store';
-import { createAdminTools, listAdminToolDefinitions } from './tools/admin-tools';
-import { createMemoryTools } from './tools/memory-tools';
-import { ToolRegistry } from './tools/tool-registry';
-import { UserProfileStore } from './user-profile-store';
+import { RunContextStore } from './runs/run-context-store';
+import { createAdminTools, listAdminToolDefinitions } from './capabilities/admin-tools';
+import { CapabilityRegistry } from './capabilities/capability-registry';
+import { createMemoryTools } from './capabilities/memory-tools';
+import { UserProfileStore } from './profiles/user-profile-store';
 
 export class AssistantRuntime {
   private readonly registry: AgentRegistry;
   private readonly models: readonly ModelOption[];
-  private readonly tools = new ToolRegistry();
+  private readonly capabilities = new CapabilityRegistry();
   private readonly userProfileStore: UserProfileStore;
   private readonly memoryStore: MemoryStore;
   private readonly memoryMaintenanceSettingsStore: MemoryMaintenanceSettingsStore;
@@ -156,7 +156,7 @@ export class AssistantRuntime {
 
   toolsResponse(): ToolsResponse {
     return {
-      tools: this.tools.listDefinitions(),
+      tools: this.capabilities.listDefinitions(),
     };
   }
 
@@ -166,7 +166,7 @@ export class AssistantRuntime {
     return {
       agentId: agent.id,
       enabledTools: agent.enabledTools,
-      tools: this.tools.listDefinitions(),
+      tools: this.capabilities.listDefinitions(),
       controlledTools: this.controlledToolsFor(agent.id),
     };
   }
@@ -175,13 +175,13 @@ export class AssistantRuntime {
     agentId: string,
     request: UpdateAgentToolsRequest,
   ): Promise<AgentToolsResponse> {
-    const enabledTools = this.tools.validateToolIds(request.enabledTools);
+    const enabledTools = this.capabilities.validateCapabilityIds(request.enabledTools);
     const agent = await this.registry.updateAgentTools(agentId, { enabledTools });
 
     return {
       agentId: agent.id,
       enabledTools: agent.enabledTools,
-      tools: this.tools.listDefinitions(),
+      tools: this.capabilities.listDefinitions(),
       controlledTools: this.controlledToolsFor(agent.id),
     };
   }
@@ -196,7 +196,7 @@ export class AssistantRuntime {
 
   async revokeAgentTool(agentId: string, toolId: string): Promise<AgentToolsResponse> {
     const agent = await this.readAgent(agentId);
-    this.tools.validateToolIds([toolId]);
+    this.capabilities.validateCapabilityIds([toolId]);
 
     return await this.updateAgentTools(agentId, {
       enabledTools: agent.enabledTools.filter((enabledToolId) => enabledToolId !== toolId),
@@ -455,7 +455,7 @@ export class AssistantRuntime {
     }
 
     const tools = [
-      ...this.tools.createTools(storage.agent.enabledTools),
+      ...this.capabilities.createRunnableTools(storage.agent.enabledTools),
       ...(storage.agent.memory.canWrite ? createMemoryTools(this, storage.agent.id) : []),
       ...this.adminToolsFor(storage.agent.id),
     ];
@@ -549,7 +549,7 @@ export class AssistantRuntime {
     canWriteMemory: boolean,
   ): readonly RunContextTool[] {
     const enabledToolIdSet = new Set(enabledToolIds);
-    const assignableTools = this.tools
+    const assignableTools = this.capabilities
       .listDefinitions()
       .filter((tool) => tool.available && enabledToolIdSet.has(tool.id))
       .map((tool) => ({

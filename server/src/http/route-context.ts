@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 
 import type { AuthConfig } from '../auth';
-import type { MemoryMaintenanceScheduler } from '../memory-maintenance-scheduler';
+import type { MemoryMaintenanceScheduler } from '../memory/memory-maintenance-scheduler';
 import type { AssistantRuntime } from '../runtime';
 
 export interface RegisterRoutesOptions {

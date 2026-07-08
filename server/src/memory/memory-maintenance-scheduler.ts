@@ -1,5 +1,5 @@
-import type { MemoryMaintenanceSettings } from '../../shared/agent-contracts';
-import type { AssistantRuntime } from './runtime';
+import type { MemoryMaintenanceSettings } from '../../../shared/agent-contracts';
+import type { AssistantRuntime } from '../runtime';
 
 export class MemoryMaintenanceScheduler {
   private timer: NodeJS.Timeout | null = null;

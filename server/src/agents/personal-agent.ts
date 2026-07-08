@@ -10,7 +10,7 @@ import type {
   RunContextToolCall,
   UserProfile,
 } from '../../../shared/agent-contracts';
-import type { AssistantStorage } from '../storage';
+import type { AssistantStorage } from '../storage/assistant-storage';
 import {
   emitActivity,
   observeAgentRunActivity,

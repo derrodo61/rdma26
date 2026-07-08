@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { LocalDatabase } from './local-database';
+import { LocalDatabase } from './storage/local-database';
 import { AssistantRuntime } from './runtime';
 
 describe('AssistantRuntime memory behavior', () => {

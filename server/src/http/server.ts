@@ -4,7 +4,7 @@ import swaggerUi from '@fastify/swagger-ui';
 import Fastify from 'fastify';
 
 import { readAuthConfig } from '../auth';
-import { MemoryMaintenanceScheduler } from '../memory-maintenance-scheduler';
+import { MemoryMaintenanceScheduler } from '../memory/memory-maintenance-scheduler';
 import { AssistantRuntime } from '../runtime';
 import { registerApiRoutes } from './api-routes';
 

@@ -4,8 +4,8 @@ import { dirname, join } from 'node:path';
 import type {
   MemoryMaintenanceSettings,
   UpdateMemoryMaintenanceSettingsRequest,
-} from '../../shared/agent-contracts';
-import { validateAgentId } from './agent-registry';
+} from '../../../shared/agent-contracts';
+import { validateAgentId } from '../agents/agent-registry';
 
 const settingsFileName = 'memory-maintenance-settings.json';
 

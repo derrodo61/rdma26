@@ -12,9 +12,9 @@ import type {
   MemoryStatus,
   MemoryType,
   UpdateMemoryRequest,
-} from '../../shared/agent-contracts';
-import { validateAgentId } from './agent-registry';
-import { LocalDatabase } from './local-database';
+} from '../../../shared/agent-contracts';
+import { validateAgentId } from '../agents/agent-registry';
+import { LocalDatabase } from '../storage/local-database';
 
 const memoryTypes = new Set<MemoryType>([
   'fact',

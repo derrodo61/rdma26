@@ -53,7 +53,7 @@ updates, deletes, and searches operate on SQLite.
 The backend code for long-term memory lives mainly in:
 
 - `server/src/memory-store.ts`
-- `server/src/tools/memory-tools.ts`
+- `server/src/capabilities/memory-tools.ts`
 - `server/src/runtime.ts`
 - `server/src/memory-maintenance-settings-store.ts`
 - `server/src/memory-maintenance-scheduler.ts`

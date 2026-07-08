@@ -6,7 +6,7 @@ import type {
   ChatMessage,
   ChatThread,
   ChatThreadSummary,
-} from '../../shared/agent-contracts';
+} from '../../../shared/agent-contracts';
 import { LocalDatabase } from './local-database';
 
 export interface AssistantStorage {

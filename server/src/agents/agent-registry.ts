@@ -8,9 +8,13 @@ import type {
   CreateAgentRequest,
   UpdateAgentRequest,
   UpdateAgentToolsRequest,
-} from '../../shared/agent-contracts';
-import { LocalDatabase } from './local-database';
-import { createAssistantStorage, importThreadJsonFiles, type AssistantStorage } from './storage';
+} from '../../../shared/agent-contracts';
+import {
+  createAssistantStorage,
+  importThreadJsonFiles,
+  type AssistantStorage,
+} from '../storage/assistant-storage';
+import { LocalDatabase } from '../storage/local-database';
 
 const profileFileName = 'agent.json';
 const soulVirtualPath = '/configuration/soul.md';

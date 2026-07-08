@@ -3,9 +3,9 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { describe, expect, it } from 'vitest';
 
-import type { RunContextDetails } from '../../shared/agent-contracts';
-import { LocalDatabase } from './local-database';
+import type { RunContextDetails } from '../../../shared/agent-contracts';
 import { RunContextStore } from './run-context-store';
+import { LocalDatabase } from '../storage/local-database';
 
 describe('RunContextStore', () => {
   it('stores new run contexts under the owning agent', async () => {

@@ -8,7 +8,7 @@ import type {
   TimeStylePreference,
   UpdateUserProfileRequest,
   UserProfile,
-} from '../../shared/agent-contracts';
+} from '../../../shared/agent-contracts';
 
 const profileFileName = 'user-profile.json';
 

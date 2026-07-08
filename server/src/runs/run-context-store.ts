@@ -1,8 +1,8 @@
 import { mkdir, readFile, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import type { RunContextDetails } from '../../shared/agent-contracts';
-import { LocalDatabase } from './local-database';
+import type { RunContextDetails } from '../../../shared/agent-contracts';
+import { LocalDatabase } from '../storage/local-database';
 
 export class RunContextStore {
   private readonly database: LocalDatabase;

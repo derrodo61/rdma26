@@ -7,11 +7,11 @@ import { withSearchQualityHints } from '../research/search-quality';
 import { TavilySearchProvider } from '../research/tavily-search-provider';
 import { readWebPage } from '../research/web-page-reader';
 
-export const researchToolId = 'research';
+export const researchCapabilityId = 'research';
 const internetSearchToolId = 'internet_search';
 const readWebPageToolId = 'read_web_page';
 
-interface ToolRegistration {
+interface CapabilityRegistration {
   readonly id: string;
   readonly label: string;
   readonly description: string;
@@ -21,10 +21,10 @@ interface ToolRegistration {
   readonly create: () => StructuredToolInterface;
 }
 
-export class ToolRegistry {
-  private readonly registrations: readonly ToolRegistration[] = [
+export class CapabilityRegistry {
+  private readonly registrations: readonly CapabilityRegistration[] = [
     {
-      id: researchToolId,
+      id: researchCapabilityId,
       label: 'Research',
       description:
         'Deep Agents researcher subagent capability with source reading and verification.',
@@ -70,22 +70,22 @@ export class ToolRegistry {
     });
   }
 
-  validateToolIds(toolIds: readonly string[]): readonly string[] {
+  validateCapabilityIds(capabilityIds: readonly string[]): readonly string[] {
     const knownToolIds = new Set(this.registrations.map((registration) => registration.id));
-    const unknownToolIds = toolIds.filter((toolId) => !knownToolIds.has(toolId));
+    const unknownToolIds = capabilityIds.filter((toolId) => !knownToolIds.has(toolId));
 
     if (unknownToolIds.length) {
       throw new Error(`Unknown tool id: ${unknownToolIds.join(', ')}.`);
     }
 
-    return normalizeToolIds(toolIds);
+    return normalizeCapabilityIds(capabilityIds);
   }
 
-  createTools(toolIds: readonly string[]): readonly StructuredToolInterface[] {
-    const registrations = this.registrationsById(toolIds);
+  createRunnableTools(capabilityIds: readonly string[]): readonly StructuredToolInterface[] {
+    const registrations = this.registrationsById(capabilityIds);
 
     return registrations
-      .filter((registration) => registration.id !== researchToolId)
+      .filter((registration) => registration.id !== researchCapabilityId)
       .map((registration) => {
         if (!registration.isAvailable()) {
           throw new Error(
@@ -97,8 +97,8 @@ export class ToolRegistry {
       });
   }
 
-  private registrationsById(toolIds: readonly string[]): readonly ToolRegistration[] {
-    const normalizedToolIds = this.validateToolIds(toolIds);
+  private registrationsById(capabilityIds: readonly string[]): readonly CapabilityRegistration[] {
+    const normalizedToolIds = this.validateCapabilityIds(capabilityIds);
 
     return normalizedToolIds.map((toolId) => {
       const registration = this.registrations.find((candidate) => candidate.id === toolId);
@@ -205,6 +205,8 @@ function readTavilySearchProvider(): TavilySearchProvider {
   return new TavilySearchProvider(apiKey);
 }
 
-function normalizeToolIds(toolIds: readonly string[]): readonly string[] {
-  return [...new Set(toolIds.map((toolId) => toolId.trim()).filter(Boolean))].sort();
+function normalizeCapabilityIds(capabilityIds: readonly string[]): readonly string[] {
+  return [
+    ...new Set(capabilityIds.map((capabilityId) => capabilityId.trim()).filter(Boolean)),
+  ].sort();
 }

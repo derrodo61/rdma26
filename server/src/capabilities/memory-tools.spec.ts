@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { AssistantRuntime } from './runtime';
-import { createMemoryTools } from './tools/memory-tools';
+import type { AssistantRuntime } from '../runtime';
+import { createMemoryTools } from './memory-tools';
 
 describe('memory tools', () => {
   it('can save explicitly requested global user memory', async () => {
