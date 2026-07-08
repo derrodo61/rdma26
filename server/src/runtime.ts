@@ -46,7 +46,7 @@ import { readAuthConfig } from './auth';
 import { AgentRegistry, validateAgentId } from './agent-registry';
 import { MemoryMaintenanceSettingsStore } from './memory-maintenance-settings-store';
 import { MemoryStore } from './memory-store';
-import { PersonalAgent, type PersonalAgentResponse } from './personal-agent';
+import { PersonalAgent, type PersonalAgentResponse } from './agents/personal-agent';
 import { RunContextStore } from './run-context-store';
 import { createAdminTools, listAdminToolDefinitions } from './tools/admin-tools';
 import { createMemoryTools } from './tools/memory-tools';

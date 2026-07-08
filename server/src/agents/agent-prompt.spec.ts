@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createBootloaderPromptForTest } from './personal-agent';
+import { createBootloaderPromptForTest } from './agent-prompt';
 
 describe('PersonalAgent bootloader prompt', () => {
   it('describes save_memory only when memory writes are enabled', () => {
