@@ -11,6 +11,7 @@ The project is designed around one shared backend runtime. API endpoints and CLI
 ## Documentation
 
 - [API endpoints](./docs/api.md)
+- [Backend structure](./docs/backend.md)
 - [CLI commands](./docs/cli.md)
 - [Memory system](./docs/memory.md)
 - [Memory system design spec](./docs/memory-spec.md)

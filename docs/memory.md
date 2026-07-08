@@ -215,7 +215,7 @@ The new-thread trigger is best-effort. It runs only when memory writes are enabl
 - `rdma26 threads:summaries`
 - `rdma26 memories:maintenance`
 
-This happens through `AssistantRuntime.createThreadSummaryMemoryIfMissing()`.
+This happens through `ThreadSummaryService.consolidateThreadSummary()`.
 
 The summary memory:
 

@@ -1,6 +1,5 @@
 import { join } from 'node:path';
 import { stat } from 'node:fs/promises';
-import { ChatOpenAI } from '@langchain/openai';
 
 import type {
   AgentProfile,
@@ -8,7 +7,6 @@ import type {
   AgentSoulResponse,
   AgentToolsResponse,
   AgentsResponse,
-  AgentMemoryMaintenanceResult,
   ChatThread,
   ChatThreadSummary,
   CreateMemoryRequest,
@@ -27,8 +25,6 @@ import type {
   ModelOption,
   ModelsResponse,
   RunContextDetails,
-  RunContextMemory,
-  RunContextTool,
   ThreadSummaryRequest,
   ThreadSummaryResponse,
   ThreadSummariesRequest,
@@ -44,14 +40,15 @@ import type {
 } from '../../shared/agent-contracts';
 import { readAuthConfig } from './auth';
 import { AgentRegistry, validateAgentId } from './agents/agent-registry';
+import { listAdminToolDefinitions } from './capabilities/admin-tools';
+import { CapabilityRegistry } from './capabilities/capability-registry';
+import { ChatRunService, type RunAgentOptions, type RunAgentResult } from './chat/chat-run-service';
 import { MemoryMaintenanceSettingsStore } from './memory/memory-maintenance-settings-store';
 import { MemoryStore } from './memory/memory-store';
-import { PersonalAgent, type PersonalAgentResponse } from './agents/personal-agent';
-import { RunContextStore } from './runs/run-context-store';
-import { createAdminTools, listAdminToolDefinitions } from './capabilities/admin-tools';
-import { CapabilityRegistry } from './capabilities/capability-registry';
-import { createMemoryTools } from './capabilities/memory-tools';
+import { ThreadSummaryService } from './memory/thread-summary-service';
 import { UserProfileStore } from './profiles/user-profile-store';
+import { RunContextStore } from './runs/run-context-store';
+import { ThreadService } from './threads/thread-service';
 
 export class AssistantRuntime {
   private readonly registry: AgentRegistry;
@@ -61,6 +58,9 @@ export class AssistantRuntime {
   private readonly memoryStore: MemoryStore;
   private readonly memoryMaintenanceSettingsStore: MemoryMaintenanceSettingsStore;
   private readonly runContextStore: RunContextStore;
+  private readonly threadSummaries: ThreadSummaryService;
+  private readonly threads: ThreadService;
+  private readonly chatRuns: ChatRunService;
 
   constructor(options: AssistantRuntimeOptions = readRuntimeOptionsFromEnv()) {
     this.registry = new AgentRegistry(
@@ -73,6 +73,21 @@ export class AssistantRuntime {
     this.memoryMaintenanceSettingsStore = new MemoryMaintenanceSettingsStore(options.dataDir);
     this.runContextStore = new RunContextStore(options.dataDir);
     this.models = readModels();
+    this.threadSummaries = new ThreadSummaryService(this.memoryStore, this.models);
+    this.threads = new ThreadService(
+      this.registry,
+      this.memoryStore,
+      this.runContextStore,
+      this.threadSummaries,
+    );
+    this.chatRuns = new ChatRunService(
+      this.registry,
+      this.capabilities,
+      this.memoryStore,
+      this.runContextStore,
+      this.userProfileStore,
+      this,
+    );
   }
 
   async ensureReady(): Promise<void> {
@@ -314,52 +329,19 @@ export class AssistantRuntime {
   }
 
   async listThreads(agentId: string): Promise<ChatThreadSummary[]> {
-    const storage = await this.storageFor(agentId);
-
-    return await storage.listThreads();
+    return await this.threads.listThreads(agentId);
   }
 
   async createThread(agentId: string, request: CreateThreadRequest = {}): Promise<ChatThread> {
-    const storage = await this.storageFor(agentId);
-    const previousThread = (await storage.listThreads()).find((thread) => thread.messageCount > 0);
-    const thread = await storage.createThread(request.title);
-
-    await this.createPreviousThreadSummaryIfPossible(
-      storage.agent.memory.canWrite,
-      previousThread?.id,
-      async (threadId) => await storage.readThread(threadId),
-    );
-
-    return thread;
+    return await this.threads.createThread(agentId, request);
   }
 
   async readThread(agentId: string, threadId: string): Promise<ChatThread> {
-    const storage = await this.storageFor(agentId);
-    const thread = await storage.readThread(threadId);
-
-    if (!thread) {
-      throw new Error(`Thread ${threadId} does not exist for agent ${agentId}.`);
-    }
-
-    return thread;
+    return await this.threads.readThread(agentId, threadId);
   }
 
   async deleteThread(agentId: string, threadId: string): Promise<DeleteThreadResponse> {
-    const storage = await this.storageFor(agentId);
-    const deleted = await storage.deleteThread(threadId);
-
-    if (!deleted) {
-      throw new Error(`Thread ${threadId} does not exist for agent ${agentId}.`);
-    }
-
-    await this.memoryStore.deleteThreadSummaryMemories(agentId, threadId);
-    await this.runContextStore.deleteRunsForThread(agentId, threadId);
-
-    return {
-      deleted: true,
-      agentId,
-      threadId,
-    };
+    return await this.threads.deleteThread(agentId, threadId);
   }
 
   async consolidateThreadSummary(
@@ -367,162 +349,38 @@ export class AssistantRuntime {
     threadId: string,
     request: ThreadSummaryRequest = {},
   ): Promise<ThreadSummaryResponse> {
-    const thread = await this.readThread(agentId, threadId);
-
-    if (!thread.messages.length) {
-      throw new Error('Cannot create a thread summary for an empty thread.');
-    }
-
-    return {
-      agentId: thread.agentId,
-      threadId: thread.id,
-      ...(await this.createThreadSummaryMemoryIfMissing(thread, request.model)),
-    };
+    return await this.threadSummaries.consolidateThreadSummary(
+      await this.readThread(agentId, threadId),
+      request,
+    );
   }
 
   async consolidateAgentThreadSummaries(
     agentId: string,
     request: ThreadSummariesRequest = {},
   ): Promise<ThreadSummariesResponse> {
-    const threads = await this.listThreads(agentId);
-    const limitedThreads =
-      request.limit === undefined ? threads : threads.slice(0, Math.max(0, request.limit));
-    const summaries: ThreadSummaryResponse[] = [];
-    const skippedEmptyThreads: string[] = [];
-
-    for (const threadSummary of limitedThreads) {
-      const thread = await this.readThread(agentId, threadSummary.id);
-
-      if (!thread.messages.length) {
-        skippedEmptyThreads.push(thread.id);
-        continue;
-      }
-
-      summaries.push(await this.consolidateThreadSummary(agentId, thread.id, request));
-    }
-
-    return {
+    return await this.threadSummaries.consolidateAgentThreadSummaries(
       agentId,
-      summaries,
-      skippedEmptyThreads,
-    };
+      request,
+      async (selectedAgentId) => await this.listThreads(selectedAgentId),
+      async (selectedAgentId, threadId) => await this.readThread(selectedAgentId, threadId),
+    );
   }
 
   async runMemoryMaintenance(
     request: MemoryMaintenanceRequest = {},
   ): Promise<MemoryMaintenanceResponse> {
-    const startedAt = new Date().toISOString();
-    const agents =
-      request.agentId === undefined
-        ? (await this.agentsResponse()).agents
-        : [await this.readAgent(request.agentId)];
-    const results: AgentMemoryMaintenanceResult[] = [];
-
-    for (const agent of agents) {
-      if (!agent.memory.canWrite) {
-        results.push({
-          agentId: agent.id,
-          summaries: [],
-          skippedEmptyThreads: [],
-          skippedReason: 'memory_writes_disabled',
-        });
-        continue;
-      }
-
-      results.push(
-        await this.consolidateAgentThreadSummaries(agent.id, {
-          model: request.model,
-          limit: request.limitPerAgent,
-        }),
-      );
-    }
-
-    return {
-      mode: 'manual',
-      startedAt,
-      finishedAt: new Date().toISOString(),
-      agents: results,
-    };
+    return await this.threadSummaries.runMemoryMaintenance(
+      request,
+      async () => await this.listAgents(),
+      async (agentId) => await this.readAgent(agentId),
+      async (agentId) => await this.listThreads(agentId),
+      async (agentId, threadId) => await this.readThread(agentId, threadId),
+    );
   }
 
   async runAgent(request: AgentRunRequest, options: RunAgentOptions = {}): Promise<RunAgentResult> {
-    const runId = options.runId ?? crypto.randomUUID();
-    const storage = await this.storageFor(request.agentId);
-    const existingThread = await storage.readThread(request.threadId);
-
-    if (!existingThread) {
-      throw new Error(`Thread ${request.threadId} does not exist for agent ${request.agentId}.`);
-    }
-
-    const tools = [
-      ...this.capabilities.createRunnableTools(storage.agent.enabledTools),
-      ...(storage.agent.memory.canWrite ? createMemoryTools(this, storage.agent.id) : []),
-      ...this.adminToolsFor(storage.agent.id),
-    ];
-    const toolContext = this.runContextToolsFor(
-      storage.agent.id,
-      storage.agent.enabledTools,
-      storage.agent.memory.canWrite,
-    );
-    const userProfile = await this.readUserProfile();
-    const soulContent = await storage.readSoul();
-    const memories = await this.memoryStore.searchForRun(storage.agent.id, request.prompt);
-    const userThread = await storage.appendMessage(request.threadId, {
-      role: 'user',
-      content: request.prompt,
-    });
-    const agentResponse = await new PersonalAgent(storage).run({
-      threadId: request.threadId,
-      model: request.model,
-      tools,
-      enabledToolIds: storage.agent.enabledTools,
-      isOperatorAgent: storage.agent.id === this.getDefaultAgentId(),
-      userProfile,
-      soulContent,
-      memories: memories.map((memory) => memory.memory),
-      memoryWritesEnabled: storage.agent.memory.canWrite,
-      messages: userThread.messages,
-      prompt: request.prompt,
-      onActivity: options.onActivity,
-    });
-    const thread = await storage.appendMessage(request.threadId, {
-      role: 'assistant',
-      content: agentResponse.content,
-    });
-    const assistantMessage = thread.messages.at(-1);
-    const runContext = await this.runContextStore.writeRunContext({
-      runId,
-      agentId: storage.agent.id,
-      agentName: storage.agent.name,
-      threadId: request.threadId,
-      threadTitle: thread.title,
-      model: request.model,
-      createdAt: new Date().toISOString(),
-      prompt: request.prompt,
-      assistantResponse: agentResponse.content,
-      assistantMessageId: assistantMessage?.role === 'assistant' ? assistantMessage.id : undefined,
-      soulVirtualPath: storage.agent.soulVirtualPath,
-      soulContent,
-      userProfile,
-      memories: memories.map((memory) => toRunContextMemory(memory)),
-      messages: userThread.messages.map((message) => ({
-        id: message.id,
-        role: message.role,
-        createdAt: message.createdAt,
-        content: message.content,
-      })),
-      tools: toolContext,
-      toolCalls: agentResponse.toolCalls,
-      tokenUsage: agentResponse.tokenUsage,
-      memoryWritesEnabled: storage.agent.memory.canWrite,
-    });
-
-    return {
-      agentResponse,
-      runContext,
-      runId,
-      thread,
-    };
+    return await this.chatRuns.runAgent(request, options);
   }
 
   getDefaultAgentId(): string {
@@ -535,260 +393,13 @@ export class AssistantRuntime {
     return await this.registry.storageFor(agentId);
   }
 
-  private adminToolsFor(agentId: string) {
-    return agentId === this.getDefaultAgentId() ? createAdminTools(this) : [];
-  }
-
-  private controlledToolsFor(agentId: string) {
+  controlledToolsFor(agentId: string) {
     return agentId === this.getDefaultAgentId() ? listAdminToolDefinitions() : [];
   }
-
-  private runContextToolsFor(
-    agentId: string,
-    enabledToolIds: readonly string[],
-    canWriteMemory: boolean,
-  ): readonly RunContextTool[] {
-    const enabledToolIdSet = new Set(enabledToolIds);
-    const assignableTools = this.capabilities
-      .listDefinitions()
-      .filter((tool) => tool.available && enabledToolIdSet.has(tool.id))
-      .map((tool) => ({
-        id: tool.id,
-        label: tool.label,
-        description: tool.description,
-        provider: tool.provider,
-        controlled: false,
-      }));
-    const memoryTools = canWriteMemory
-      ? [
-          {
-            id: 'save_memory',
-            label: 'Save memory',
-            description: 'Save an important long-term memory for this agent.',
-            provider: 'rdma26-memory',
-            controlled: true,
-          },
-        ]
-      : [];
-    const adminTools = this.controlledToolsFor(agentId).map((tool) => ({
-      id: tool.id,
-      label: tool.label,
-      description: tool.description,
-      provider: tool.provider,
-      controlled: true,
-    }));
-
-    return [...assignableTools, ...memoryTools, ...adminTools];
-  }
-
-  private async createThreadSummaryMemoryIfMissing(
-    thread: ChatThread,
-    requestedModel?: string,
-  ): Promise<ThreadSummaryMemoryResult> {
-    if (!thread.messages.length) {
-      throw new Error('Cannot create a thread summary for an empty thread.');
-    }
-
-    const existing = await this.memoryStore.findThreadSummary(thread.agentId, thread.id);
-
-    if (existing) {
-      return {
-        memory: existing,
-      };
-    }
-
-    const summary = await this.createThreadSummaryContent(thread, requestedModel);
-    const request = {
-      type: 'conversation_summary' as const,
-      lifetime: 'active' as const,
-      content: summary.content,
-      tags: ['thread-summary'],
-      source: {
-        agentId: thread.agentId,
-        threadId: thread.id,
-        note: `Model-generated thread summary using ${summary.model}.`,
-      },
-    };
-
-    return {
-      model: summary.model,
-      memory: await this.memoryStore.createMemory({
-        scope: 'agent',
-        agentId: thread.agentId,
-        ...request,
-      }),
-    };
-  }
-
-  private async createPreviousThreadSummaryIfPossible(
-    memoryWritesEnabled: boolean,
-    previousThreadId: string | undefined,
-    readThread: (threadId: string) => Promise<ChatThread | null>,
-  ): Promise<void> {
-    if (!memoryWritesEnabled || !previousThreadId || !process.env['OPENAI_API_KEY']) {
-      return;
-    }
-
-    try {
-      const previousThread = await readThread(previousThreadId);
-
-      if (!previousThread?.messages.length) {
-        return;
-      }
-
-      await this.createThreadSummaryMemoryIfMissing(previousThread);
-    } catch {
-      // Starting a new thread should not fail because memory maintenance is unavailable.
-    }
-  }
-
-  private async createThreadSummaryContent(
-    thread: ChatThread,
-    requestedModel: string | undefined,
-  ): Promise<ThreadSummaryContent> {
-    const model = requestedModel ?? process.env['OPENAI_SUMMARY_MODEL'] ?? this.models[0]?.id;
-
-    if (!process.env['OPENAI_API_KEY']) {
-      throw new Error('Cannot create a thread summary because OPENAI_API_KEY is not configured.');
-    }
-
-    if (!model) {
-      throw new Error('Cannot create a thread summary because no summary model is configured.');
-    }
-
-    const content = await createModelThreadSummaryContent(thread, model);
-
-    return {
-      model,
-      content,
-    };
-  }
-}
-
-interface ThreadSummaryMemoryResult {
-  readonly model?: string;
-  readonly memory: MemoryRecord;
-}
-
-interface ThreadSummaryContent {
-  readonly model?: string;
-  readonly content: string;
-}
-
-async function createModelThreadSummaryContent(thread: ChatThread, model: string): Promise<string> {
-  const llm = new ChatOpenAI({
-    apiKey: process.env['OPENAI_API_KEY'],
-    model,
-    temperature: 0,
-  });
-  const transcript = thread.messages
-    .slice(-40)
-    .map((message) => `${message.role === 'user' ? 'User' : 'Assistant'}: ${message.content}`)
-    .join('\n\n');
-  const result = await llm.invoke([
-    {
-      role: 'system',
-      content: [
-        'Create a concise long-term memory summary for a personal multi-agent assistant.',
-        'Focus on durable facts, preferences, decisions, tracked topics, and open tasks.',
-        'Do not invent details. Do not include private information that is not in the transcript.',
-        'Use plain language. Prefer compact bullet points.',
-      ].join(' '),
-    },
-    {
-      role: 'user',
-      content: [
-        'No previous summary exists for this thread. Create the first durable summary.',
-        '',
-        `Thread title: ${thread.title}`,
-        `Thread updated at: ${thread.updatedAt}`,
-        '',
-        'Recent transcript:',
-        transcript,
-      ].join('\n'),
-    },
-  ]);
-  const modelSummary = extractModelText(result).trim();
-
-  if (!modelSummary) {
-    throw new Error('Model summary was empty.');
-  }
-
-  return truncateSummaryContent(
-    [
-      `Conversation summary for thread "${thread.title}".`,
-      `Last updated: ${thread.updatedAt}.`,
-      `Model-generated summary using ${model}:`,
-      modelSummary,
-    ].join('\n'),
-  );
-}
-
-function truncateSummaryContent(content: string): string {
-  const maxLength = 4000;
-
-  return content.length > maxLength ? `${content.slice(0, maxLength - 3).trimEnd()}...` : content;
-}
-
-function extractModelText(result: unknown): string {
-  const content = readProperty<unknown>(result, 'content');
-
-  if (typeof content === 'string') {
-    return content;
-  }
-
-  if (Array.isArray(content)) {
-    return content
-      .map((part) => readProperty<unknown>(part, 'text'))
-      .filter((part): part is string => typeof part === 'string')
-      .join('\n');
-  }
-
-  return '';
-}
-
-function readProperty<T>(value: unknown, key: string): T | undefined {
-  if (typeof value !== 'object' || value === null || !(key in value)) {
-    return undefined;
-  }
-
-  return (value as Record<string, T>)[key];
-}
-
-function toRunContextMemory(memory: {
-  readonly memory: MemoryRecord;
-  readonly source: {
-    readonly score: number;
-  };
-}): RunContextMemory {
-  return {
-    memoryId: memory.memory.id,
-    scope: memory.memory.scope,
-    agentId: memory.memory.agentId,
-    type: memory.memory.type,
-    status: memory.memory.status,
-    lifetime: memory.memory.lifetime,
-    tags: memory.memory.tags,
-    source: memory.memory.source,
-    score: memory.source.score,
-    content: memory.memory.content,
-  };
 }
 
 async function readFileUpdatedAt(path: string): Promise<string> {
   return (await stat(path)).mtime.toISOString();
-}
-
-interface RunAgentResult {
-  readonly agentResponse: PersonalAgentResponse;
-  readonly runContext: RunContextDetails;
-  readonly runId: string;
-  readonly thread: ChatThread;
-}
-
-interface RunAgentOptions {
-  readonly runId?: string;
-  readonly onActivity?: (activity: { readonly label: string; readonly detail?: string }) => void;
 }
 
 interface AssistantRuntimeOptions {
