@@ -588,7 +588,11 @@ function extractResearchSources(
   const sources = new Map<string, ResearchSourceSummary>();
 
   for (const toolCall of toolCalls) {
-    if (toolCall.name !== 'research' && toolCall.name !== 'verify_current_facts') {
+    if (
+      toolCall.name !== 'research' &&
+      toolCall.name !== 'verify_current_facts' &&
+      toolCall.name !== 'task'
+    ) {
       continue;
     }
 

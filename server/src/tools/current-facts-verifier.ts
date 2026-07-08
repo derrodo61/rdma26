@@ -97,7 +97,10 @@ export async function verifyCurrentFacts(
   dependencies: VerifyCurrentFactsDependencies,
 ): Promise<VerifiedFactsResult> {
   const maxSearches = request.maxSearches ?? 4;
-  const maxSources = request.maxSources ?? 6;
+  const softwareVersionQuestion = looksLikeSoftwareVersionQuestion(request.question);
+  const maxSources = softwareVersionQuestion
+    ? Math.max(request.maxSources ?? 6, 10)
+    : (request.maxSources ?? 6);
   const requiredFields = request.requiredFields?.length
     ? request.requiredFields
     : defaultRequiredFields;
@@ -110,7 +113,10 @@ export async function verifyCurrentFacts(
     currentDate,
   });
   const pendingQueries = normalizeQueries(
-    plannedQueries.length ? plannedQueries : buildFallbackQueries(request.question, currentDate),
+    prependSoftwareVersionQueries(
+      request.question,
+      plannedQueries.length ? plannedQueries : buildFallbackQueries(request.question, currentDate),
+    ),
   );
   const searchedQueries = new Set<string>();
   const readUrls = new Set<string>();
@@ -142,21 +148,31 @@ export async function verifyCurrentFacts(
       resultCount: searchPayload.results.length,
     });
 
-    for (const result of searchPayload.results) {
+    for (const result of sortSearchResultsForQuestion(
+      request.question,
+      query,
+      searchPayload.results,
+    )) {
       if (sources.length >= maxSources || readUrls.has(result.url)) {
         continue;
       }
 
       readUrls.add(result.url);
       const page = await dependencies.readPage(result.url, request.question);
-      sources.push(toVerifiedFactSource(result, page));
+      const source = toVerifiedFactSource(result, page);
+
+      if (!isRelevantSource(request.question, query, source)) {
+        continue;
+      }
+
+      sources.push(source);
     }
 
     latestAnalysis = await dependencies.analyze({
       question: request.question,
       requiredItems: request.requiredItems,
       requiredFields,
-      sources,
+      sources: preferredSourcesForAnalysis(request.question, sources),
       previousUnresolved: latestAnalysis.unresolved,
     });
 
@@ -232,6 +248,8 @@ async function planSearchQueriesWithOpenAI(
         'Do not copy the whole conversational question as a search query.',
         'Create keyword-style, source-seeking queries that a search engine can match well.',
         'For latest, last, current, newest, recent, top-N, or result questions, include words such as latest completed, results, schedule, standings, official, date, or year when useful.',
+        'For software, framework, package, library, or version questions, prefer official/package-registry queries such as npm package latest version, official release notes, official blog announcement, or changelog.',
+        'For JavaScript ecosystem packages, include the likely npm package name when known, for example @angular/core for Angular, react for React, next for Next.js, vue for Vue, svelte for Svelte, or typescript for TypeScript.',
       ].join(' '),
     },
     {
@@ -289,6 +307,7 @@ async function analyzeFactsWithOpenAI(
         'For latest, last, current, newest, recent, or top-N questions, status may be verified only when the supplied sources prove both the requested facts and the ordering/recency.',
         'For latest completed events or matches, identify candidate events, exclude previews/schedules/upcoming events, rank completed candidates by date/time when available, and choose the most recent requested count.',
         'If sources prove completed events but do not prove they are the latest requested events, mark status as partial and propose a search query for latest completed results or schedule.',
+        'For software version questions, distinguish latest package patch version from major release version. If one source proves the latest package patch and another source proves the major release announcement date, include both facts explicitly instead of assigning the major release date to the patch version.',
         'Never ask the user whether to continue. The caller will run follow-up searches when needed.',
       ].join(' '),
     },
@@ -318,7 +337,7 @@ async function analyzeFactsWithOpenAI(
     },
   ]);
 
-  return parseAnalysisResult(readModelText(result));
+  return parseAnalysisResult(readModelText(result), request.sources);
 }
 
 function toVerifiedFactSource(
@@ -361,7 +380,10 @@ function parseSearchPayload(rawResult: unknown): SearchPayload {
   };
 }
 
-function parseAnalysisResult(text: string): AnalyzeFactsResult {
+function parseAnalysisResult(
+  text: string,
+  sources: readonly VerifiedFactSource[] = [],
+): AnalyzeFactsResult {
   const parsed = parseJson(
     text
       .replace(/^```json\s*/i, '')
@@ -370,13 +392,19 @@ function parseAnalysisResult(text: string): AnalyzeFactsResult {
   );
 
   if (!isAnalyzeFactsResultLike(parsed)) {
+    const flatResult = parseFlatAnalysisResult(parsed, sources);
+
+    if (flatResult) {
+      return flatResult;
+    }
+
     return {
       status: 'unresolved',
       answer: '',
       findings: [],
       unresolved: ['The verifier model returned an invalid analysis response.'],
       followUpQueries: [],
-      notes: [clipSourceText(text, 1_000)],
+      notes: ['The verifier model returned an invalid response that was omitted.'],
     };
   }
 
@@ -387,6 +415,69 @@ function parseAnalysisResult(text: string): AnalyzeFactsResult {
     unresolved: parsed.unresolved,
     followUpQueries: parsed.followUpQueries,
     notes: parsed.notes,
+  };
+}
+
+function parseFlatAnalysisResult(
+  value: unknown,
+  sources: readonly VerifiedFactSource[],
+): AnalyzeFactsResult | null {
+  if (typeof value !== 'object' || value === null) {
+    return null;
+  }
+
+  const record = value as Readonly<Record<string, unknown>>;
+
+  if (
+    record['status'] !== 'verified' &&
+    record['status'] !== 'partial' &&
+    record['status'] !== 'unresolved'
+  ) {
+    return null;
+  }
+
+  const source = typeof record['source'] === 'string' ? record['source'] : undefined;
+
+  if (record['status'] === 'verified' && (!source || !isKnownSourceUrl(source, sources))) {
+    return null;
+  }
+
+  const values = Object.fromEntries(
+    Object.entries(record)
+      .filter(
+        ([key, entryValue]) =>
+          !['answer', 'notes', 'source', 'status'].includes(key) &&
+          (typeof entryValue === 'string' ||
+            typeof entryValue === 'number' ||
+            typeof entryValue === 'boolean'),
+      )
+      .map(([key, entryValue]) => [key, String(entryValue)]),
+  );
+
+  if (!Object.keys(values).length) {
+    return null;
+  }
+
+  const answer =
+    typeof record['answer'] === 'string' && record['answer'].trim()
+      ? record['answer']
+      : Object.entries(values)
+          .map(([key, entryValue]) => `${key}: ${entryValue}`)
+          .join(', ');
+
+  return {
+    status: record['status'],
+    answer,
+    findings: [
+      {
+        item: 'answer',
+        values,
+        sourceUrls: source ? [source] : [],
+      },
+    ],
+    unresolved: record['status'] === 'verified' ? [] : ['The verifier returned a partial result.'],
+    followUpQueries: [],
+    notes: typeof record['notes'] === 'string' && record['notes'].trim() ? [record['notes']] : [],
   };
 }
 
@@ -479,6 +570,27 @@ function buildFallbackQueries(question: string, currentDate: string): readonly s
   ];
 }
 
+function prependSoftwareVersionQueries(
+  question: string,
+  queries: readonly string[],
+): readonly string[] {
+  if (!looksLikeSoftwareVersionQuestion(question)) {
+    return queries;
+  }
+
+  const product = extractSoftwareProduct(question);
+
+  if (!product) {
+    return queries;
+  }
+
+  return [
+    `${product} npm latest version official package registry`,
+    `${product} latest release official blog announcement`,
+    ...queries,
+  ];
+}
+
 function normalizeQueries(queries: readonly string[]): string[] {
   const seen = new Set<string>();
   const normalized: string[] = [];
@@ -496,6 +608,183 @@ function normalizeQueries(queries: readonly string[]): string[] {
   }
 
   return normalized;
+}
+
+const sourceStopWords = new Set([
+  'about',
+  'aktuelle',
+  'aktuellen',
+  'current',
+  'date',
+  'der',
+  'die',
+  'und',
+  'eine',
+  'für',
+  'ist',
+  'latest',
+  'released',
+  'release',
+  'stable',
+  'version',
+  'veröffentlicht',
+  'wann',
+  'was',
+  'when',
+]);
+
+function isRelevantSource(question: string, query: string, source: VerifiedFactSource): boolean {
+  const terms = relevantTerms(`${question} ${query}`);
+
+  if (!terms.length) {
+    return true;
+  }
+
+  const haystack = `${source.url} ${source.title ?? ''} ${source.excerpt}`.toLowerCase();
+
+  return terms.some((term) => haystack.includes(term));
+}
+
+function sortSearchResultsForQuestion(
+  question: string,
+  query: string,
+  results: readonly SearchResult[],
+): readonly SearchResult[] {
+  return [...results].sort(
+    (left, right) =>
+      sourcePreferenceScore(question, query, right) - sourcePreferenceScore(question, query, left),
+  );
+}
+
+function sourcePreferenceScore(question: string, query: string, result: SearchResult): number {
+  if (!looksLikeSoftwareVersionQuestion(question)) {
+    return 0;
+  }
+
+  const product = extractSoftwareProduct(question).toLowerCase();
+  const text = `${result.url} ${result.title ?? ''} ${result.content ?? ''}`.toLowerCase();
+  const hostname = readHostname(result.url);
+  let score = 0;
+
+  if (product && hostname.includes(product)) {
+    score += 6;
+  }
+
+  if (result.url.includes('npmjs.com/package/') && (!product || text.includes(product))) {
+    score += 5;
+  }
+
+  if (result.url.includes('github.com') && product && text.includes(product)) {
+    score += 4;
+  }
+
+  if (
+    /\b(blog|release|changelog|announce|announcing|docs|reference)\b/i.test(query) &&
+    (result.url.includes('blog') || result.url.includes('docs'))
+  ) {
+    score += 2;
+  }
+
+  return score;
+}
+
+function preferredSourcesForAnalysis(
+  question: string,
+  sources: readonly VerifiedFactSource[],
+): readonly VerifiedFactSource[] {
+  if (!looksLikeSoftwareVersionQuestion(question)) {
+    return sources;
+  }
+
+  const preferredSources = sources.filter((source) => isPreferredSoftwareSource(question, source));
+
+  return preferredSources.length ? preferredSources : sources;
+}
+
+function isPreferredSoftwareSource(question: string, source: VerifiedFactSource): boolean {
+  const product = extractSoftwareProduct(question).toLowerCase();
+  const url = source.url.toLowerCase();
+  const title = source.title?.toLowerCase() ?? '';
+  const hostname = readHostname(source.url);
+
+  if (product && hostname.includes(product)) {
+    return true;
+  }
+
+  if (url.includes('npmjs.com/package/') && (!product || `${url} ${title}`.includes(product))) {
+    return true;
+  }
+
+  return Boolean(product && url.includes('github.com') && `${url} ${title}`.includes(product));
+}
+
+function relevantTerms(text: string): readonly string[] {
+  return text
+    .toLowerCase()
+    .replace(/https?:\/\/\S+/g, ' ')
+    .replace(/[@/._-]/g, ' ')
+    .replace(/[^a-z0-9äöüß]+/gi, ' ')
+    .split(/\s+/)
+    .map((term) => term.trim())
+    .filter((term) => term.length >= 4 && !sourceStopWords.has(term));
+}
+
+function readHostname(url: string): string {
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+function looksLikeSoftwareVersionQuestion(question: string): boolean {
+  return /\b(version|release|released|stable|framework|library|package|npm|veröffentlicht|stabile)\b/i.test(
+    question,
+  );
+}
+
+function extractSoftwareProduct(question: string): string {
+  const words = question.match(/[A-Z][A-Za-z0-9.+#-]{1,}/g) ?? [];
+  const product = words.find((word) => !softwareProductStopWords.has(word.toLowerCase()));
+
+  return product ?? '';
+}
+
+const softwareProductStopWords = new Set([
+  'aktuelle',
+  'current',
+  'stable',
+  'stabile',
+  'version',
+  'wann',
+  'was',
+  'when',
+]);
+
+function isKnownSourceUrl(source: string, sources: readonly VerifiedFactSource[]): boolean {
+  const normalizedSource = normalizeUrlForComparison(source);
+
+  return sources.some((knownSource) => {
+    const normalizedKnownSource = normalizeUrlForComparison(knownSource.url);
+
+    return (
+      normalizedSource === normalizedKnownSource ||
+      normalizedSource.startsWith(normalizedKnownSource) ||
+      normalizedKnownSource.startsWith(normalizedSource)
+    );
+  });
+}
+
+function normalizeUrlForComparison(url: string): string {
+  try {
+    const parsed = new URL(url);
+    parsed.hash = '';
+    parsed.search = '';
+
+    return parsed.toString().replace(/\/$/, '');
+  } catch {
+    return url.replace(/[?#].*$/, '').replace(/\/$/, '');
+  }
 }
 
 function clipSourceText(text: string, maxCharacters: number): string {

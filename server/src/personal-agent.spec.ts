@@ -157,8 +157,9 @@ describe('PersonalAgent bootloader prompt', () => {
     );
 
     expect(prompt).toContain('Research guidance');
-    expect(prompt).toContain('Use research as the preferred tool for internet research');
-    expect(prompt).toContain('Use the structured research result as your evidence');
+    expect(prompt).toContain('A researcher subagent is available through Deep Agents');
+    expect(prompt).toContain('Use the task tool to delegate internet research');
+    expect(prompt).toContain("Use the researcher's structured result as your evidence");
     expect(prompt).toContain('Prefer research when it is available');
     expect(prompt).toContain('Do not manually start with internet_search or read_web_page');
   });

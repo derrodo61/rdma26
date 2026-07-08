@@ -85,7 +85,7 @@ Returns configured OpenAI model options and the default model.
 
 Returns registered tools and their availability.
 
-- `research` is the recommended high-level internet research workflow. It is available when `TAVILY_API_KEY` and `OPENAI_API_KEY` are configured.
+- `research` is the recommended Deep Agents researcher subagent capability. It is available when `TAVILY_API_KEY` and `OPENAI_API_KEY` are configured.
 - `verify_current_facts` remains available as a compatibility factual verifier when `TAVILY_API_KEY` and `OPENAI_API_KEY` are configured.
 - `internet_search` is a low-level Tavily search primitive and is available when `TAVILY_API_KEY` is configured.
 - `read_web_page` is a low-level public web page reader.

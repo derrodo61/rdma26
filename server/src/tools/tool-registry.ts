@@ -2,10 +2,10 @@ import { tool, type StructuredToolInterface } from '@langchain/core/tools';
 import { z } from 'zod';
 
 import type { ToolDefinition } from '../../../shared/agent-contracts';
-import { ResearchAgent, type ResearchExpectedOutput, type ResearchMode } from '../research-agent';
 import type { SearchProvider, SearchTopic } from './search-provider';
 import { withSearchQualityHints } from './search-quality';
 import { TavilySearchProvider } from './tavily-search-provider';
+import { createVerifyCurrentFactsDependencies, verifyCurrentFacts } from './current-facts-verifier';
 import { readWebPage } from './web-page-reader';
 
 export const researchToolId = 'research';
@@ -28,11 +28,14 @@ export class ToolRegistry {
     {
       id: researchToolId,
       label: 'Research',
-      description: 'High-level internet research workflow with source reading and verification.',
+      description:
+        'Deep Agents researcher subagent capability with source reading and verification.',
       provider: 'rdma26-research',
       isAvailable: () => Boolean(process.env['TAVILY_API_KEY'] && process.env['OPENAI_API_KEY']),
       unavailableReason: 'TAVILY_API_KEY and OPENAI_API_KEY are required.',
-      create: () => createResearchTool(readTavilySearchProvider()),
+      create: () => {
+        throw new Error('research is a Deep Agents subagent capability, not a direct tool.');
+      },
     },
     {
       id: internetSearchToolId,
@@ -92,15 +95,17 @@ export class ToolRegistry {
   createTools(toolIds: readonly string[]): readonly StructuredToolInterface[] {
     const registrations = this.registrationsById(toolIds);
 
-    return registrations.map((registration) => {
-      if (!registration.isAvailable()) {
-        throw new Error(
-          `Tool ${registration.id} is enabled for this agent but unavailable. ${registration.unavailableReason}`,
-        );
-      }
+    return registrations
+      .filter((registration) => registration.id !== researchToolId)
+      .map((registration) => {
+        if (!registration.isAvailable()) {
+          throw new Error(
+            `Tool ${registration.id} is enabled for this agent but unavailable. ${registration.unavailableReason}`,
+          );
+        }
 
-      return registration.create();
-    });
+        return registration.create();
+      });
   }
 
   private registrationsById(toolIds: readonly string[]): readonly ToolRegistration[] {
@@ -118,92 +123,8 @@ export class ToolRegistry {
   }
 }
 
-function createResearchTool(searchProvider: SearchProvider): StructuredToolInterface {
-  const researchAgent = new ResearchAgent({ searchProvider });
-
-  return tool(
-    async ({
-      question,
-      mode = 'auto',
-      expectedOutput = 'answer',
-      requiredItems,
-      requiredFields = [],
-      topic = 'news',
-      maxSearches = 4,
-      maxSources = 6,
-    }: {
-      question: string;
-      mode?: ResearchMode;
-      expectedOutput?: ResearchExpectedOutput;
-      requiredItems?: number;
-      requiredFields?: readonly string[];
-      topic?: SearchTopic;
-      maxSearches?: number;
-      maxSources?: number;
-    }) =>
-      await researchAgent.research({
-        question,
-        mode,
-        expectedOutput,
-        requiredItems,
-        requiredFields,
-        topic,
-        maxSearches,
-        maxSources,
-      }),
-    {
-      name: researchToolId,
-      description:
-        'Use this for internet research, current facts, latest results, software versions, prices, rankings, dates, and other external information that needs source-backed verification. It plans searches, reads source pages, verifies evidence, and returns structured findings, searches, sources, unresolved items, and notes.',
-      schema: z.object({
-        question: z.string().describe('The full user question or research task.'),
-        mode: z
-          .enum(['auto', 'quick', 'deep'])
-          .optional()
-          .default('auto')
-          .describe('Research mode. Auto selects the best available mode.'),
-        expectedOutput: z
-          .enum(['answer', 'structured_facts', 'report'])
-          .optional()
-          .default('answer')
-          .describe('The desired shape of the result. Deep reports are not implemented yet.'),
-        requiredItems: z
-          .number()
-          .min(1)
-          .max(20)
-          .optional()
-          .describe('Number of requested items, if the question asks for a list.'),
-        requiredFields: z
-          .array(z.string())
-          .optional()
-          .default([])
-          .describe('Concrete fields needed in the answer, such as teams, final_score, date.'),
-        topic: z
-          .enum(['general', 'news', 'finance'])
-          .optional()
-          .default('news')
-          .describe('Search topic category.'),
-        maxSearches: z
-          .number()
-          .min(1)
-          .max(5)
-          .optional()
-          .default(4)
-          .describe('Maximum search/follow-up search rounds.'),
-        maxSources: z
-          .number()
-          .min(1)
-          .max(12)
-          .optional()
-          .default(6)
-          .describe('Maximum source pages to read/extract.'),
-      }),
-    },
-  );
-}
-
 function createVerifyCurrentFactsTool(searchProvider: SearchProvider): StructuredToolInterface {
-  const researchAgent = new ResearchAgent({ searchProvider });
+  const dependencies = createVerifyCurrentFactsDependencies(searchProvider);
 
   return tool(
     async ({
@@ -221,18 +142,21 @@ function createVerifyCurrentFactsTool(searchProvider: SearchProvider): Structure
       maxSearches?: number;
       maxSources?: number;
     }) =>
-      await researchAgent.quickFacts({
-        question,
-        requiredItems,
-        requiredFields,
-        topic,
-        maxSearches,
-        maxSources,
-      }),
+      await verifyCurrentFacts(
+        {
+          question,
+          requiredItems,
+          requiredFields,
+          topic,
+          maxSearches,
+          maxSources,
+        },
+        dependencies,
+      ),
     {
       name: verifyCurrentFactsToolId,
       description:
-        'Compatibility wrapper for quick factual research. Prefer research for new agents. Use only when a precise current factual question needs the older verify_current_facts tool name.',
+        'Compatibility alias for source-backed research. Prefer research for new agents. Use only when a precise current factual question needs the older verify_current_facts tool name.',
       schema: z.object({
         question: z.string().describe('The precise current factual question to verify.'),
         requiredItems: z

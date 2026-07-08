@@ -213,4 +213,70 @@ describe('verifyCurrentFacts', () => {
     expect(result.unresolved).toEqual(['Final result']);
     expect(result.searches).toHaveLength(1);
   });
+
+  it('filters clearly off-topic source pages before verification', async () => {
+    const analyze = vi.fn<VerifyCurrentFactsDependencies['analyze']>().mockResolvedValue({
+      status: 'verified',
+      answer: 'Angular v22 was released on June 3, 2026.',
+      findings: [
+        {
+          item: 'Angular',
+          values: {
+            version: 'v22',
+            release_date: 'June 3, 2026',
+          },
+          sourceUrls: ['https://blog.angular.dev/announcing-angular-v22'],
+        },
+      ],
+      unresolved: [],
+      followUpQueries: [],
+      notes: [],
+    });
+
+    const result = await verifyCurrentFacts(
+      {
+        question: 'What is the current stable Angular version and release date?',
+        maxSearches: 1,
+        requiredFields: ['version', 'release_date'],
+      },
+      {
+        planSearchQueries: async () => ['Angular latest stable version official release date'],
+        search: async () => ({
+          results: [
+            {
+              url: 'https://example.test/android-update',
+              title: 'Android update released',
+            },
+            {
+              url: 'https://blog.angular.dev/announcing-angular-v22',
+              title: 'Announcing Angular v22',
+            },
+          ],
+        }),
+        readPage: async (url) => ({
+          url,
+          finalUrl: url,
+          title: url.includes('android') ? 'Android update released' : 'Announcing Angular v22',
+          text: url.includes('android')
+            ? 'Google released a Pixel update for Android devices.'
+            : 'Angular v22 was released on June 3, 2026.',
+          extractionProvider: 'local_fetch',
+          truncated: false,
+          fetchedAt: '2026-07-08T00:00:00.000Z',
+        }),
+        analyze,
+      },
+    );
+
+    expect(result.status).toBe('verified');
+    expect(analyze).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sources: [
+          expect.objectContaining({
+            url: 'https://blog.angular.dev/announcing-angular-v22',
+          }),
+        ],
+      }),
+    );
+  });
 });

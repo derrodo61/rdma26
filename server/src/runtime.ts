@@ -448,6 +448,7 @@ export class AssistantRuntime {
       threadId: request.threadId,
       model: request.model,
       tools,
+      enabledToolIds: storage.agent.enabledTools,
       isOperatorAgent: storage.agent.id === this.getDefaultAgentId(),
       userProfile,
       soulContent,
