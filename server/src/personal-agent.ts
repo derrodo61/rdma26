@@ -71,6 +71,7 @@ export class PersonalAgent {
         request.soulContent,
         request.memories,
         request.memoryWritesEnabled,
+        request.tools.map((tool) => tool.name),
       ),
     });
 
@@ -104,6 +105,7 @@ export function createBootloaderPromptForTest(
   soulContent: string,
   memories: readonly MemoryRecord[],
   memoryWritesEnabled: boolean,
+  enabledToolNames: readonly string[] = [],
 ): string {
   const operatorGuidance = isOperatorAgent
     ? `
@@ -114,6 +116,18 @@ You may use admin tools when they are available to create agents, rename agents,
   const memoryWriteGuidance = memoryWritesEnabled
     ? 'Use the save_memory tool when the user explicitly asks you to remember something or when a future-useful, low-risk memory clearly fits the memory rules. Ask first when the memory is sensitive, ambiguous, conflicting, or unclear in scope.'
     : 'Memory writing is disabled for this agent in the current run. Do not claim that you saved a new memory. If the user asks you to remember something, explain that memory writing is disabled for this agent and that the setting can be changed by the user.';
+  const internetSearchGuidance = enabledToolNames.includes('internet_search')
+    ? `
+Internet search guidance:
+- Use internet_search for current, fast-changing, or uncertain facts.
+- Build precise search queries with date, entity, event, and requested answer type.
+- For sports, news, and current events, distinguish previews, schedules, live updates, and final results; when asked for latest games or results, search for latest completed results.
+- Prefer recent sources with clear published dates.
+- Verify time-sensitive answers with more than one source when practical.
+- If the answer is sufficiently verified, answer directly and do not add meta commentary about search quality.
+- If search results conflict or are incomplete, say what is uncertain instead of guessing.
+- Do not present a result as final when the source only describes a scheduled or upcoming event.`
+    : '';
 
   return `You are the configured local agent named "${agent.name}".
 
@@ -140,6 +154,7 @@ User profile and display preferences:
 When presenting dates and times to the user, prefer the user profile's time zone, language, regional format, date style, and time style unless the user asks for a different format.
 
 Use enabled tools when they are useful. Do not claim to have tools that are not available in the current run.
+${internetSearchGuidance}
 
 ${memoryWriteGuidance}
 

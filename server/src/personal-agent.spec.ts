@@ -31,6 +31,39 @@ describe('PersonalAgent bootloader prompt', () => {
     expect(disabledPrompt).toContain('Memory writing is disabled for this agent');
     expect(disabledPrompt).not.toContain('Use the save_memory tool');
   });
+
+  it('adds internet search guidance only when internet_search is enabled', () => {
+    const withoutSearch = createBootloaderPromptForTest(
+      {
+        name: 'Agent',
+        soulVirtualPath: '/configuration/soul.md',
+      },
+      testProfile(),
+      false,
+      '# soul',
+      [],
+      true,
+      [],
+    );
+    const withSearch = createBootloaderPromptForTest(
+      {
+        name: 'Agent',
+        soulVirtualPath: '/configuration/soul.md',
+      },
+      testProfile(),
+      false,
+      '# soul',
+      [],
+      true,
+      ['internet_search'],
+    );
+
+    expect(withoutSearch).not.toContain('Internet search guidance');
+    expect(withSearch).toContain('Internet search guidance');
+    expect(withSearch).toContain('latest completed');
+    expect(withSearch).toContain('do not add meta commentary about search quality');
+    expect(withSearch).toContain('scheduled or upcoming event');
+  });
 });
 
 function testProfile() {
