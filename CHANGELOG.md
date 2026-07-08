@@ -39,13 +39,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Tightened search/page-read guidance so precise current-list and current-result answers should not rely on snippets alone when source-page reading is available.
 - Updated `read_web_page` to prefer Tavily Extract when `TAVILY_API_KEY` is configured, with local extraction as fallback.
 - Changed `read_web_page` extraction failures, including 403 responses, to return structured warnings instead of aborting the agent run.
-- Added a generic `verify_current_facts` tool that owns the search, page-reading, analysis, and targeted follow-up loop for precise current factual questions.
-- Improved `verify_current_facts` with an internal search-query planning step and stricter latest/current ordering verification.
 - Added a high-level `research` capability with structured findings, sources, searches, unresolved items, and run-context source affordances.
 - Reworked `research` to follow Deep Agents subagent concepts: enabling it now attaches a `researcher` subagent to the domain agent, and the domain agent delegates through the built-in `task` tool instead of calling a wrapper tool.
 - Added live `run-activity` streaming events from Deep Agents tool and subagent activity, and show the current activity in the chat UI while a run is active.
 - Added agent visibility metadata (`kind` and `chatEnabled`) so future internal capability agents can stay hidden from the normal chat selector.
-- Added separate `RESEARCH_PLANNER_MODEL` and `RESEARCH_VERIFIER_MODEL` environment overrides for the research query-planning and verification steps.
 - Updated agent bootloader guidance to prefer `research` over low-level `internet_search` and `read_web_page` workflows when available.
 - Added a compact chat UI source affordance for the latest research-backed run.
 - Added persisted last-used agent selection in the synced user profile so the chat page reopens with the previously selected agent.
@@ -65,6 +62,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Updated orphaned run-context cleanup and agent deletion to use SQLite-backed thread, memory, and run-context ownership.
 - Moved run-context records to `.assistant-data/rdma26.sqlite`, with one-time import of legacy global and per-agent run-context JSON files.
 - Changed SQLite migration cleanup so imported JSON memory, thread, and run-context files are removed after successful import.
+- Removed the legacy `verify_current_facts` compatibility tool and its dedicated planner/verifier model overrides; `research` is now the single high-level current-facts research capability.
 
 ## [2026-07-06]
 

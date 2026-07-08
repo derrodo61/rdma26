@@ -5,13 +5,11 @@ import type { ToolDefinition } from '../../../shared/agent-contracts';
 import type { SearchProvider, SearchTopic } from './search-provider';
 import { withSearchQualityHints } from './search-quality';
 import { TavilySearchProvider } from './tavily-search-provider';
-import { createVerifyCurrentFactsDependencies, verifyCurrentFacts } from './current-facts-verifier';
 import { readWebPage } from './web-page-reader';
 
 export const researchToolId = 'research';
 export const internetSearchToolId = 'internet_search';
 export const readWebPageToolId = 'read_web_page';
-export const verifyCurrentFactsToolId = 'verify_current_facts';
 
 interface ToolRegistration {
   readonly id: string;
@@ -54,15 +52,6 @@ export class ToolRegistry {
       isAvailable: () => true,
       unavailableReason: 'Web page reading is not available.',
       create: () => createReadWebPageTool(),
-    },
-    {
-      id: verifyCurrentFactsToolId,
-      label: 'Verify current facts',
-      description: 'Compatibility factual verifier. Prefer the Research tool for new agents.',
-      provider: 'rdma26-research',
-      isAvailable: () => Boolean(process.env['TAVILY_API_KEY'] && process.env['OPENAI_API_KEY']),
-      unavailableReason: 'TAVILY_API_KEY and OPENAI_API_KEY are required.',
-      create: () => createVerifyCurrentFactsTool(readTavilySearchProvider()),
     },
   ];
 
@@ -121,77 +110,6 @@ export class ToolRegistry {
       return registration;
     });
   }
-}
-
-function createVerifyCurrentFactsTool(searchProvider: SearchProvider): StructuredToolInterface {
-  const dependencies = createVerifyCurrentFactsDependencies(searchProvider);
-
-  return tool(
-    async ({
-      question,
-      requiredItems,
-      requiredFields = [],
-      topic = 'news',
-      maxSearches = 4,
-      maxSources = 6,
-    }: {
-      question: string;
-      requiredItems?: number;
-      requiredFields?: readonly string[];
-      topic?: SearchTopic;
-      maxSearches?: number;
-      maxSources?: number;
-    }) =>
-      await verifyCurrentFacts(
-        {
-          question,
-          requiredItems,
-          requiredFields,
-          topic,
-          maxSearches,
-          maxSources,
-        },
-        dependencies,
-      ),
-    {
-      name: verifyCurrentFactsToolId,
-      description:
-        'Compatibility alias for source-backed research. Prefer research for new agents. Use only when a precise current factual question needs the older verify_current_facts tool name.',
-      schema: z.object({
-        question: z.string().describe('The precise current factual question to verify.'),
-        requiredItems: z
-          .number()
-          .min(1)
-          .max(20)
-          .optional()
-          .describe('Number of requested items, if the question asks for a list.'),
-        requiredFields: z
-          .array(z.string())
-          .optional()
-          .default([])
-          .describe('Concrete fields needed in the answer, such as teams, final_score, date.'),
-        topic: z
-          .enum(['general', 'news', 'finance'])
-          .optional()
-          .default('news')
-          .describe('Search topic category.'),
-        maxSearches: z
-          .number()
-          .min(1)
-          .max(5)
-          .optional()
-          .default(4)
-          .describe('Maximum search/follow-up search rounds.'),
-        maxSources: z
-          .number()
-          .min(1)
-          .max(12)
-          .optional()
-          .default(6)
-          .describe('Maximum source pages to read/extract.'),
-      }),
-    },
-  );
 }
 
 function createReadWebPageTool(): StructuredToolInterface {

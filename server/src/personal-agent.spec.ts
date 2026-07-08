@@ -115,39 +115,6 @@ describe('PersonalAgent bootloader prompt', () => {
     );
   });
 
-  it('prefers verify_current_facts for precise current factual questions when enabled', () => {
-    const withoutVerifier = createBootloaderPromptForTest(
-      {
-        name: 'Agent',
-        soulVirtualPath: '/configuration/soul.md',
-      },
-      testProfile(),
-      false,
-      '# soul',
-      [],
-      true,
-      ['internet_search', 'read_web_page'],
-    );
-    const withVerifier = createBootloaderPromptForTest(
-      {
-        name: 'Agent',
-        soulVirtualPath: '/configuration/soul.md',
-      },
-      testProfile(),
-      false,
-      '# soul',
-      [],
-      true,
-      ['internet_search', 'read_web_page', 'verify_current_facts'],
-    );
-
-    expect(withoutVerifier).not.toContain('Current fact verification guidance');
-    expect(withVerifier).toContain('Current fact verification guidance');
-    expect(withVerifier).toContain('Use verify_current_facts only as a compatibility fallback');
-    expect(withVerifier).toContain('Set requiredItems when the user asks for a number of items');
-    expect(withVerifier).toContain('Do not manually start with internet_search or read_web_page');
-  });
-
   it('prefers research over low-level internet tools when enabled', () => {
     const prompt = createBootloaderPromptForTest(
       {
@@ -159,7 +126,7 @@ describe('PersonalAgent bootloader prompt', () => {
       '# soul',
       [],
       true,
-      ['research', 'internet_search', 'read_web_page', 'verify_current_facts'],
+      ['research', 'internet_search', 'read_web_page'],
     );
 
     expect(prompt).toContain('Research guidance');
@@ -169,7 +136,6 @@ describe('PersonalAgent bootloader prompt', () => {
     expect(prompt).toContain("check the researcher's temporalCandidates");
     expect(prompt).toContain("preserve the researcher's claimStatus");
     expect(prompt).toContain('Do not convert official-source silence into "false"');
-    expect(prompt).toContain('Prefer research when it is available');
     expect(prompt).toContain('Do not manually start with internet_search or read_web_page');
   });
 });

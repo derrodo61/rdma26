@@ -302,7 +302,6 @@ You may use admin tools when they are available to create agents, rename agents,
   const hasInternetSearch = enabledToolNames.includes('internet_search');
   const hasWebPageReader = enabledToolNames.includes('read_web_page');
   const hasResearch = enabledToolNames.includes('research');
-  const hasCurrentFactsVerifier = enabledToolNames.includes('verify_current_facts');
   const researchGuidance = hasResearch
     ? `
 Research guidance:
@@ -315,15 +314,6 @@ Research guidance:
 - For claim-checking or rumor questions, preserve the researcher's claimStatus. Say "reported" when reputable sources report something without official confirmation. Do not convert official-source silence into "false" unless the researcher found reliable evidence that directly contradicts the claim.
 - If the researcher's answer contradicts its findings, temporalCandidates, warnings, or sources, state that the result is unresolved and ask for/perform more research instead of presenting a confident answer.
 - Do not manually start with internet_search or read_web_page when the researcher subagent is available unless the user asks for low-level browsing or debugging.`
-    : '';
-  const currentFactsVerifierGuidance = hasCurrentFactsVerifier
-    ? `
-Current fact verification guidance:
-- Prefer research when it is available. Use verify_current_facts only as a compatibility fallback for precise current factual questions, including latest, last, current, top-N, results, statuses, dates, rankings, prices, versions, or other concrete values.
-- Use verify_current_facts when research is unavailable and the user asks for multiple current items where every item needs a concrete value.
-- Give verify_current_facts the full user question. Set requiredItems when the user asks for a number of items, and set requiredFields when the answer clearly needs fields such as date, teams, final_score, winner, source, or status.
-- Treat verify_current_facts as a compatibility alias for the shared research workflow. Do not manually start with internet_search or read_web_page unless neither research nor verify_current_facts is available or the user asks for exploratory browsing.
-- If verify_current_facts returns partial or unresolved, answer with the verified parts and clearly name what remains unverified. Do not guess missing values.`
     : '';
   const internetSearchGuidance = hasInternetSearch
     ? `
@@ -381,7 +371,6 @@ When presenting dates and times to the user, prefer the user profile's time zone
 
 Use enabled tools when they are useful. Do not claim to have tools that are not available in the current run.
 ${researchGuidance}
-${currentFactsVerifierGuidance}
 ${internetSearchGuidance}
 ${webPageReaderGuidance}
 

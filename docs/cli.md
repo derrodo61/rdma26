@@ -201,7 +201,7 @@ rdma26 agents:tools:grant --agent ronaldo --tool research
 rdma26 agents:tools:revoke --agent ronaldo --tool research
 ```
 
-`research` is the recommended Deep Agents researcher subagent capability for normal agents. `internet_search` and `read_web_page` are lower-level primitives for specialized or debugging workflows. `verify_current_facts` remains as a compatibility factual verifier.
+`research` is the recommended Deep Agents researcher subagent capability for normal agents. `internet_search` and `read_web_page` are lower-level primitives for specialized or debugging workflows.
 
 ## Threads
 

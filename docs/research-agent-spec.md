@@ -2,7 +2,7 @@
 
 This document describes the shared research capability for `rdma26`.
 
-The current implementation has primitive web tools (`internet_search`, `read_web_page`), a bounded factual verification workflow (`verify_current_facts`), and the first high-level `research` tool. The `research` tool is backed by a backend `ResearchAgent` service and is the recommended capability for normal agents that need current external information.
+The current implementation has primitive web tools (`internet_search`, `read_web_page`) and the high-level `research` capability. The `research` capability attaches a Deep Agents researcher subagent and is the recommended path for normal agents that need current external information.
 
 ## Goal
 
@@ -299,12 +299,6 @@ Primitive tool. Reads a public source page.
 
 Keep it available for direct inspection and for the research agent.
 
-### `verify_current_facts`
-
-Legacy bounded workflow. Keep it temporarily as a compatibility tool for agents
-or tests that still explicitly enable it, but prefer the `research` subagent
-capability for normal agents.
-
 ## First Implementation Plan
 
 Status: implemented as a Deep Agents subagent capability.
@@ -314,7 +308,7 @@ Status: implemented as a Deep Agents subagent capability.
 3. The domain agent delegates to `researcher` with Deep Agents' built-in `task` tool.
 4. The researcher has private search and page-reading tools.
 5. The researcher returns a structured result with findings, sources, searches, unresolved items, and notes.
-6. Kept `verify_current_facts` as a compatibility tool.
+6. Removed the older `verify_current_facts` compatibility tool after the researcher subagent became the primary research path.
 7. Updated agent bootloader guidance:
    - use the researcher subagent for current external information
    - prefer researcher delegation over manual search chains
