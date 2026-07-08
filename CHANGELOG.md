@@ -48,6 +48,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added separate `RESEARCH_PLANNER_MODEL` and `RESEARCH_VERIFIER_MODEL` environment overrides for the research query-planning and verification steps.
 - Updated agent bootloader guidance to prefer `research` over low-level `internet_search` and `read_web_page` workflows when available.
 - Added a compact chat UI source affordance for the latest research-backed run.
+- Added stricter research-agent guardrails for latest/current temporal ordering, claim-status nuance, and contradiction warnings.
+- Changed web page DNS/URL validation failures to return structured reader warnings instead of aborting chat runs.
 
 ## [2026-07-06]
 

@@ -8,6 +8,8 @@ import { readWebPage } from './tools/web-page-reader';
 export type ResearchMode = 'auto' | 'deep';
 export type ResearchExpectedOutput = 'answer' | 'structured_facts' | 'report';
 export type ResearchStatus = 'verified' | 'partial' | 'unresolved';
+export type ResearchClaimStatus =
+  'confirmed' | 'reported' | 'disputed' | 'unsupported' | 'false' | 'unclear' | 'not_applicable';
 
 export interface ResearchFinding {
   readonly item: string;
@@ -28,13 +30,23 @@ export interface ResearchSearch {
   readonly resultCount: number;
 }
 
+export interface ResearchTemporalCandidate {
+  readonly label: string;
+  readonly date: string;
+  readonly sourceUrls: readonly string[];
+  readonly notes?: string;
+}
+
 export interface ResearchResult {
   readonly status: ResearchStatus;
+  readonly claimStatus?: ResearchClaimStatus;
   readonly answer: string;
   readonly findings: readonly ResearchFinding[];
   readonly unresolved: readonly string[];
   readonly sources: readonly ResearchSource[];
   readonly searches: readonly ResearchSearch[];
+  readonly temporalCandidates: readonly ResearchTemporalCandidate[];
+  readonly warnings: readonly string[];
   readonly notes: readonly string[];
 }
 
@@ -70,13 +82,33 @@ const researchSearchSchema = z.object({
   resultCount: z.number(),
 });
 
+const researchTemporalCandidateSchema = z.object({
+  label: z.string(),
+  date: z.string(),
+  sourceUrls: z.array(z.string()).default([]),
+  notes: z.string().optional(),
+});
+
 export const researchResponseSchema = z.object({
   status: z.enum(['verified', 'partial', 'unresolved']),
+  claimStatus: z
+    .enum([
+      'confirmed',
+      'reported',
+      'disputed',
+      'unsupported',
+      'false',
+      'unclear',
+      'not_applicable',
+    ])
+    .optional(),
   answer: z.string().default(''),
   findings: z.array(researchFindingSchema).default([]),
   unresolved: z.array(z.string()).default([]),
   sources: z.array(researchSourceSchema).default([]),
   searches: z.array(researchSearchSchema).default([]),
+  temporalCandidates: z.array(researchTemporalCandidateSchema).default([]),
+  warnings: z.array(z.string()).default([]),
   notes: z.array(z.string()).default([]),
 });
 
@@ -179,9 +211,24 @@ Rules:
 - Do not answer from memory.
 - Translate the user's natural-language request into one or more search queries that a search engine can answer well.
 - Prefer primary, official, authoritative, or directly relevant sources when possible.
+- Match source type to the question. Use official sources for official records; use reputable reporting to evaluate allegations, controversy, or what people reportedly did.
 - Search snippets are leads, not final evidence. Read pages before relying on exact dates, scores, versions, prices, rankings, statuses, or other concrete values.
 - If sources conflict, search or read again. If still unresolved, report partial/unresolved instead of guessing.
 - For lists, return every requested item if evidence allows. If an item is missing, put it in unresolved.
+- For "latest", "last", "current", "most recent", or "next" questions:
+  - collect all dated candidate events/items that may answer the question;
+  - put them in temporalCandidates with source URLs;
+  - compare their dates before naming anything as latest/last/current/next;
+  - never return status "verified" if a dated candidate contradicts your chosen answer.
+- For claim-checking or rumor questions:
+  - separate official facts, reputable media reports, social posts, denials/corrections, and missing evidence;
+  - do not treat silence in an official source as proof that a media-reported allegation is false;
+  - use claimStatus: confirmed, reported, disputed, unsupported, false, or unclear;
+  - use "reported" when reputable sources report a claim but no primary/official source confirms it;
+  - use "unsupported" only when targeted searches find no credible supporting source;
+  - use "false" only when reliable evidence directly contradicts the claim.
+- Add warnings for stale sources, ambiguous wording, source conflicts, official-source silence, or any date ordering uncertainty.
+- If warnings affect the main answer, set status to partial or unresolved instead of verified.
 - Keep the final answer in the user's language.
 - Include only sources actually used to support the answer.
 

@@ -24,6 +24,7 @@ describe('research subagent capability', () => {
   it('validates the structured research result shape', () => {
     const result = researchResponseSchema.parse({
       status: 'verified',
+      claimStatus: 'not_applicable',
       answer: 'Angular v22 was released on June 3, 2026.',
       findings: [
         {
@@ -47,10 +48,51 @@ describe('research subagent capability', () => {
           resultCount: 3,
         },
       ],
+      temporalCandidates: [
+        {
+          label: 'Angular v22 release',
+          date: '2026-06-03',
+          sourceUrls: ['https://blog.angular.dev/angular-v22'],
+        },
+      ],
     });
 
     expect(result.unresolved).toEqual([]);
     expect(result.notes).toEqual([]);
+    expect(result.warnings).toEqual([]);
     expect(result.findings[0]?.values['version']).toBe('v22');
+    expect(result.temporalCandidates[0]?.date).toBe('2026-06-03');
+  });
+
+  it('instructs the researcher to compare temporal candidates before claiming latest facts', () => {
+    const searchProvider: SearchProvider = {
+      search: vi.fn(),
+    };
+
+    const subagents = createResearchSubagents(searchProvider);
+    const systemPrompt = (subagents[0] as unknown as { systemPrompt: string }).systemPrompt;
+
+    expect(systemPrompt).toContain(
+      'For "latest", "last", "current", "most recent", or "next" questions',
+    );
+    expect(systemPrompt).toContain('put them in temporalCandidates');
+    expect(systemPrompt).toContain('compare their dates before naming anything as latest');
+    expect(systemPrompt).toContain(
+      'never return status "verified" if a dated candidate contradicts',
+    );
+  });
+
+  it('instructs the researcher to handle reported claims without treating official silence as disproof', () => {
+    const searchProvider: SearchProvider = {
+      search: vi.fn(),
+    };
+
+    const subagents = createResearchSubagents(searchProvider);
+    const systemPrompt = (subagents[0] as unknown as { systemPrompt: string }).systemPrompt;
+
+    expect(systemPrompt).toContain('For claim-checking or rumor questions');
+    expect(systemPrompt).toContain('do not treat silence in an official source as proof');
+    expect(systemPrompt).toContain('use "reported" when reputable sources report a claim');
+    expect(systemPrompt).toContain('use "false" only when reliable evidence directly contradicts');
   });
 });

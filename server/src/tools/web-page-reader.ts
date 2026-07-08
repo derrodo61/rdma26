@@ -57,7 +57,18 @@ export async function readWebPage(
   url: string,
   options: WebPageReaderOptions = {},
 ): Promise<WebPageReadResult> {
-  const parsedUrl = await assertAllowedWebUrl(url);
+  let parsedUrl: URL;
+
+  try {
+    parsedUrl = await assertAllowedWebUrl(url);
+  } catch (error) {
+    return failedReadResult(
+      url,
+      'local_fetch',
+      `Page URL could not be used. ${readErrorMessage(error)}`,
+    );
+  }
+
   const timeoutMs = options.timeoutMs ?? defaultTimeoutMs;
   const maxBytes = options.maxBytes ?? defaultMaxBytes;
   const maxCharacters = options.maxCharacters ?? defaultMaxCharacters;

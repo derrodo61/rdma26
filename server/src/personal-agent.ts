@@ -306,7 +306,10 @@ Research guidance:
 - A researcher subagent is available through Deep Agents' task tool.
 - Use the task tool to delegate internet research and external information work to the researcher subagent, especially current, latest, recent, or uncertain facts.
 - Give the researcher the full user question and name concrete requirements such as date, teams, final_score, winner, version, price, source, or status.
-- Use the researcher's structured result as your evidence: answer from findings and sources, mention unresolved items when status is partial or unresolved, and do not guess missing values.
+- Use the researcher's structured result as your evidence: answer from findings and sources, mention unresolved items and warnings when status is partial or unresolved, and do not guess missing values.
+- For latest, last, current, most recent, and next questions, check the researcher's temporalCandidates before answering. Do not call an item "latest", "last", "current", or "next" when another candidate has a later or more relevant date.
+- For claim-checking or rumor questions, preserve the researcher's claimStatus. Say "reported" when reputable sources report something without official confirmation. Do not convert official-source silence into "false" unless the researcher found reliable evidence that directly contradicts the claim.
+- If the researcher's answer contradicts its findings, temporalCandidates, warnings, or sources, state that the result is unresolved and ask for/perform more research instead of presenting a confident answer.
 - Do not manually start with internet_search or read_web_page when the researcher subagent is available unless the user asks for low-level browsing or debugging.`
     : '';
   const currentFactsVerifierGuidance = hasCurrentFactsVerifier
