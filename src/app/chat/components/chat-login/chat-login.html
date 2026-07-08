@@ -1,0 +1,43 @@
+<div class="grid min-h-dvh place-items-center px-4">
+  <form
+    class="w-full max-w-sm border border-border bg-surface p-5 shadow-sm"
+    (submit)="$event.preventDefault(); submitted.emit()"
+  >
+    <h1 class="text-lg font-semibold">rdma26</h1>
+    <p class="mt-1 text-sm text-text-muted">Sign in to continue.</p>
+
+    @if (loginError(); as currentLoginError) {
+      <p class="mt-4 border border-danger-border bg-danger-soft px-3 py-2 text-sm text-danger">
+        {{ currentLoginError }}
+      </p>
+    }
+
+    <label class="mt-5 block text-sm font-medium text-text-muted" for="username">Username</label>
+    <input
+      id="username"
+      class="mt-1 h-10 w-full border border-border px-3 focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+      autocomplete="username"
+      [ngModel]="username()"
+      name="username"
+      (ngModelChange)="usernameChanged.emit($event)"
+    />
+
+    <label class="mt-4 block text-sm font-medium text-text-muted" for="password">Password</label>
+    <input
+      id="password"
+      type="password"
+      class="mt-1 h-10 w-full border border-border px-3 focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+      autocomplete="current-password"
+      [ngModel]="password()"
+      name="password"
+      (ngModelChange)="passwordChanged.emit($event)"
+    />
+
+    <button
+      type="submit"
+      class="mt-5 h-10 w-full bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-hover focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+    >
+      Sign in
+    </button>
+  </form>
+</div>

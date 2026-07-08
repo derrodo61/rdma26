@@ -1,6 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
-import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { provideIcons } from '@ng-icons/core';
 import {
@@ -32,6 +31,7 @@ import type { SelectOption } from '../../shared/app-select/app-select';
 import { renderMarkdown } from '../../shared/markdown/render-markdown';
 import { AssistantApi } from '../assistant-api';
 import { ChatComposer } from '../components/chat-composer/chat-composer';
+import { ChatLogin } from '../components/chat-login/chat-login';
 import { ChatMessageList } from '../components/chat-message-list/chat-message-list';
 import { ChatSidebar } from '../components/chat-sidebar/chat-sidebar';
 import { buildMessageResearchSources, mergeMessageResearchSources } from './chat-message-sources';
@@ -39,7 +39,7 @@ import type { RenderedChatMessage, ResearchSourceSummary, RunActivity } from './
 
 @Component({
   selector: 'app-chat-page',
-  imports: [FormsModule, ChatComposer, ChatMessageList, ChatSidebar],
+  imports: [ChatComposer, ChatLogin, ChatMessageList, ChatSidebar],
   providers: [
     provideIcons({
       lucideArrowUp,
