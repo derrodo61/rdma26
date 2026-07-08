@@ -35,6 +35,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added generic verification guidance for precise current-list questions so search-enabled agents verify each requested item before answering.
 - Improved `read_web_page` extraction with parser-based article/main-content cleanup instead of regex-only HTML stripping.
 - Moved run-context files into per-agent `runs` folders and delete a thread's run contexts when the thread is deleted.
+- Added startup cleanup for orphaned run-context files whose threads no longer exist.
 - Tightened search/page-read guidance so precise current-list and current-result answers should not rely on snippets alone when source-page reading is available.
 - Updated `read_web_page` to prefer Tavily Extract when `TAVILY_API_KEY` is configured, with local extraction as fallback.
 - Changed `read_web_page` extraction failures, including 403 responses, to return structured warnings instead of aborting the agent run.
