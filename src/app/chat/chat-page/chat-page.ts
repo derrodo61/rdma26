@@ -44,6 +44,11 @@ interface ResearchSourceSummary {
 }
 
 interface ResearchToolResult {
+  readonly answerSourceUrls?: readonly unknown[];
+  readonly findings?: readonly {
+    readonly item?: unknown;
+    readonly sourceUrls?: readonly unknown[];
+  }[];
   readonly sources?: readonly {
     readonly url?: unknown;
     readonly title?: unknown;
@@ -612,9 +617,14 @@ function extractResearchSources(
     }
 
     const result = parseResearchToolResult(toolCall.result);
+    const answerSourceUrls = readAnswerSourceUrls(result);
 
     for (const source of result?.sources ?? []) {
       if (typeof source.url !== 'string' || !source.url) {
+        continue;
+      }
+
+      if (answerSourceUrls.size > 0 && !answerSourceUrls.has(source.url)) {
         continue;
       }
 
@@ -627,6 +637,50 @@ function extractResearchSources(
   }
 
   return [...sources.values()];
+}
+
+function readAnswerSourceUrls(result: ResearchToolResult | null): ReadonlySet<string> {
+  const explicitUrls = new Set(
+    (result?.answerSourceUrls ?? []).filter((url): url is string => typeof url === 'string'),
+  );
+
+  if (explicitUrls.size > 0) {
+    return explicitUrls;
+  }
+
+  const fallbackUrls = new Set<string>();
+
+  for (const finding of result?.findings ?? []) {
+    if (isRejectedResearchFinding(finding.item)) {
+      continue;
+    }
+
+    for (const url of finding.sourceUrls ?? []) {
+      if (typeof url === 'string' && url) {
+        fallbackUrls.add(url);
+      }
+    }
+  }
+
+  return fallbackUrls;
+}
+
+function isRejectedResearchFinding(item: unknown): boolean {
+  if (typeof item !== 'string') {
+    return false;
+  }
+
+  const normalized = item.trim().toLowerCase();
+
+  return (
+    normalized.startsWith('not ') ||
+    normalized.startsWith('nicht ') ||
+    normalized.startsWith('kein ') ||
+    normalized.includes(' not the ') ||
+    normalized.includes(' nicht der ') ||
+    normalized.includes(' nicht die ') ||
+    normalized.includes(' nicht das ')
+  );
 }
 
 function parseResearchToolResult(result: string | undefined): ResearchToolResult | null {

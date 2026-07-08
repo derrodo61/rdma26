@@ -41,6 +41,7 @@ export interface ResearchResult {
   readonly status: ResearchStatus;
   readonly claimStatus?: ResearchClaimStatus;
   readonly answer: string;
+  readonly answerSourceUrls: readonly string[];
   readonly findings: readonly ResearchFinding[];
   readonly unresolved: readonly string[];
   readonly sources: readonly ResearchSource[];
@@ -103,6 +104,7 @@ export const researchResponseSchema = z.object({
     ])
     .optional(),
   answer: z.string().default(''),
+  answerSourceUrls: z.array(z.string()).default([]),
   findings: z.array(researchFindingSchema).default([]),
   unresolved: z.array(z.string()).default([]),
   sources: z.array(researchSourceSchema).default([]),
@@ -230,7 +232,9 @@ Rules:
 - Add warnings for stale sources, ambiguous wording, source conflicts, official-source silence, or any date ordering uncertainty.
 - If warnings affect the main answer, set status to partial or unresolved instead of verified.
 - Keep the final answer in the user's language.
-- Include only sources actually used to support the answer.
+- Put only URLs that directly support the final answer in answerSourceUrls.
+- Put only source details for answerSourceUrls in sources.
+- Do not put rejected candidate pages, stale pages, unrelated pages, or diagnostic comparison pages in answerSourceUrls or sources. Mention those only in warnings, unresolved, temporalCandidates, or notes.
 
 Return the structured result required by the schema.`;
 }

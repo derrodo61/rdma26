@@ -26,6 +26,7 @@ describe('research subagent capability', () => {
       status: 'verified',
       claimStatus: 'not_applicable',
       answer: 'Angular v22 was released on June 3, 2026.',
+      answerSourceUrls: ['https://blog.angular.dev/angular-v22'],
       findings: [
         {
           item: 'Angular',
@@ -60,6 +61,7 @@ describe('research subagent capability', () => {
     expect(result.unresolved).toEqual([]);
     expect(result.notes).toEqual([]);
     expect(result.warnings).toEqual([]);
+    expect(result.answerSourceUrls).toEqual(['https://blog.angular.dev/angular-v22']);
     expect(result.findings[0]?.values['version']).toBe('v22');
     expect(result.temporalCandidates[0]?.date).toBe('2026-06-03');
   });
