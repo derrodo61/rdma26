@@ -10,10 +10,10 @@ import type {
   RunContextToolCall,
   UserProfile,
 } from '../../shared/agent-contracts';
-import { createResearchSubagents } from './research-agent';
+import { createResearchSubagents } from './research/research-agent';
 import type { AssistantStorage } from './storage';
 import { researchToolId } from './tools/tool-registry';
-import { TavilySearchProvider } from './tools/tavily-search-provider';
+import { TavilySearchProvider } from './research/tavily-search-provider';
 
 interface PersonalAgentRequest {
   readonly threadId: string;

@@ -5,7 +5,7 @@ import {
   isBlockedHostAddress,
   parseTavilyExtractResult,
   readWebPage,
-} from './tools/web-page-reader';
+} from './web-page-reader';
 
 describe('web page reader helpers', () => {
   it('extracts readable text from HTML and removes scripts/styles', () => {

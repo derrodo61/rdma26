@@ -2,10 +2,10 @@ import { tool, type StructuredToolInterface } from '@langchain/core/tools';
 import { z } from 'zod';
 
 import type { ToolDefinition } from '../../../shared/agent-contracts';
-import type { SearchProvider, SearchTopic } from './search-provider';
-import { withSearchQualityHints } from './search-quality';
-import { TavilySearchProvider } from './tavily-search-provider';
-import { readWebPage } from './web-page-reader';
+import type { SearchProvider, SearchTopic } from '../research/search-provider';
+import { withSearchQualityHints } from '../research/search-quality';
+import { TavilySearchProvider } from '../research/tavily-search-provider';
+import { readWebPage } from '../research/web-page-reader';
 
 export const researchToolId = 'research';
 const internetSearchToolId = 'internet_search';

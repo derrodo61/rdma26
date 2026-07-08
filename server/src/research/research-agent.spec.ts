@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { createResearchSubagents, researchResponseSchema } from './research-agent';
-import type { SearchProvider } from './tools/search-provider';
+import type { SearchProvider } from './search-provider';
 
 const testUserProfile = {
   name: '',

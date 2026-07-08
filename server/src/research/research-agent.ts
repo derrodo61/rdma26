@@ -2,9 +2,9 @@ import { tool, toolStrategy } from 'langchain';
 import type { SubAgent } from 'deepagents';
 import { z } from 'zod/v3';
 
-import type { SearchProvider, SearchTopic } from './tools/search-provider';
-import { readWebPage } from './tools/web-page-reader';
-import type { UserProfile } from '../../shared/agent-contracts';
+import type { SearchProvider, SearchTopic } from './search-provider';
+import { readWebPage } from './web-page-reader';
+import type { UserProfile } from '../../../shared/agent-contracts';
 
 interface SearchResultItem {
   readonly title?: string;

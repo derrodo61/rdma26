@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildSearchQualityHints, withSearchQualityHints } from './tools/search-quality';
+import { buildSearchQualityHints, withSearchQualityHints } from './search-quality';
 
 describe('search quality hints', () => {
   it('flags result sets dominated by previews as needing follow-up', () => {
