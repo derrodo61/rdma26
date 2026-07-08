@@ -1,0 +1,187 @@
+<aside
+  class="fixed inset-y-0 left-0 z-30 flex h-dvh shrink-0 flex-col overflow-hidden border-r border-border bg-surface text-text transition-[width] duration-200 lg:static"
+  [class.w-16]="isCollapsed()"
+  [class.w-80]="!isCollapsed()"
+>
+  <div class="flex h-16 items-center justify-end px-4">
+    <button
+      type="button"
+      class="grid h-9 w-9 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-active hover:text-text focus:outline-none focus-visible:bg-surface-active focus-visible:text-text focus-visible:shadow-none"
+      [attr.aria-label]="isCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+      (click)="sidebarToggled.emit()"
+    >
+      <ng-icon
+        [name]="isCollapsed() ? 'lucidePanelLeftOpen' : 'lucidePanelLeftClose'"
+        size="20"
+        strokeWidth="1.8"
+      />
+    </button>
+  </div>
+
+  <div class="flex min-h-0 flex-1 flex-col">
+    @if (!isCollapsed()) {
+      <section class="px-4 pb-4">
+        <div class="block text-sm font-medium text-text-muted">
+          <span class="mb-2 block">Agents</span>
+          <app-select
+            label="Agents"
+            [options]="agentOptions()"
+            [value]="selectedAgentId()"
+            (valueChange)="agentChanged.emit($event)"
+          />
+        </div>
+      </section>
+
+      <section class="flex min-h-0 flex-1 flex-col">
+        <div class="flex items-center justify-between gap-2 px-4 pb-2 pt-2">
+          <h2 class="text-sm font-medium text-text-muted">Threads</h2>
+          <button
+            type="button"
+            class="flex h-8 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-text-muted hover:bg-surface-active hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+            (click)="threadCreated.emit()"
+          >
+            <ng-icon name="lucidePlus" size="16" strokeWidth="2" />
+            New
+          </button>
+        </div>
+
+        <nav class="min-h-0 flex-1 overflow-y-auto px-2 pb-2" aria-label="Conversation threads">
+          @for (thread of threads(); track thread.id) {
+            <div
+              class="group mb-0.5 block w-full rounded-lg px-3 py-2 text-left text-sm focus:outline-none focus-visible:bg-surface-active focus-visible:shadow-none"
+              [class.bg-surface-active]="activeThreadId() === thread.id"
+              [class.text-text]="activeThreadId() === thread.id"
+              [class.text-text-muted]="activeThreadId() !== thread.id"
+              [class.hover:bg-surface-muted]="activeThreadId() !== thread.id"
+              (click)="threadSelected.emit(thread.id)"
+              (keydown.enter)="threadSelected.emit(thread.id)"
+              (keydown.space)="$event.preventDefault(); threadSelected.emit(thread.id)"
+              role="button"
+              tabindex="0"
+            >
+              <div class="flex items-start justify-between gap-2">
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate font-medium">{{ thread.title }}</span>
+                  <span class="mt-0.5 block text-xs text-text-muted"
+                    >{{ thread.messageCount }} messages</span
+                  >
+                </span>
+                <button
+                  type="button"
+                  class="grid h-7 w-7 shrink-0 place-items-center rounded text-text-muted opacity-0 hover:bg-danger-soft hover:text-danger focus:outline-none focus-visible:bg-danger-soft focus-visible:text-danger focus-visible:opacity-100 focus-visible:shadow-none group-hover:opacity-100 disabled:cursor-not-allowed disabled:text-control-disabled"
+                  [disabled]="isRunning()"
+                  [attr.aria-label]="'Delete thread ' + thread.title"
+                  (click)="stopThreadClick($event); threadDeleted.emit(thread.id)"
+                >
+                  <ng-icon name="lucideTrash2" size="15" strokeWidth="2" />
+                </button>
+              </div>
+            </div>
+          }
+        </nav>
+      </section>
+    }
+  </div>
+
+  <div class="relative border-t border-border p-3">
+    @if (isSettingsMenuOpen()) {
+      <div
+        class="absolute bottom-14 left-3 right-3 z-20 rounded-lg border border-border bg-surface p-1 shadow-lg"
+        role="menu"
+      >
+        <div class="px-2 py-2">
+          <div class="block text-[0.875rem] font-medium leading-5 text-text-muted">
+            <span class="mb-1 block">Theme</span>
+            <div class="grid grid-cols-3 gap-1" role="group" aria-label="Theme">
+              <button
+                type="button"
+                class="grid h-9 place-items-center rounded text-text-muted hover:bg-surface-muted hover:text-text focus:outline-none focus-visible:bg-surface-muted focus-visible:shadow-none"
+                [class.bg-surface-muted]="theme() === 'system'"
+                [class.text-text]="theme() === 'system'"
+                [attr.aria-pressed]="theme() === 'system'"
+                aria-label="Use system theme"
+                title="System"
+                (click)="themeChanged.emit('system')"
+              >
+                <ng-icon name="lucideMonitor" size="17" strokeWidth="2" />
+              </button>
+              <button
+                type="button"
+                class="grid h-9 place-items-center rounded text-text-muted hover:bg-surface-muted hover:text-text focus:outline-none focus-visible:bg-surface-muted focus-visible:shadow-none"
+                [class.bg-surface-muted]="theme() === 'light'"
+                [class.text-text]="theme() === 'light'"
+                [attr.aria-pressed]="theme() === 'light'"
+                aria-label="Use light theme"
+                title="Light"
+                (click)="themeChanged.emit('light')"
+              >
+                <ng-icon name="lucideSun" size="17" strokeWidth="2" />
+              </button>
+              <button
+                type="button"
+                class="grid h-9 place-items-center rounded text-text-muted hover:bg-surface-muted hover:text-text focus:outline-none focus-visible:bg-surface-muted focus-visible:shadow-none"
+                [class.bg-surface-muted]="theme() === 'dark'"
+                [class.text-text]="theme() === 'dark'"
+                [attr.aria-pressed]="theme() === 'dark'"
+                aria-label="Use dark theme"
+                title="Dark"
+                (click)="themeChanged.emit('dark')"
+              >
+                <ng-icon name="lucideMoon" size="17" strokeWidth="2" />
+              </button>
+            </div>
+          </div>
+        </div>
+        <a
+          routerLink="/settings/agents"
+          class="flex h-10 items-center rounded-md px-3 text-[0.875rem] font-medium leading-5 text-text-muted hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+          role="menuitem"
+          (click)="settingsMenuClosed.emit()"
+        >
+          Agent settings
+        </a>
+        <a
+          routerLink="/settings/profile"
+          class="mt-1 flex h-10 items-center rounded-md px-3 text-[0.875rem] font-medium leading-5 text-text-muted hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+          role="menuitem"
+          (click)="settingsMenuClosed.emit()"
+        >
+          User profile
+        </a>
+        <a
+          routerLink="/settings/memories"
+          class="mt-1 flex h-10 items-center rounded-md px-3 text-[0.875rem] font-medium leading-5 text-text-muted hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+          role="menuitem"
+          (click)="settingsMenuClosed.emit()"
+        >
+          Memories
+        </a>
+        @if (session()?.authEnabled) {
+          <button
+            type="button"
+            class="mt-1 flex h-10 w-full appearance-none items-center rounded-md px-3 text-left text-[0.875rem] font-medium leading-5 text-text-muted hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+            role="menuitem"
+            (click)="signedOut.emit()"
+          >
+            Sign out
+          </button>
+        }
+      </div>
+    }
+
+    <button
+      type="button"
+      class="flex h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-medium text-text-muted hover:bg-surface-active hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+      aria-haspopup="menu"
+      [attr.aria-expanded]="isSettingsMenuOpen()"
+      (click)="settingsMenuToggled.emit()"
+    >
+      <ng-icon name="lucideSettings" size="17" strokeWidth="2" />
+      @if (isCollapsed()) {
+        <span class="sr-only">Settings</span>
+      } @else {
+        <span>Settings</span>
+      }
+    </button>
+  </div>
+</aside>

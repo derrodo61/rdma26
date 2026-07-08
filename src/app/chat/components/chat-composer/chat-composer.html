@@ -1,0 +1,68 @@
+<form class="shrink-0 bg-app-bg p-4 sm:p-6" (submit)="$event.preventDefault(); sent.emit()">
+  @if (error(); as currentError) {
+    <p class="mb-3 border border-danger-border bg-danger-soft px-3 py-2 text-sm text-danger">
+      {{ currentError }}
+    </p>
+  }
+
+  @if (summaryMessage(); as currentSummaryMessage) {
+    <p class="mx-auto mb-3 max-w-3xl text-xs text-text-muted">
+      {{ currentSummaryMessage }}
+    </p>
+  }
+
+  @if (latestRunId() || canConsolidateSummary()) {
+    <div class="mx-auto mb-3 flex max-w-3xl flex-wrap justify-end gap-2">
+      @if (canConsolidateSummary()) {
+        <button
+          type="button"
+          class="rounded px-2 py-1 text-xs font-medium text-text-muted hover:bg-surface-muted hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)] disabled:cursor-not-allowed disabled:text-control-disabled"
+          [disabled]="!canConsolidateSummary()"
+          (click)="summaryConsolidated.emit()"
+        >
+          Update thread memory
+        </button>
+      }
+      @if (latestRunId(); as runId) {
+        <a
+          [routerLink]="['/settings/runs', runId]"
+          class="rounded px-2 py-1 text-xs font-medium text-text-muted hover:bg-surface-muted hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+        >
+          Inspect latest run context
+        </a>
+      }
+    </div>
+  }
+
+  <div class="mx-auto grid max-w-3xl rounded-2xl border border-border bg-surface shadow-sm">
+    <label class="sr-only" for="message">Message</label>
+    <textarea
+      #composerInput
+      id="message"
+      class="composer-input min-h-[4.5rem] w-full resize-none overflow-hidden bg-transparent px-4 py-3 leading-6 focus:outline-none"
+      placeholder="Write to your assistant"
+      [ngModel]="draft()"
+      name="message"
+      (keydown)="handleComposerKeydown($event)"
+      (ngModelChange)="updateDraft($event)"
+    ></textarea>
+    <div class="flex items-center justify-end gap-3 px-3 pb-3">
+      <app-select
+        class="block max-w-48"
+        label="Model"
+        variant="inline"
+        [options]="modelOptions()"
+        [value]="selectedModel()"
+        (valueChange)="modelChanged.emit($event)"
+      />
+      <button
+        type="submit"
+        class="grid h-9 w-9 place-items-center rounded-full bg-accent text-white hover:bg-accent-hover focus:outline-none focus-visible:shadow-[var(--focus-shadow)] disabled:cursor-not-allowed disabled:bg-control-disabled"
+        [disabled]="!canSend()"
+        aria-label="Send message"
+      >
+        <ng-icon name="lucideArrowUp" size="18" strokeWidth="2.25" />
+      </button>
+    </div>
+  </div>
+</form>

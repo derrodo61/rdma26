@@ -1,7 +1,3 @@
 :host {
   display: block;
 }
-
-.composer-input:focus-visible {
-  box-shadow: none;
-}

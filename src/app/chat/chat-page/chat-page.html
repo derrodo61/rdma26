@@ -53,353 +53,51 @@
     </div>
   } @else {
     <div class="flex h-dvh overflow-hidden">
-      <aside
-        class="fixed inset-y-0 left-0 z-30 flex h-dvh shrink-0 flex-col overflow-hidden border-r border-border bg-surface text-text transition-[width] duration-200 lg:static"
-        [class.w-16]="isSidebarCollapsed()"
-        [class.w-80]="!isSidebarCollapsed()"
-      >
-        <div class="flex h-16 items-center justify-end px-4">
-          <button
-            type="button"
-            class="grid h-9 w-9 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-active hover:text-text focus:outline-none focus-visible:bg-surface-active focus-visible:text-text focus-visible:shadow-none"
-            [attr.aria-label]="isSidebarCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
-            (click)="toggleSidebar()"
-          >
-            <ng-icon
-              [name]="isSidebarCollapsed() ? 'lucidePanelLeftOpen' : 'lucidePanelLeftClose'"
-              size="20"
-              strokeWidth="1.8"
-            />
-          </button>
-        </div>
-
-        <div class="flex min-h-0 flex-1 flex-col">
-          @if (!isSidebarCollapsed()) {
-            <section class="px-4 pb-4">
-              <div class="block text-sm font-medium text-text-muted">
-                <span class="mb-2 block">Agents</span>
-                <app-select
-                  label="Agents"
-                  [options]="agentOptions()"
-                  [value]="selectedAgentId()"
-                  (valueChange)="updateAgent($event)"
-                />
-              </div>
-            </section>
-
-            <section class="flex min-h-0 flex-1 flex-col">
-              <div class="flex items-center justify-between gap-2 px-4 pb-2 pt-2">
-                <h2 class="text-sm font-medium text-text-muted">Threads</h2>
-                <button
-                  type="button"
-                  class="flex h-8 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-text-muted hover:bg-surface-active hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                  (click)="createThread()"
-                >
-                  <ng-icon name="lucidePlus" size="16" strokeWidth="2" />
-                  New
-                </button>
-              </div>
-
-              <nav
-                class="min-h-0 flex-1 overflow-y-auto px-2 pb-2"
-                aria-label="Conversation threads"
-              >
-                @for (thread of threads(); track thread.id) {
-                  <div
-                    class="group mb-0.5 block w-full rounded-lg px-3 py-2 text-left text-sm focus:outline-none focus-visible:bg-surface-active focus-visible:shadow-none"
-                    [class.bg-surface-active]="activeThread()?.id === thread.id"
-                    [class.text-text]="activeThread()?.id === thread.id"
-                    [class.text-text-muted]="activeThread()?.id !== thread.id"
-                    [class.hover:bg-surface-muted]="activeThread()?.id !== thread.id"
-                    (click)="selectThread(thread.id)"
-                    (keydown.enter)="selectThread(thread.id)"
-                    (keydown.space)="$event.preventDefault(); selectThread(thread.id)"
-                    role="button"
-                    tabindex="0"
-                  >
-                    <div class="flex items-start justify-between gap-2">
-                      <span class="min-w-0 flex-1">
-                        <span class="block truncate font-medium">{{ thread.title }}</span>
-                        <span class="mt-0.5 block text-xs text-text-muted"
-                          >{{ thread.messageCount }} messages</span
-                        >
-                      </span>
-                      <button
-                        type="button"
-                        class="grid h-7 w-7 shrink-0 place-items-center rounded text-text-muted opacity-0 hover:bg-danger-soft hover:text-danger focus:outline-none focus-visible:bg-danger-soft focus-visible:text-danger focus-visible:opacity-100 focus-visible:shadow-none group-hover:opacity-100 disabled:cursor-not-allowed disabled:text-control-disabled"
-                        [disabled]="isRunning()"
-                        [attr.aria-label]="'Delete thread ' + thread.title"
-                        (click)="stopThreadClick($event); deleteThread(thread.id)"
-                      >
-                        <ng-icon name="lucideTrash2" size="15" strokeWidth="2" />
-                      </button>
-                    </div>
-                  </div>
-                }
-              </nav>
-            </section>
-          }
-        </div>
-
-        <div class="relative border-t border-border p-3">
-          @if (isSettingsMenuOpen()) {
-            <div
-              class="absolute bottom-14 left-3 right-3 z-20 rounded-lg border border-border bg-surface p-1 shadow-lg"
-              role="menu"
-            >
-              <div class="px-2 py-2">
-                <div class="block text-[0.875rem] font-medium leading-5 text-text-muted">
-                  <span class="mb-1 block">Theme</span>
-                  <div class="grid grid-cols-3 gap-1" role="group" aria-label="Theme">
-                    <button
-                      type="button"
-                      class="grid h-9 place-items-center rounded text-text-muted hover:bg-surface-muted hover:text-text focus:outline-none focus-visible:bg-surface-muted focus-visible:shadow-none"
-                      [class.bg-surface-muted]="theme() === 'system'"
-                      [class.text-text]="theme() === 'system'"
-                      [attr.aria-pressed]="theme() === 'system'"
-                      aria-label="Use system theme"
-                      title="System"
-                      (click)="updateTheme('system')"
-                    >
-                      <ng-icon name="lucideMonitor" size="17" strokeWidth="2" />
-                    </button>
-                    <button
-                      type="button"
-                      class="grid h-9 place-items-center rounded text-text-muted hover:bg-surface-muted hover:text-text focus:outline-none focus-visible:bg-surface-muted focus-visible:shadow-none"
-                      [class.bg-surface-muted]="theme() === 'light'"
-                      [class.text-text]="theme() === 'light'"
-                      [attr.aria-pressed]="theme() === 'light'"
-                      aria-label="Use light theme"
-                      title="Light"
-                      (click)="updateTheme('light')"
-                    >
-                      <ng-icon name="lucideSun" size="17" strokeWidth="2" />
-                    </button>
-                    <button
-                      type="button"
-                      class="grid h-9 place-items-center rounded text-text-muted hover:bg-surface-muted hover:text-text focus:outline-none focus-visible:bg-surface-muted focus-visible:shadow-none"
-                      [class.bg-surface-muted]="theme() === 'dark'"
-                      [class.text-text]="theme() === 'dark'"
-                      [attr.aria-pressed]="theme() === 'dark'"
-                      aria-label="Use dark theme"
-                      title="Dark"
-                      (click)="updateTheme('dark')"
-                    >
-                      <ng-icon name="lucideMoon" size="17" strokeWidth="2" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <a
-                routerLink="/settings/agents"
-                class="flex h-10 items-center rounded-md px-3 text-[0.875rem] font-medium leading-5 text-text-muted hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                role="menuitem"
-                (click)="closeSettingsMenu()"
-              >
-                Agent settings
-              </a>
-              <a
-                routerLink="/settings/profile"
-                class="mt-1 flex h-10 items-center rounded-md px-3 text-[0.875rem] font-medium leading-5 text-text-muted hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                role="menuitem"
-                (click)="closeSettingsMenu()"
-              >
-                User profile
-              </a>
-              <a
-                routerLink="/settings/memories"
-                class="mt-1 flex h-10 items-center rounded-md px-3 text-[0.875rem] font-medium leading-5 text-text-muted hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                role="menuitem"
-                (click)="closeSettingsMenu()"
-              >
-                Memories
-              </a>
-              @if (session()?.authEnabled) {
-                <button
-                  type="button"
-                  class="mt-1 flex h-10 w-full appearance-none items-center rounded-md px-3 text-left text-[0.875rem] font-medium leading-5 text-text-muted hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                  role="menuitem"
-                  (click)="logout()"
-                >
-                  Sign out
-                </button>
-              }
-            </div>
-          }
-
-          <button
-            type="button"
-            class="flex h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-medium text-text-muted hover:bg-surface-active hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-            aria-haspopup="menu"
-            [attr.aria-expanded]="isSettingsMenuOpen()"
-            (click)="toggleSettingsMenu()"
-          >
-            <ng-icon name="lucideSettings" size="17" strokeWidth="2" />
-            @if (isSidebarCollapsed()) {
-              <span class="sr-only">Settings</span>
-            } @else {
-              <span>Settings</span>
-            }
-          </button>
-        </div>
-      </aside>
+      <app-chat-sidebar
+        [isCollapsed]="isSidebarCollapsed()"
+        [isSettingsMenuOpen]="isSettingsMenuOpen()"
+        [session]="session()"
+        [agentOptions]="agentOptions()"
+        [selectedAgentId]="selectedAgentId()"
+        [threads]="threads()"
+        [activeThreadId]="activeThread()?.id ?? null"
+        [isRunning]="isRunning()"
+        [theme]="theme()"
+        (sidebarToggled)="toggleSidebar()"
+        (threadCreated)="createThread()"
+        (threadSelected)="selectThread($event)"
+        (threadDeleted)="deleteThread($event)"
+        (agentChanged)="updateAgent($event)"
+        (settingsMenuToggled)="toggleSettingsMenu()"
+        (settingsMenuClosed)="closeSettingsMenu()"
+        (themeChanged)="updateTheme($event)"
+        (signedOut)="logout()"
+      />
 
       <main
         class="grid h-dvh min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)_auto] overflow-hidden pl-16 lg:pl-0"
       >
-        <section class="min-h-0 overflow-y-auto px-4 py-5 sm:px-6" aria-live="polite">
-          @if (messages().length === 0) {
-            <div class="mx-auto max-w-2xl pt-10">
-              <h2 class="text-2xl font-semibold">Start a thread</h2>
-              <p class="mt-3 text-text-muted">
-                This backend runs locally and keeps each agent's conversations plus identity
-                configuration on this MacBook.
-              </p>
-            </div>
-          } @else {
-            <div class="mx-auto flex max-w-3xl flex-col gap-4">
-              @for (message of renderedMessages(); track message.id) {
-                <article
-                  class="max-w-[48rem]"
-                  [class.ml-auto]="message.role === 'user'"
-                  [class.px-3]="message.role === 'user'"
-                  [class.py-2]="message.role === 'user'"
-                  [class.rounded-2xl]="message.role === 'user'"
-                  [class.bg-surface]="message.role === 'user'"
-                  [class.px-4]="message.role === 'assistant'"
-                  [class.py-3]="message.role === 'assistant'"
-                >
-                  @if (message.role === 'assistant') {
-                    <div
-                      class="message-markdown text-[0.9375rem] leading-6"
-                      [innerHTML]="message.renderedContent"
-                    ></div>
-                    @if (sourcesForMessage(message.id); as messageSources) {
-                      @if (messageSources.length) {
-                        <details
-                          class="relative mt-2 inline-block rounded px-2 py-1 text-xs font-medium text-text-muted hover:bg-surface-muted hover:text-text"
-                        >
-                          <summary class="cursor-pointer list-none">
-                            Sources {{ messageSources.length }}
-                          </summary>
-                          <div
-                            class="absolute left-0 top-full z-20 mt-2 w-80 max-w-[calc(100vw-2rem)] border border-border bg-surface p-3 shadow-lg"
-                          >
-                            <ul class="space-y-2">
-                              @for (source of messageSources; track source.url) {
-                                <li class="min-w-0">
-                                  <a
-                                    class="block truncate text-sm text-text hover:underline"
-                                    [href]="source.url"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                  >
-                                    {{ source.title }}
-                                  </a>
-                                  <p class="truncate text-xs text-text-muted">
-                                    {{ source.domain }}
-                                  </p>
-                                </li>
-                              }
-                            </ul>
-                          </div>
-                        </details>
-                      }
-                    }
-                  } @else {
-                    <p class="whitespace-pre-wrap text-[0.9375rem] leading-6">
-                      {{ message.content }}
-                    </p>
-                  }
-                </article>
-              }
+        <app-chat-message-list
+          [messages]="renderedMessages()"
+          [isRunning]="isRunning()"
+          [runActivity]="runActivity()"
+          [messageResearchSources]="messageResearchSources()"
+        />
 
-              @if (isRunning()) {
-                <div class="max-w-[48rem] px-4 py-3 text-sm text-text-muted">
-                  @if (runActivity(); as activity) {
-                    <p>{{ activity.label }}</p>
-                    @if (activity.detail) {
-                      <p class="mt-1 truncate text-xs">{{ activity.detail }}</p>
-                    }
-                  } @else {
-                    <p>Working...</p>
-                  }
-                </div>
-              }
-            </div>
-          }
-        </section>
-
-        <form class="shrink-0 bg-app-bg p-4 sm:p-6" (submit)="$event.preventDefault(); send()">
-          @if (error(); as currentError) {
-            <p
-              class="mb-3 border border-danger-border bg-danger-soft px-3 py-2 text-sm text-danger"
-            >
-              {{ currentError }}
-            </p>
-          }
-
-          @if (summaryMessage(); as currentSummaryMessage) {
-            <p class="mx-auto mb-3 max-w-3xl text-xs text-text-muted">
-              {{ currentSummaryMessage }}
-            </p>
-          }
-
-          @if (latestRunId() || canConsolidateSummary()) {
-            <div class="mx-auto mb-3 flex max-w-3xl flex-wrap justify-end gap-2">
-              @if (canConsolidateSummary()) {
-                <button
-                  type="button"
-                  class="rounded px-2 py-1 text-xs font-medium text-text-muted hover:bg-surface-muted hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)] disabled:cursor-not-allowed disabled:text-control-disabled"
-                  [disabled]="!canConsolidateSummary()"
-                  (click)="consolidateActiveThreadSummary()"
-                >
-                  Update thread memory
-                </button>
-              }
-              @if (latestRunId(); as runId) {
-                <a
-                  [routerLink]="['/settings/runs', runId]"
-                  class="rounded px-2 py-1 text-xs font-medium text-text-muted hover:bg-surface-muted hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                >
-                  Inspect latest run context
-                </a>
-              }
-            </div>
-          }
-
-          <div class="mx-auto grid max-w-3xl rounded-2xl border border-border bg-surface shadow-sm">
-            <label class="sr-only" for="message">Message</label>
-            <textarea
-              #composerInput
-              id="message"
-              class="composer-input min-h-[4.5rem] w-full resize-none overflow-hidden bg-transparent px-4 py-3 leading-6 focus:outline-none"
-              placeholder="Write to your assistant"
-              [ngModel]="draft()"
-              name="message"
-              (keydown)="handleComposerKeydown($event)"
-              (ngModelChange)="updateDraft($event)"
-            ></textarea>
-            <div class="flex items-center justify-end gap-3 px-3 pb-3">
-              <app-select
-                class="block max-w-48"
-                label="Model"
-                variant="inline"
-                [options]="modelOptions()"
-                [value]="selectedModel()"
-                (valueChange)="updateModel($event)"
-              />
-              <button
-                type="submit"
-                class="grid h-9 w-9 place-items-center rounded-full bg-accent text-white hover:bg-accent-hover focus:outline-none focus-visible:shadow-[var(--focus-shadow)] disabled:cursor-not-allowed disabled:bg-control-disabled"
-                [disabled]="!canSend()"
-                aria-label="Send message"
-              >
-                <ng-icon name="lucideArrowUp" size="18" strokeWidth="2.25" />
-              </button>
-            </div>
-          </div>
-        </form>
+        <app-chat-composer
+          [draft]="draft()"
+          [error]="error()"
+          [summaryMessage]="summaryMessage()"
+          [latestRunId]="latestRunId()"
+          [canConsolidateSummary]="canConsolidateSummary()"
+          [canSend]="canSend()"
+          [modelOptions]="modelOptions()"
+          [selectedModel]="selectedModel()"
+          (draftChanged)="updateDraft($event)"
+          (modelChanged)="updateModel($event)"
+          (sent)="send()"
+          (summaryConsolidated)="consolidateActiveThreadSummary()"
+        />
       </main>
     </div>
   }
