@@ -19,7 +19,6 @@ import type {
   AuthSessionResponse,
   ChatMessage,
   ChatThread,
-  ChatThreadSummary,
   HealthResponse,
   ModelOption,
   ThemePreference,
@@ -34,13 +33,14 @@ import { ChatComposer } from '../components/chat-composer/chat-composer';
 import { ChatLogin } from '../components/chat-login/chat-login';
 import { ChatMessageList } from '../components/chat-message-list/chat-message-list';
 import { ChatSidebar } from '../components/chat-sidebar/chat-sidebar';
-import { buildMessageResearchSources, mergeMessageResearchSources } from './chat-message-sources';
-import type { RenderedChatMessage, ResearchSourceSummary, RunActivity } from './chat-page.types';
+import type { RenderedChatMessage, RunActivity } from './chat-page.types';
+import { ChatThreadState } from './chat-thread-state';
 
 @Component({
   selector: 'app-chat-page',
   imports: [ChatComposer, ChatLogin, ChatMessageList, ChatSidebar],
   providers: [
+    ChatThreadState,
     provideIcons({
       lucideArrowUp,
       lucideMonitor,
@@ -61,6 +61,7 @@ export class ChatPage {
   private readonly agentSettingsStorage = inject(AgentSettingsStorage);
   private readonly route = inject(ActivatedRoute);
   private readonly themePreference = inject(ThemePreferenceService);
+  private readonly threadState = inject(ChatThreadState);
   private readonly userProfileSync = inject(UserProfileSyncService);
   private defaultModelId = '';
 
@@ -69,15 +70,13 @@ export class ChatPage {
   protected readonly username = signal('');
   protected readonly password = signal('');
   protected readonly agents = signal<readonly AgentProfile[]>([]);
-  protected readonly selectedAgentId = signal('');
   protected readonly models = signal<readonly ModelOption[]>([]);
   protected readonly selectedModel = signal('');
-  protected readonly threads = signal<readonly ChatThreadSummary[]>([]);
-  protected readonly activeThread = signal<ChatThread | null>(null);
-  protected readonly latestRunId = signal<string | null>(null);
-  protected readonly messageResearchSources = signal<
-    Readonly<Record<string, readonly ResearchSourceSummary[]>>
-  >({});
+  protected readonly selectedAgentId = this.threadState.selectedAgentId;
+  protected readonly threads = this.threadState.threads;
+  protected readonly activeThread = this.threadState.activeThread;
+  protected readonly latestRunId = this.threadState.latestRunId;
+  protected readonly messageResearchSources = this.threadState.messageResearchSources;
   protected readonly summaryMessage = signal<string | null>(null);
   protected readonly runActivity = signal<RunActivity | null>(null);
   protected readonly draft = signal('');
@@ -168,8 +167,7 @@ export class ChatPage {
     this.session.set(await this.api.session());
     this.health.set(null);
     this.agents.set([]);
-    this.threads.set([]);
-    this.activeThread.set(null);
+    this.threadState.reset();
   }
 
   protected async createThread(): Promise<void> {
@@ -179,13 +177,7 @@ export class ChatPage {
       return;
     }
 
-    await this.handleAsync(async () => {
-      const thread = await this.api.createThread(agentId);
-      this.activeThread.set(thread);
-      this.latestRunId.set(null);
-      this.messageResearchSources.set({});
-      await this.refreshThreads();
-    });
+    await this.handleAsync(async () => this.threadState.createThread());
   }
 
   protected async selectThread(threadId: string): Promise<void> {
@@ -195,11 +187,7 @@ export class ChatPage {
       return;
     }
 
-    await this.handleAsync(async () => {
-      const thread = await this.api.readThread(agentId, threadId);
-      this.activeThread.set(thread);
-      await this.loadLatestThreadRunContext(agentId, thread.id);
-    });
+    await this.handleAsync(async () => this.threadState.selectThread(threadId));
   }
 
   protected async deleteThread(threadId: string): Promise<void> {
@@ -216,26 +204,7 @@ export class ChatPage {
       return;
     }
 
-    await this.handleAsync(async () => {
-      await this.api.deleteThread(agentId, threadId);
-      const threads = await this.api.listThreads(agentId);
-      this.threads.set(threads);
-
-      if (this.activeThread()?.id !== threadId) {
-        return;
-      }
-
-      if (threads.length) {
-        const thread = await this.api.readThread(agentId, threads[0].id);
-        this.activeThread.set(thread);
-        await this.loadLatestThreadRunContext(agentId, thread.id);
-      } else {
-        this.activeThread.set(await this.api.createThread(agentId));
-        this.latestRunId.set(null);
-        this.messageResearchSources.set({});
-        await this.refreshThreads();
-      }
-    });
+    await this.handleAsync(async () => this.threadState.deleteThread(threadId));
   }
 
   protected async selectAgent(agentId: string): Promise<void> {
@@ -328,7 +297,7 @@ export class ChatPage {
         (event) => {
           if (event.type === 'thread-updated') {
             this.activeThread.set(event.thread);
-            void this.refreshThreads();
+            void this.threadState.refreshThreads();
           }
 
           if (event.type === 'run-started') {
@@ -344,7 +313,7 @@ export class ChatPage {
 
           if (event.type === 'run-finished') {
             this.latestRunId.set(event.runId);
-            void this.loadMessageSourcesFromRun(event.runId);
+            void this.threadState.loadMessageSourcesFromRun(event.runId);
           }
 
           if (event.type === 'error') {
@@ -468,64 +437,9 @@ export class ChatPage {
     await this.loadAgentThreads(initialAgentId, requestedThreadId ?? undefined);
   }
 
-  private async refreshThreads(): Promise<void> {
-    const agentId = this.selectedAgentId();
-
-    if (!agentId) {
-      return;
-    }
-
-    this.threads.set(await this.api.listThreads(agentId));
-  }
-
   private async loadAgentThreads(agentId: string, preferredThreadId?: string): Promise<void> {
-    const threads = await this.api.listThreads(agentId);
-    this.selectedAgentId.set(agentId);
     this.selectedModel.set(this.modelForAgent(agentId));
-    this.threads.set(threads);
-    this.latestRunId.set(null);
-    this.messageResearchSources.set({});
-
-    if (threads.length) {
-      const threadId =
-        preferredThreadId && threads.some((thread) => thread.id === preferredThreadId)
-          ? preferredThreadId
-          : threads[0].id;
-
-      const thread = await this.api.readThread(agentId, threadId);
-      this.activeThread.set(thread);
-      await this.loadLatestThreadRunContext(agentId, thread.id);
-    } else {
-      this.activeThread.set(await this.api.createThread(agentId));
-      this.latestRunId.set(null);
-      this.messageResearchSources.set({});
-      await this.refreshThreads();
-    }
-  }
-
-  private async loadLatestThreadRunContext(agentId: string, threadId: string): Promise<void> {
-    try {
-      const runContexts = await this.api.threadRunContexts(agentId, threadId);
-      this.latestRunId.set(runContexts[0]?.runId ?? null);
-      this.messageResearchSources.set(
-        buildMessageResearchSources(this.activeThread(), runContexts),
-      );
-    } catch {
-      this.latestRunId.set(null);
-      this.messageResearchSources.set({});
-    }
-  }
-
-  private async loadMessageSourcesFromRun(runId: string): Promise<void> {
-    try {
-      const runContext = await this.api.runContext(runId);
-      this.latestRunId.set(runContext.runId);
-      this.messageResearchSources.set(
-        mergeMessageResearchSources(this.messageResearchSources(), this.activeThread(), runContext),
-      );
-    } catch {
-      return;
-    }
+    await this.threadState.loadAgentThreads(agentId, preferredThreadId);
   }
 
   private modelForAgent(agentId: string): string {
