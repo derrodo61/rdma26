@@ -14,6 +14,7 @@ The project is designed around one shared backend runtime. API endpoints and CLI
 - [CLI commands](./docs/cli.md)
 - [Memory system](./docs/memory.md)
 - [Memory system design spec](./docs/memory-spec.md)
+- [Research agent design spec](./docs/research-agent-spec.md)
 - [Changelog](./CHANGELOG.md)
 
 ## License
