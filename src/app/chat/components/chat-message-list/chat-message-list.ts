@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { Component, input, signal } from '@angular/core';
 
 import type {
   RenderedChatMessage,
@@ -16,8 +16,19 @@ export class ChatMessageList {
   readonly runActivity = input.required<RunActivity | null>();
   readonly messageResearchSources =
     input.required<Readonly<Record<string, readonly ResearchSourceSummary[]>>>();
+  protected readonly openSourcesMessageId = signal<string | null>(null);
 
   protected sourcesForMessage(messageId: string): readonly ResearchSourceSummary[] {
     return this.messageResearchSources()[messageId] ?? [];
+  }
+
+  protected isSourcesOpen(messageId: string): boolean {
+    return this.openSourcesMessageId() === messageId;
+  }
+
+  protected toggleSources(messageId: string): void {
+    this.openSourcesMessageId.update((openMessageId) =>
+      openMessageId === messageId ? null : messageId,
+    );
   }
 }

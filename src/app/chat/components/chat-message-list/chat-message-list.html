@@ -27,34 +27,42 @@
             ></div>
             @if (sourcesForMessage(message.id); as messageSources) {
               @if (messageSources.length) {
-                <details
-                  class="relative mt-2 inline-block rounded px-2 py-1 text-xs font-medium text-text-muted hover:bg-surface-muted hover:text-text"
-                >
-                  <summary class="cursor-pointer list-none">
-                    Sources {{ messageSources.length }}
-                  </summary>
-                  <div
-                    class="absolute left-0 top-full z-20 mt-2 w-80 max-w-[calc(100vw-2rem)] border border-border bg-surface p-3 shadow-lg"
+                <div class="relative mt-3">
+                  <button
+                    type="button"
+                    class="rounded-full px-3 py-1 text-xs font-medium text-text-muted hover:bg-surface hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                    [attr.aria-expanded]="isSourcesOpen(message.id)"
+                    [attr.aria-controls]="'sources-' + message.id"
+                    (click)="toggleSources(message.id)"
                   >
-                    <ul class="space-y-2">
-                      @for (source of messageSources; track source.url) {
-                        <li class="min-w-0">
-                          <a
-                            class="block truncate text-sm text-text hover:underline"
-                            [href]="source.url"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            {{ source.title }}
-                          </a>
-                          <p class="truncate text-xs text-text-muted">
-                            {{ source.domain }}
-                          </p>
-                        </li>
-                      }
-                    </ul>
-                  </div>
-                </details>
+                    Sources {{ messageSources.length }}
+                  </button>
+
+                  @if (isSourcesOpen(message.id)) {
+                    <div
+                      [id]="'sources-' + message.id"
+                      class="absolute left-0 top-full z-20 mt-2 w-96 max-w-[calc(100vw-2rem)] rounded-2xl border border-border bg-surface p-3 shadow-lg"
+                    >
+                      <ul class="space-y-2">
+                        @for (source of messageSources; track source.url) {
+                          <li class="min-w-0">
+                            <a
+                              class="block truncate text-sm text-text hover:underline"
+                              [href]="source.url"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {{ source.title }}
+                            </a>
+                            <p class="truncate text-xs text-text-muted">
+                              {{ source.domain }}
+                            </p>
+                          </li>
+                        }
+                      </ul>
+                    </div>
+                  }
+                </div>
               }
             }
           } @else {
