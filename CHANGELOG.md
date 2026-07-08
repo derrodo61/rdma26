@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+No notable changes yet.
+
+## [2026-07-08]
+
 ### Added
 
 - Added local-first long-term memory records with scope, type, status, lifetime, tags, and source metadata.
@@ -63,6 +67,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Moved run-context records to `.assistant-data/rdma26.sqlite`, with one-time import of legacy global and per-agent run-context JSON files.
 - Changed SQLite migration cleanup so imported JSON memory, thread, and run-context files are removed after successful import.
 - Removed the legacy `verify_current_facts` compatibility tool and its dedicated planner/verifier model overrides; `research` is now the single high-level current-facts research capability.
+- Added frontend tests for chat thread state and message source rendering.
+- Added lazy-loaded settings routes for agent settings, agent edit, user profile, memory settings, and run-context pages.
+
+### Changed
+
+- Refactored backend HTTP, runtime, agent, workflow, and research code into smaller domain modules.
+- Refactored the chat page into focused sidebar, composer, message-list, login, and thread-state pieces.
+- Adjusted the Angular initial bundle warning budget after the app grew slightly beyond the default threshold.
+- Improved per-message source controls with a dedicated button and message-scoped source panel.
+- Fixed the chat source panel layout so source details participate in the scroll area and no longer disappear behind the composer.
+
+## [2026-07-07]
+
+### Added
+
+- Added a memory system specification with rules for automatic memory writes, global and agent-local user memory, lifecycle handling, context transparency, memory-write permissions, and protected operator memory management.
+- Added `Scotty` as the built-in protected operator agent with id `scotty`.
+- Added controlled Scotty tools for agent administration, tool grants, memory inspection, memory management, and memory-write permissions.
+
+### Changed
+
+- Clarified memory policy wording so `soul.md` stores agent identity, while ordinary user and conversation memories live in memory records.
+- Clarified automatic memory-save rules, including when agents should save automatically and when they should ask.
+- Removed default-agent compatibility behavior in favor of the built-in `scotty` operator agent id.
 
 ## [2026-07-06]
 
@@ -77,9 +105,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added Markdown rendering for assistant chat messages.
 - Added agent `soul.md` editing through the backend API, CLI, and agent edit UI with Markdown preview.
 - Added a Markdown formatting toolbar with heading-level choices for the agent `soul.md` editor.
-- Added `Scotty` as the protected operator agent with id `scotty` and controlled admin tools for agent and tool-grant management.
-- Added read-only UI/API/CLI visibility for controlled operator tools.
-- Added a memory system specification with rules for automatic memory writes, global/user-local memory, lifecycle handling, context transparency, permissions, and protected operator memory management.
 - Added a user profile settings page accessible from the settings menu.
 - Added `profile:read`, `profile:update`, and `profile:agent-model:set` CLI commands.
 - Added light, dark, and system theme support.
@@ -89,7 +114,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - Moved agent `soul.md` from Deep Agents memory into per-agent `configuration/soul.md` and clarified that it stores identity, not arbitrary memories.
-- Removed default-agent compatibility routes and legacy data migration in favor of the built-in `scotty` operator agent id.
 - Reworked the agent edit page into wider Basic, Tools, and Soul tabs.
 - Refined the chat layout with a collapsible sidebar, inline model selector, rounded composer, and simplified message styling.
 - Slimmed down the README so it stays focused on project overview, setup, and links to reference docs.
