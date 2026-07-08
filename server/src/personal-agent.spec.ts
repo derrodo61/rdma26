@@ -61,6 +61,7 @@ describe('PersonalAgent bootloader prompt', () => {
     expect(withoutSearch).not.toContain('Internet search guidance');
     expect(withSearch).toContain('Internet search guidance');
     expect(withSearch).toContain('latest completed');
+    expect(withSearch).toContain('run a narrower follow-up search before answering');
     expect(withSearch).toContain('do not add meta commentary about search quality');
     expect(withSearch).toContain('scheduled or upcoming event');
   });

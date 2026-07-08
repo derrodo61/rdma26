@@ -30,7 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added controlled Scotty tools for memory inspection, memory management, and memory-write permissions.
 - Added persisted run-context details with API and CLI inspection.
 - Added direct server tests for the memory store.
-- Added general `internet_search` prompt guidance for current facts, sports/news results, recency checks, and uncertainty handling.
+- Added general `internet_search` prompt guidance for current facts, follow-up searches, recency checks, and uncertainty handling.
 
 ## [2026-07-06]
 
