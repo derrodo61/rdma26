@@ -1,8 +1,26 @@
 import { tool, type StructuredToolInterface } from '@langchain/core/tools';
 import { z } from 'zod';
 
-import type { ToolDefinition } from '../../../shared/agent-contracts';
+import type {
+  CreateMemoryRequest,
+  MemoryLifetime,
+  MemoryScope,
+  MemoryStatus,
+  MemoryType,
+  ToolDefinition,
+} from '../../../shared/agent-contracts';
 import type { AssistantRuntime } from '../runtime';
+
+const memoryScopeSchema = z.enum(['agent', 'agent_user', 'user']);
+const memoryTypeSchema = z.enum([
+  'fact',
+  'preference',
+  'conversation_summary',
+  'open_task',
+  'tracked_topic',
+]);
+const memoryStatusSchema = z.enum(['active', 'archived', 'superseded']);
+const memoryLifetimeSchema = z.enum(['permanent', 'active', 'temporary']);
 
 const adminToolDefinitions: readonly ToolDefinition[] = [
   {
@@ -23,6 +41,13 @@ const adminToolDefinitions: readonly ToolDefinition[] = [
     id: 'admin_update_agent',
     label: 'Update agent',
     description: 'Update an agent display name.',
+    provider: 'rdma26-admin',
+    available: true,
+  },
+  {
+    id: 'admin_set_agent_memory_writes',
+    label: 'Set memory writes',
+    description: 'Enable or disable memory writes for an agent.',
     provider: 'rdma26-admin',
     available: true,
   },
@@ -68,6 +93,48 @@ const adminToolDefinitions: readonly ToolDefinition[] = [
     provider: 'rdma26-admin',
     available: true,
   },
+  {
+    id: 'admin_list_memories',
+    label: 'List memories',
+    description: 'List memories across scopes or for a specific agent.',
+    provider: 'rdma26-admin',
+    available: true,
+  },
+  {
+    id: 'admin_read_memory',
+    label: 'Read memory',
+    description: 'Read one memory by id.',
+    provider: 'rdma26-admin',
+    available: true,
+  },
+  {
+    id: 'admin_create_memory',
+    label: 'Create memory',
+    description: 'Create a memory in an agent, agent-user, or global user scope.',
+    provider: 'rdma26-admin',
+    available: true,
+  },
+  {
+    id: 'admin_update_memory',
+    label: 'Update memory',
+    description: 'Update memory content, type, lifetime, status, or tags.',
+    provider: 'rdma26-admin',
+    available: true,
+  },
+  {
+    id: 'admin_archive_memory',
+    label: 'Archive memory',
+    description: 'Archive one memory without deleting it.',
+    provider: 'rdma26-admin',
+    available: true,
+  },
+  {
+    id: 'admin_delete_memory',
+    label: 'Delete memory',
+    description: 'Delete one memory after explicit confirmation.',
+    provider: 'rdma26-admin',
+    available: true,
+  },
 ];
 
 export function listAdminToolDefinitions(): readonly ToolDefinition[] {
@@ -110,6 +177,22 @@ export function createAdminTools(runtime: AssistantRuntime): readonly Structured
         schema: z.object({
           agentId: z.string().trim().min(1).describe('Agent id to update.'),
           name: z.string().trim().min(1).describe('New display name.'),
+        }),
+      },
+    ),
+    tool(
+      async ({ agentId, canWrite }: { agentId: string; canWrite: boolean }) =>
+        await runtime.updateAgent(agentId, {
+          memory: {
+            canWrite,
+          },
+        }),
+      {
+        name: 'admin_set_agent_memory_writes',
+        description: 'Enable or disable memory writes for an agent.',
+        schema: z.object({
+          agentId: z.string().trim().min(1).describe('Agent id to update.'),
+          canWrite: z.boolean().describe('Whether the agent may write memories.'),
         }),
       },
     ),
@@ -169,5 +252,130 @@ export function createAdminTools(runtime: AssistantRuntime): readonly Structured
         }),
       },
     ),
+    tool(
+      async ({ agentId, scope, type, status, query, limit }: AdminListMemoriesInput) =>
+        await runtime.listMemories({
+          agentId,
+          scope,
+          type,
+          status,
+          query,
+          limit,
+        }),
+      {
+        name: 'admin_list_memories',
+        description:
+          'List memories across scopes or for a specific agent. Use this before changing or deleting existing memories.',
+        schema: z.object({
+          agentId: z.string().trim().min(1).optional().describe('Optional agent id filter.'),
+          scope: memoryScopeSchema.optional().describe('Optional memory scope filter.'),
+          type: memoryTypeSchema.optional().describe('Optional memory type filter.'),
+          status: memoryStatusSchema.optional().describe('Optional memory status filter.'),
+          query: z.string().trim().min(1).optional().describe('Optional text search query.'),
+          limit: z.number().int().min(1).max(100).optional().describe('Maximum memories to list.'),
+        }),
+      },
+    ),
+    tool(async ({ memoryId }: { memoryId: string }) => await runtime.readMemory(memoryId), {
+      name: 'admin_read_memory',
+      description: 'Read one memory by id.',
+      schema: z.object({
+        memoryId: z.string().uuid().describe('Memory id to read.'),
+      }),
+    }),
+    tool(async (input: AdminCreateMemoryInput) => await runtime.createMemory(input), {
+      name: 'admin_create_memory',
+      description:
+        'Create a memory. Ask first before writing sensitive, ambiguous, conflicting, or unclear-scope information.',
+      schema: z.object({
+        scope: memoryScopeSchema.describe('Memory scope.'),
+        agentId: z
+          .string()
+          .trim()
+          .min(1)
+          .optional()
+          .describe('Required for agent and agent_user scopes. Omit for user scope.'),
+        type: memoryTypeSchema.describe('Memory type.'),
+        lifetime: memoryLifetimeSchema.default('active').describe('Memory lifetime.'),
+        content: z.string().trim().min(1).describe('Concise memory content.'),
+        tags: z.array(z.string().trim().min(1)).default([]).describe('Optional memory tags.'),
+      }),
+    }),
+    tool(
+      async ({ memoryId, type, status, lifetime, content, tags }: AdminUpdateMemoryInput) =>
+        await runtime.updateMemory(memoryId, {
+          type,
+          status,
+          lifetime,
+          content,
+          tags,
+        }),
+      {
+        name: 'admin_update_memory',
+        description:
+          'Update one memory. Use this to correct, supersede, or refine memory content and metadata.',
+        schema: z.object({
+          memoryId: z.string().uuid().describe('Memory id to update.'),
+          type: memoryTypeSchema.optional().describe('New memory type.'),
+          status: memoryStatusSchema.optional().describe('New memory status.'),
+          lifetime: memoryLifetimeSchema.optional().describe('New memory lifetime.'),
+          content: z.string().trim().min(1).optional().describe('New memory content.'),
+          tags: z.array(z.string().trim().min(1)).optional().describe('Replacement tags.'),
+        }),
+      },
+    ),
+    tool(
+      async ({ memoryId }: { memoryId: string }) =>
+        await runtime.updateMemory(memoryId, { status: 'archived' }),
+      {
+        name: 'admin_archive_memory',
+        description: 'Archive one memory without deleting it.',
+        schema: z.object({
+          memoryId: z.string().uuid().describe('Memory id to archive.'),
+        }),
+      },
+    ),
+    tool(
+      async ({ memoryId, confirm }: { memoryId: string; confirm: boolean }) => {
+        if (!confirm) {
+          throw new Error('Memory deletion requires confirm=true.');
+        }
+
+        return await runtime.deleteMemory(memoryId);
+      },
+      {
+        name: 'admin_delete_memory',
+        description:
+          'Delete one memory. Only use after the user explicitly confirms destructive deletion.',
+        schema: z.object({
+          memoryId: z.string().uuid().describe('Memory id to delete.'),
+          confirm: z.literal(true).describe('Must be true after explicit user confirmation.'),
+        }),
+      },
+    ),
   ];
+}
+
+interface AdminListMemoriesInput {
+  readonly agentId?: string;
+  readonly scope?: MemoryScope;
+  readonly type?: MemoryType;
+  readonly status?: MemoryStatus;
+  readonly query?: string;
+  readonly limit?: number;
+}
+
+interface AdminCreateMemoryInput extends CreateMemoryRequest {
+  readonly scope: MemoryScope;
+  readonly type: MemoryType;
+  readonly lifetime: MemoryLifetime;
+}
+
+interface AdminUpdateMemoryInput {
+  readonly memoryId: string;
+  readonly type?: MemoryType;
+  readonly status?: MemoryStatus;
+  readonly lifetime?: MemoryLifetime;
+  readonly content?: string;
+  readonly tags?: readonly string[];
 }

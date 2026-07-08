@@ -74,6 +74,7 @@ export class AgentEditPage {
   protected readonly draftSoulContent = signal('');
   protected readonly selectedModel = signal('');
   protected readonly enabledToolIds = signal<readonly string[]>([]);
+  protected readonly canWriteMemory = signal(true);
   protected readonly activeTab = signal<AgentEditTab>('basic');
   protected readonly isLoading = signal(true);
   protected readonly isSaving = signal(false);
@@ -106,6 +107,7 @@ export class AgentEditPage {
     return Boolean(
       agent &&
       (this.draftName().trim() !== agent.name ||
+        this.canWriteMemory() !== agent.memory.canWrite ||
         !areStringArraysEqual(this.enabledToolIds(), agent.enabledTools) ||
         this.draftSoulContent() !== this.soulContent()),
     );
@@ -197,6 +199,11 @@ export class AgentEditPage {
     this.savedMessage.set(null);
   }
 
+  protected updateCanWriteMemory(canWrite: boolean): void {
+    this.canWriteMemory.set(canWrite);
+    this.savedMessage.set(null);
+  }
+
   protected isToolEnabled(toolId: string): boolean {
     return this.enabledToolIds().includes(toolId);
   }
@@ -211,8 +218,16 @@ export class AgentEditPage {
     }
 
     await this.handleAsync(async () => {
-      const updatedAgent =
-        name === agent.name ? agent : await this.api.updateAgent(agent.id, { name });
+      const shouldUpdateAgent =
+        name !== agent.name || this.canWriteMemory() !== agent.memory.canWrite;
+      const updatedAgent = shouldUpdateAgent
+        ? await this.api.updateAgent(agent.id, {
+            name,
+            memory: {
+              canWrite: this.canWriteMemory(),
+            },
+          })
+        : agent;
       const updatedTools = areStringArraysEqual(this.enabledToolIds(), updatedAgent.enabledTools)
         ? {
             enabledTools: updatedAgent.enabledTools,
@@ -235,6 +250,7 @@ export class AgentEditPage {
 
       this.agent.set(nextAgent);
       this.draftName.set(nextAgent.name);
+      this.canWriteMemory.set(nextAgent.memory.canWrite);
       this.enabledToolIds.set(nextAgent.enabledTools);
       this.soulContent.set(updatedSoul.content);
       this.draftSoulContent.set(updatedSoul.content);
@@ -263,6 +279,7 @@ export class AgentEditPage {
       this.controlledTools.set(agentTools.controlledTools);
       this.defaultModel.set(models.defaultModel);
       this.draftName.set(agent.name);
+      this.canWriteMemory.set(agent.memory.canWrite);
       this.soulContent.set(soul.content);
       this.draftSoulContent.set(soul.content);
       this.enabledToolIds.set(agentTools.enabledTools);

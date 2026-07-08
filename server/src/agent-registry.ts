@@ -2,6 +2,7 @@ import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import type {
+  AgentMemorySettings,
   AgentProfile,
   CreateAgentRequest,
   UpdateAgentRequest,
@@ -103,7 +104,11 @@ export class AgentRegistry {
 
     const updated: AgentProfile = {
       ...existing,
-      name: normalizeAgentName(request.name),
+      name: request.name === undefined ? existing.name : normalizeAgentName(request.name),
+      memory: normalizeAgentMemorySettings({
+        ...existing.memory,
+        ...request.memory,
+      }),
       updatedAt: new Date().toISOString(),
     };
 
@@ -182,6 +187,7 @@ export class AgentRegistry {
       id,
       name: normalizeAgentName(name),
       enabledTools: [],
+      memory: { canWrite: true },
       soulVirtualPath,
       createdAt: now,
       updatedAt: now,
@@ -258,6 +264,7 @@ function parseAgentProfile(value: unknown): AgentProfile | null {
         'enabledTools' in value && Array.isArray(value.enabledTools)
           ? normalizeToolIds(value.enabledTools)
           : [],
+      memory: 'memory' in value ? normalizeAgentMemorySettings(value.memory) : { canWrite: true },
       soulVirtualPath: normalizeSoulVirtualPath(value.soulVirtualPath),
       createdAt: value.createdAt,
       updatedAt: value.updatedAt,
@@ -273,6 +280,11 @@ function hasCurrentAgentProfileShape(value: unknown): boolean {
     value !== null &&
     'enabledTools' in value &&
     Array.isArray(value.enabledTools) &&
+    'memory' in value &&
+    typeof value.memory === 'object' &&
+    value.memory !== null &&
+    'canWrite' in value.memory &&
+    typeof value.memory.canWrite === 'boolean' &&
     'soulVirtualPath' in value &&
     value.soulVirtualPath === soulVirtualPath
   );
@@ -280,6 +292,23 @@ function hasCurrentAgentProfileShape(value: unknown): boolean {
 
 function normalizeSoulVirtualPath(value: string): string {
   return value === soulVirtualPath ? value : soulVirtualPath;
+}
+
+function normalizeAgentMemorySettings(value: unknown): AgentMemorySettings {
+  if (
+    typeof value === 'object' &&
+    value !== null &&
+    'canWrite' in value &&
+    typeof value.canWrite === 'boolean'
+  ) {
+    return {
+      canWrite: value.canWrite,
+    };
+  }
+
+  return {
+    canWrite: true,
+  };
 }
 
 function normalizeToolIds(toolIds: readonly unknown[]): string[] {

@@ -87,6 +87,94 @@ Returns registered tools and their availability. `internet_search` is available 
 
 The protected operator agent, `scotty`, also receives controlled admin tools during chat runs for managing agents, `soul.md`, and normal tool grants. Those admin tools are injected by the backend only for the protected operator agent and are not part of the normal assignable tool catalog returned here.
 
+## Memories
+
+### `GET /api/memories`
+
+Lists and searches memory records.
+
+Query parameters:
+
+- `agentId`
+- `scope`: `agent`, `agent_user`, or `user`
+- `type`: `fact`, `preference`, `conversation_summary`, `open_task`, or `tracked_topic`
+- `status`: `active`, `archived`, or `superseded`
+- `query`
+- `limit`
+
+When `agentId` is provided without `scope`, the response includes that agent's memories and global user memories.
+
+### `POST /api/memories`
+
+Body:
+
+```json
+{
+  "scope": "agent",
+  "agentId": "scotty",
+  "type": "fact",
+  "lifetime": "active",
+  "content": "The user prefers concise status updates.",
+  "tags": ["preference"]
+}
+```
+
+Creates a memory. Agent-scoped memories require `agentId`.
+
+### `GET /api/memories/:memoryId`
+
+Returns one memory record.
+
+### `PATCH /api/memories/:memoryId`
+
+Body:
+
+```json
+{
+  "status": "archived"
+}
+```
+
+Updates a memory. This is also how clients archive or supersede a memory.
+
+### `DELETE /api/memories/:memoryId`
+
+Deletes one memory record.
+
+### `POST /api/memories/maintenance`
+
+Body:
+
+```json
+{
+  "agentId": "scotty",
+  "model": "gpt-4.1-mini",
+  "limitPerAgent": 25
+}
+```
+
+Runs visible memory maintenance. For now this consolidates thread summaries for one agent or, when `agentId` is omitted, all agents. Summaries are created by an LLM. If no summary model or API key is available, summaries cannot be created. Agents with memory writes disabled are skipped and reported.
+
+### `GET /api/memories/maintenance/settings`
+
+Returns the memory maintenance scheduler settings.
+
+### `PATCH /api/memories/maintenance/settings`
+
+Body:
+
+```json
+{
+  "enabled": true,
+  "intervalMinutes": 1440,
+  "agentId": "scotty",
+  "model": "gpt-4.1-mini",
+  "limitPerAgent": 25
+}
+```
+
+Updates the scheduler settings. Scheduled memory maintenance is disabled by default and runs only when explicitly enabled.
+
 ## Agents
 
 ### `GET /api/agents`
@@ -116,11 +204,14 @@ Body:
 
 ```json
 {
-  "name": "Researcher"
+  "name": "Researcher",
+  "memory": {
+    "canWrite": true
+  }
 }
 ```
 
-Updates the agent display name.
+Updates agent settings. `memory.canWrite` controls whether the agent receives the `save_memory` tool and whether automatic thread-summary memories are written after chat runs.
 
 ### `GET /api/agents/:agentId/soul`
 
@@ -196,6 +287,37 @@ Returns one full thread with messages.
 
 Deletes one thread.
 
+### `POST /api/agents/:agentId/threads/:threadId/summary`
+
+Creates or updates the `conversation_summary` memory for one thread.
+
+This uses the same consolidation path as automatic post-chat thread summaries. It is useful when the user corrected a thread, imported messages, or wants to refresh memory before starting a new thread.
+
+Optional body:
+
+```json
+{
+  "model": "gpt-4.1-mini"
+}
+```
+
+Summaries are created by an LLM. Use `model` to request a specific summary model. If no summary model or API key is available, the summary cannot be created. The response includes the model that created the summary.
+
+### `POST /api/agents/:agentId/threads/summaries`
+
+Creates or updates `conversation_summary` memories for multiple non-empty threads of one agent.
+
+Optional body:
+
+```json
+{
+  "model": "gpt-4.1-mini",
+  "limit": 25
+}
+```
+
+The response includes updated summaries and `skippedEmptyThreads`.
+
 ## Agent Runs
 
 ### `POST /api/agent-runs`
@@ -218,3 +340,24 @@ Streams Server-Sent Events:
 - `thread-updated`
 - `error`
 - `run-finished`
+
+### `GET /api/runs/:runId/context`
+
+Returns optional run-context transparency details for one run. The `runId` is emitted by `POST /api/agent-runs` as the `run-started` event.
+
+The frontend exposes this data at `/settings/runs/:runId`.
+
+The response includes:
+
+- agent id and display name
+- thread id and title
+- selected model
+- user prompt and assistant response
+- loaded `soul.md` content
+- user profile snapshot
+- thread messages included in the run
+- memories injected into the run, including retrieval scores, tags, source metadata, status, and lifetime
+- tools available in the run, including labels, providers, descriptions, and whether they were assigned or controlled
+- tool calls and tool results when returned by the Deep Agents run
+- token usage when returned by the model/runtime
+- whether memory writes were enabled

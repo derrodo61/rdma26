@@ -44,9 +44,14 @@ export interface AgentProfile {
   readonly id: string;
   readonly name: string;
   readonly enabledTools: readonly string[];
+  readonly memory: AgentMemorySettings;
   readonly soulVirtualPath: string;
   readonly createdAt: string;
   readonly updatedAt: string;
+}
+
+export interface AgentMemorySettings {
+  readonly canWrite: boolean;
 }
 
 export interface AgentsResponse {
@@ -60,7 +65,8 @@ export interface CreateAgentRequest {
 }
 
 export interface UpdateAgentRequest {
-  readonly name: string;
+  readonly name?: string;
+  readonly memory?: Partial<AgentMemorySettings>;
 }
 
 export interface AgentSoulResponse {
@@ -185,4 +191,195 @@ export interface UpdateUserProfileRequest {
   readonly timeStyle?: TimeStylePreference;
   readonly theme?: ThemePreference;
   readonly agentSettings?: Readonly<Record<string, AgentSettings>>;
+}
+
+export type MemoryScope = 'agent' | 'agent_user' | 'user';
+export type MemoryType =
+  'fact' | 'preference' | 'conversation_summary' | 'open_task' | 'tracked_topic';
+export type MemoryStatus = 'active' | 'archived' | 'superseded';
+export type MemoryLifetime = 'permanent' | 'active' | 'temporary';
+
+export interface MemorySource {
+  readonly agentId?: string;
+  readonly threadId?: string;
+  readonly messageId?: string;
+  readonly note?: string;
+}
+
+export interface MemoryRecord {
+  readonly id: string;
+  readonly scope: MemoryScope;
+  readonly agentId?: string;
+  readonly type: MemoryType;
+  readonly status: MemoryStatus;
+  readonly lifetime: MemoryLifetime;
+  readonly content: string;
+  readonly tags: readonly string[];
+  readonly source?: MemorySource;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface MemoryListRequest {
+  readonly agentId?: string;
+  readonly scope?: MemoryScope;
+  readonly type?: MemoryType;
+  readonly status?: MemoryStatus;
+  readonly query?: string;
+  readonly limit?: number;
+}
+
+export interface MemoryListResponse {
+  readonly memories: readonly MemoryRecord[];
+}
+
+export interface CreateMemoryRequest {
+  readonly scope: MemoryScope;
+  readonly agentId?: string;
+  readonly type: MemoryType;
+  readonly lifetime?: MemoryLifetime;
+  readonly content: string;
+  readonly tags?: readonly string[];
+  readonly source?: MemorySource;
+}
+
+export interface UpdateMemoryRequest {
+  readonly type?: MemoryType;
+  readonly status?: MemoryStatus;
+  readonly lifetime?: MemoryLifetime;
+  readonly content?: string;
+  readonly tags?: readonly string[];
+  readonly source?: MemorySource;
+}
+
+export interface DeleteMemoryResponse {
+  readonly deleted: true;
+  readonly memoryId: string;
+}
+
+export interface ThreadSummaryRequest {
+  readonly model?: string;
+}
+
+export interface ThreadSummariesRequest extends ThreadSummaryRequest {
+  readonly limit?: number;
+}
+
+export interface ThreadSummaryResponse {
+  readonly agentId: string;
+  readonly threadId: string;
+  readonly model?: string;
+  readonly memory: MemoryRecord;
+}
+
+export interface ThreadSummariesResponse {
+  readonly agentId: string;
+  readonly summaries: readonly ThreadSummaryResponse[];
+  readonly skippedEmptyThreads: readonly string[];
+}
+
+export interface MemoryMaintenanceRequest extends ThreadSummaryRequest {
+  readonly agentId?: string;
+  readonly limitPerAgent?: number;
+}
+
+export interface AgentMemoryMaintenanceResult extends ThreadSummariesResponse {
+  readonly skippedReason?: 'memory_writes_disabled';
+}
+
+export interface MemoryMaintenanceResponse {
+  readonly mode: 'manual';
+  readonly startedAt: string;
+  readonly finishedAt: string;
+  readonly agents: readonly AgentMemoryMaintenanceResult[];
+}
+
+export interface MemoryMaintenanceSettings {
+  readonly enabled: boolean;
+  readonly intervalMinutes: number;
+  readonly agentId?: string;
+  readonly model?: string;
+  readonly limitPerAgent: number;
+  readonly lastStartedAt?: string;
+  readonly lastFinishedAt?: string;
+  readonly lastError?: string;
+  readonly updatedAt: string;
+}
+
+export interface UpdateMemoryMaintenanceSettingsRequest {
+  readonly enabled?: boolean;
+  readonly intervalMinutes?: number;
+  readonly agentId?: string;
+  readonly model?: string;
+  readonly limitPerAgent?: number;
+}
+
+export interface MemoryContextSource {
+  readonly memoryId: string;
+  readonly scope: MemoryScope;
+  readonly agentId?: string;
+  readonly type: MemoryType;
+  readonly score: number;
+}
+
+export interface RunContextMessage {
+  readonly id: string;
+  readonly role: ChatRole;
+  readonly createdAt: string;
+  readonly content: string;
+}
+
+export interface RunContextMemory {
+  readonly memoryId: string;
+  readonly scope: MemoryScope;
+  readonly agentId?: string;
+  readonly type: MemoryType;
+  readonly status?: MemoryStatus;
+  readonly lifetime?: MemoryLifetime;
+  readonly tags?: readonly string[];
+  readonly source?: MemorySource;
+  readonly score: number;
+  readonly content: string;
+}
+
+export interface RunContextTool {
+  readonly id: string;
+  readonly label?: string;
+  readonly description?: string;
+  readonly provider?: string;
+  readonly controlled: boolean;
+}
+
+export interface RunContextToolCall {
+  readonly id?: string;
+  readonly name?: string;
+  readonly args?: unknown;
+  readonly result?: string;
+}
+
+export interface RunContextTokenUsage {
+  readonly inputTokens?: number;
+  readonly outputTokens?: number;
+  readonly totalTokens?: number;
+}
+
+export interface RunContextDetails {
+  readonly runId: string;
+  readonly agentId: string;
+  readonly agentName: string;
+  readonly threadId: string;
+  readonly threadTitle?: string;
+  readonly model: string;
+  readonly createdAt: string;
+  readonly prompt?: string;
+  readonly assistantResponse?: string;
+  readonly soulVirtualPath: string;
+  readonly soulContent: string;
+  readonly userProfile: UserProfile;
+  readonly memories: readonly RunContextMemory[];
+  readonly messages: readonly RunContextMessage[];
+  readonly tools: readonly RunContextTool[];
+  readonly toolCalls?: readonly RunContextToolCall[];
+  readonly tokenUsage?: RunContextTokenUsage;
+  readonly memoryWritesEnabled: boolean;
 }

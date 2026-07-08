@@ -99,6 +99,23 @@
                 (valueChange)="updateModel($event)"
               />
             </div>
+
+            <label
+              class="flex cursor-pointer items-start gap-3 border border-border p-3 text-sm font-medium text-text-muted lg:col-span-2"
+            >
+              <input
+                type="checkbox"
+                class="mt-1 h-4 w-4 accent-accent"
+                [checked]="canWriteMemory()"
+                (change)="updateCanWriteMemory($any($event.target).checked)"
+              />
+              <span>
+                <span class="block text-text">Allow memory writes</span>
+                <span class="mt-1 block font-normal">
+                  Enables save_memory and automatic thread summary memories for this agent.
+                </span>
+              </span>
+            </label>
           </section>
         }
 

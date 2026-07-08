@@ -206,6 +206,14 @@
               >
                 User profile
               </a>
+              <a
+                routerLink="/settings/memories"
+                class="mt-1 flex h-10 items-center rounded-md px-3 text-[0.875rem] font-medium leading-5 text-text-muted hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                role="menuitem"
+                (click)="closeSettingsMenu()"
+              >
+                Memories
+              </a>
               @if (session()?.authEnabled) {
                 <button
                   type="button"
@@ -288,6 +296,35 @@
             >
               {{ currentError }}
             </p>
+          }
+
+          @if (summaryMessage(); as currentSummaryMessage) {
+            <p class="mx-auto mb-3 max-w-3xl text-xs text-text-muted">
+              {{ currentSummaryMessage }}
+            </p>
+          }
+
+          @if (latestRunId() || canConsolidateSummary()) {
+            <div class="mx-auto mb-3 flex max-w-3xl flex-wrap justify-end gap-2">
+              @if (canConsolidateSummary()) {
+                <button
+                  type="button"
+                  class="rounded px-2 py-1 text-xs font-medium text-text-muted hover:bg-surface-muted hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)] disabled:cursor-not-allowed disabled:text-control-disabled"
+                  [disabled]="!canConsolidateSummary()"
+                  (click)="consolidateActiveThreadSummary()"
+                >
+                  Update thread memory
+                </button>
+              }
+              @if (latestRunId(); as runId) {
+                <a
+                  [routerLink]="['/settings/runs', runId]"
+                  class="rounded px-2 py-1 text-xs font-medium text-text-muted hover:bg-surface-muted hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                >
+                  Inspect latest run context
+                </a>
+              }
+            </div>
           }
 
           <div class="mx-auto grid max-w-3xl rounded-2xl border border-border bg-surface shadow-sm">

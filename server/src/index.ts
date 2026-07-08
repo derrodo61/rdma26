@@ -9,14 +9,22 @@ import type {
   AgentRunEvent,
   AgentRunRequest,
   CreateAgentRequest,
+  CreateMemoryRequest,
   CreateThreadRequest,
   LoginRequest,
+  MemoryMaintenanceRequest,
+  MemoryListRequest,
+  ThreadSummariesRequest,
+  ThreadSummaryRequest,
   UpdateAgentRequest,
   UpdateAgentSoulRequest,
   UpdateAgentToolsRequest,
+  UpdateMemoryMaintenanceSettingsRequest,
+  UpdateMemoryRequest,
   UpdateUserProfileRequest,
 } from '../../shared/agent-contracts';
 import { isAuthExemptPath, login, logout, readAuthConfig, sessionForRequest } from './auth';
+import { MemoryMaintenanceScheduler } from './memory-maintenance-scheduler';
 import { AssistantRuntime } from './runtime';
 
 config({ quiet: true });
@@ -29,7 +37,12 @@ const createThreadRequestSchema = z.object({
   title: z.string().trim().min(1).optional(),
 });
 const updateAgentRequestSchema = z.object({
-  name: z.string().trim().min(1),
+  name: z.string().trim().min(1).optional(),
+  memory: z
+    .object({
+      canWrite: z.boolean().optional(),
+    })
+    .optional(),
 });
 const updateAgentSoulRequestSchema = z.object({
   content: z.string(),
@@ -37,8 +50,52 @@ const updateAgentSoulRequestSchema = z.object({
 const updateAgentToolsRequestSchema = z.object({
   enabledTools: z.array(z.string().trim().min(1)),
 });
+const memoryScopeSchema = z.enum(['agent', 'agent_user', 'user']);
+const memoryTypeSchema = z.enum([
+  'fact',
+  'preference',
+  'conversation_summary',
+  'open_task',
+  'tracked_topic',
+]);
+const memoryStatusSchema = z.enum(['active', 'archived', 'superseded']);
+const memoryLifetimeSchema = z.enum(['permanent', 'active', 'temporary']);
+const memorySourceSchema = z.object({
+  agentId: z.string().trim().min(1).optional(),
+  threadId: z.string().uuid().optional(),
+  messageId: z.string().trim().min(1).optional(),
+  note: z.string().trim().min(1).optional(),
+});
+const memoryListQuerySchema = z.object({
+  agentId: z.string().trim().min(1).optional(),
+  scope: memoryScopeSchema.optional(),
+  type: memoryTypeSchema.optional(),
+  status: memoryStatusSchema.optional(),
+  query: z.string().trim().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+});
+const createMemoryRequestSchema = z.object({
+  scope: memoryScopeSchema,
+  agentId: z.string().trim().min(1).optional(),
+  type: memoryTypeSchema,
+  lifetime: memoryLifetimeSchema.optional(),
+  content: z.string().trim().min(1),
+  tags: z.array(z.string().trim().min(1)).optional(),
+  source: memorySourceSchema.optional(),
+});
+const updateMemoryRequestSchema = z.object({
+  type: memoryTypeSchema.optional(),
+  status: memoryStatusSchema.optional(),
+  lifetime: memoryLifetimeSchema.optional(),
+  content: z.string().trim().min(1).optional(),
+  tags: z.array(z.string().trim().min(1)).optional(),
+  source: memorySourceSchema.optional(),
+});
 const agentParamsSchema = z.object({
   agentId: z.string().trim().min(1),
+});
+const memoryParamsSchema = z.object({
+  memoryId: z.string().uuid(),
 });
 const agentToolParamsSchema = z.object({
   agentId: z.string().trim().min(1),
@@ -47,6 +104,26 @@ const agentToolParamsSchema = z.object({
 const threadParamsSchema = z.object({
   agentId: z.string().trim().min(1),
   threadId: z.string().uuid(),
+});
+const runParamsSchema = z.object({
+  runId: z.string().uuid(),
+});
+const threadSummaryRequestSchema = z.object({
+  model: z.string().trim().min(1).optional(),
+});
+const threadSummariesRequestSchema = threadSummaryRequestSchema.extend({
+  limit: z.number().int().min(1).max(500).optional(),
+});
+const memoryMaintenanceRequestSchema = threadSummaryRequestSchema.extend({
+  agentId: z.string().trim().min(1).optional(),
+  limitPerAgent: z.number().int().min(1).max(500).optional(),
+});
+const updateMemoryMaintenanceSettingsRequestSchema = z.object({
+  enabled: z.boolean().optional(),
+  intervalMinutes: z.number().int().min(5).max(10080).optional(),
+  agentId: z.string().trim().min(1).optional(),
+  model: z.string().trim().min(1).optional(),
+  limitPerAgent: z.number().int().min(1).max(500).optional(),
 });
 const agentRunRequestSchema = z.object({
   agentId: z.string().trim().min(1),
@@ -76,10 +153,16 @@ const server = Fastify({
   logger: true,
 });
 const runtime = new AssistantRuntime();
+const memoryMaintenanceScheduler = new MemoryMaintenanceScheduler(
+  runtime,
+  (message) => server.log.info({ component: 'memory-maintenance' }, message),
+  (message) => server.log.error({ component: 'memory-maintenance' }, message),
+);
 const authConfig = readAuthConfig();
 
 async function startServer(): Promise<void> {
   await runtime.ensureReady();
+  await memoryMaintenanceScheduler.start();
 
   await server.register(cors, {
     origin: process.env['CLIENT_ORIGIN'] ?? 'http://localhost:4200',
@@ -98,10 +181,12 @@ async function startServer(): Promise<void> {
         { name: 'profile', description: 'Synced user profile and preferences.' },
         { name: 'health', description: 'Backend status.' },
         { name: 'models', description: 'Model selection.' },
+        { name: 'memories', description: 'Long-term memory records.' },
         { name: 'tools', description: 'Tool registry and per-agent grants.' },
         { name: 'agents', description: 'Agent profiles.' },
         { name: 'threads', description: 'Agent-specific conversation threads.' },
         { name: 'runs', description: 'Agent runs and streaming responses.' },
+        { name: 'run-context', description: 'Optional run context transparency details.' },
       ],
     },
   });
@@ -224,6 +309,207 @@ async function startServer(): Promise<void> {
       summary: 'List registered tools.',
     }),
     async () => runtime.toolsResponse(),
+  );
+
+  server.get(
+    '/api/memories',
+    routeDocs({
+      tags: ['memories'],
+      summary: 'List and search memories.',
+      querystring: memoryListQuerySchema,
+    }),
+    async (request, reply) => {
+      const query = memoryListQuerySchema.safeParse(request.query);
+
+      if (!query.success) {
+        return reply.code(400).send({
+          message: 'A valid memory query is required.',
+        });
+      }
+
+      try {
+        return await runtime.listMemories(query.data satisfies MemoryListRequest);
+      } catch (error) {
+        return reply.code(400).send({
+          message: getErrorMessage(error),
+        });
+      }
+    },
+  );
+
+  server.post(
+    '/api/memories',
+    routeDocs({
+      tags: ['memories'],
+      summary: 'Create a memory.',
+      body: createMemoryRequestSchema,
+    }),
+    async (request, reply) => {
+      const body = createMemoryRequestSchema.safeParse(request.body);
+
+      if (!body.success) {
+        return reply.code(400).send({
+          message: 'A valid memory create request is required.',
+        });
+      }
+
+      try {
+        return await runtime.createMemory(body.data satisfies CreateMemoryRequest);
+      } catch (error) {
+        return reply.code(400).send({
+          message: getErrorMessage(error),
+        });
+      }
+    },
+  );
+
+  server.post(
+    '/api/memories/maintenance',
+    routeDocs({
+      tags: ['memories'],
+      summary: 'Run visible memory maintenance across agents or one agent.',
+      body: memoryMaintenanceRequestSchema,
+    }),
+    async (request, reply) => {
+      const body = memoryMaintenanceRequestSchema.safeParse(request.body ?? {});
+
+      if (!body.success) {
+        return reply.code(400).send({
+          message: 'A valid memory maintenance request is required.',
+        });
+      }
+
+      try {
+        return await runtime.runMemoryMaintenance(body.data satisfies MemoryMaintenanceRequest);
+      } catch (error) {
+        return reply.code(400).send({
+          message: getErrorMessage(error),
+        });
+      }
+    },
+  );
+
+  server.get(
+    '/api/memories/maintenance/settings',
+    routeDocs({
+      tags: ['memories'],
+      summary: 'Read memory maintenance scheduler settings.',
+    }),
+    async () => await runtime.readMemoryMaintenanceSettings(),
+  );
+
+  server.patch(
+    '/api/memories/maintenance/settings',
+    routeDocs({
+      tags: ['memories'],
+      summary: 'Update memory maintenance scheduler settings.',
+      body: updateMemoryMaintenanceSettingsRequestSchema,
+    }),
+    async (request, reply) => {
+      const body = updateMemoryMaintenanceSettingsRequestSchema.safeParse(request.body ?? {});
+
+      if (!body.success) {
+        return reply.code(400).send({
+          message: 'A valid memory maintenance settings update is required.',
+        });
+      }
+
+      try {
+        const settings = await runtime.updateMemoryMaintenanceSettings(
+          body.data satisfies UpdateMemoryMaintenanceSettingsRequest,
+        );
+        await memoryMaintenanceScheduler.refresh();
+
+        return settings;
+      } catch (error) {
+        return reply.code(400).send({
+          message: getErrorMessage(error),
+        });
+      }
+    },
+  );
+
+  server.get(
+    '/api/memories/:memoryId',
+    routeDocs({
+      tags: ['memories'],
+      summary: 'Read one memory.',
+      params: memoryParamsSchema,
+    }),
+    async (request, reply) => {
+      const params = memoryParamsSchema.safeParse(request.params);
+
+      if (!params.success) {
+        return reply.code(400).send({
+          message: 'A valid memory id is required.',
+        });
+      }
+
+      try {
+        return await runtime.readMemory(params.data.memoryId);
+      } catch (error) {
+        return reply.code(404).send({
+          message: getErrorMessage(error),
+        });
+      }
+    },
+  );
+
+  server.patch(
+    '/api/memories/:memoryId',
+    routeDocs({
+      tags: ['memories'],
+      summary: 'Update one memory.',
+      params: memoryParamsSchema,
+      body: updateMemoryRequestSchema,
+    }),
+    async (request, reply) => {
+      const params = memoryParamsSchema.safeParse(request.params);
+      const body = updateMemoryRequestSchema.safeParse(request.body);
+
+      if (!params.success || !body.success) {
+        return reply.code(400).send({
+          message: 'A valid memory id and update request are required.',
+        });
+      }
+
+      try {
+        return await runtime.updateMemory(
+          params.data.memoryId,
+          body.data satisfies UpdateMemoryRequest,
+        );
+      } catch (error) {
+        return reply.code(404).send({
+          message: getErrorMessage(error),
+        });
+      }
+    },
+  );
+
+  server.delete(
+    '/api/memories/:memoryId',
+    routeDocs({
+      tags: ['memories'],
+      summary: 'Delete one memory.',
+      params: memoryParamsSchema,
+    }),
+    async (request, reply) => {
+      const params = memoryParamsSchema.safeParse(request.params);
+
+      if (!params.success) {
+        return reply.code(400).send({
+          message: 'A valid memory id is required.',
+        });
+      }
+
+      try {
+        return await runtime.deleteMemory(params.data.memoryId);
+      } catch (error) {
+        return reply.code(404).send({
+          message: getErrorMessage(error),
+        });
+      }
+    },
   );
 
   server.get(
@@ -567,6 +853,37 @@ async function startServer(): Promise<void> {
     },
   );
 
+  server.post(
+    '/api/agents/:agentId/threads/summaries',
+    routeDocs({
+      tags: ['threads', 'memories'],
+      summary: 'Create or update memory summaries for multiple threads.',
+      params: agentParamsSchema,
+      body: threadSummariesRequestSchema,
+    }),
+    async (request, reply) => {
+      const params = agentParamsSchema.safeParse(request.params);
+      const body = threadSummariesRequestSchema.safeParse(request.body ?? {});
+
+      if (!params.success || !body.success) {
+        return reply.code(400).send({
+          message: 'A valid agent id and optional summaries request are required.',
+        });
+      }
+
+      try {
+        return await runtime.consolidateAgentThreadSummaries(
+          params.data.agentId,
+          body.data satisfies ThreadSummariesRequest,
+        );
+      } catch (error) {
+        return reply.code(400).send({
+          message: getErrorMessage(error),
+        });
+      }
+    },
+  );
+
   server.get(
     '/api/agents/:agentId/threads/:threadId',
     routeDocs({
@@ -620,6 +937,38 @@ async function startServer(): Promise<void> {
   );
 
   server.post(
+    '/api/agents/:agentId/threads/:threadId/summary',
+    routeDocs({
+      tags: ['threads', 'memories'],
+      summary: 'Create or update the memory summary for one thread.',
+      params: threadParamsSchema,
+      body: threadSummaryRequestSchema,
+    }),
+    async (request, reply) => {
+      const params = threadParamsSchema.safeParse(request.params);
+      const body = threadSummaryRequestSchema.safeParse(request.body ?? {});
+
+      if (!params.success || !body.success) {
+        return reply.code(400).send({
+          message: 'A valid agent id, thread id, and optional summary request are required.',
+        });
+      }
+
+      try {
+        return await runtime.consolidateThreadSummary(
+          params.data.agentId,
+          params.data.threadId,
+          body.data satisfies ThreadSummaryRequest,
+        );
+      } catch (error) {
+        return reply.code(400).send({
+          message: getErrorMessage(error),
+        });
+      }
+    },
+  );
+
+  server.post(
     '/api/agent-runs',
     routeDocs({
       tags: ['runs'],
@@ -651,7 +1000,7 @@ async function startServer(): Promise<void> {
       });
 
       try {
-        const result = await runtime.runAgent(runRequest);
+        const result = await runtime.runAgent(runRequest, { runId });
 
         writeServerSentEvent(reply.raw, {
           type: 'message',
@@ -679,6 +1028,32 @@ async function startServer(): Promise<void> {
   );
 
   server.get(
+    '/api/runs/:runId/context',
+    routeDocs({
+      tags: ['run-context'],
+      summary: 'Read context details for one run.',
+      params: runParamsSchema,
+    }),
+    async (request, reply) => {
+      const params = runParamsSchema.safeParse(request.params);
+
+      if (!params.success) {
+        return reply.code(400).send({
+          message: 'A valid run id is required.',
+        });
+      }
+
+      try {
+        return await runtime.readRunContext(params.data.runId);
+      } catch (error) {
+        return reply.code(404).send({
+          message: getErrorMessage(error),
+        });
+      }
+    },
+  );
+
+  server.get(
     '/api/openapi.json',
     {
       schema: {
@@ -694,6 +1069,10 @@ async function startServer(): Promise<void> {
       docExpansion: 'list',
       deepLinking: true,
     },
+  });
+
+  server.addHook('onClose', () => {
+    memoryMaintenanceScheduler.stop();
   });
 
   const port = Number(process.env['PORT'] ?? 3000);
@@ -713,6 +1092,7 @@ interface RouteDocsOptions {
   readonly tags: readonly string[];
   readonly summary: string;
   readonly params?: ZodType;
+  readonly querystring?: ZodType;
   readonly body?: ZodType;
 }
 
@@ -728,6 +1108,10 @@ function routeDocs(options: RouteDocsOptions) {
 
   if (options.params) {
     schema['params'] = zodJsonSchema(options.params);
+  }
+
+  if (options.querystring) {
+    schema['querystring'] = zodJsonSchema(options.querystring);
   }
 
   if (options.body) {

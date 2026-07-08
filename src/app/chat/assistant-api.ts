@@ -13,12 +13,27 @@ import type {
   ChatThread,
   ChatThreadSummary,
   CreateAgentRequest,
+  CreateMemoryRequest,
   DeleteAgentResponse,
+  DeleteMemoryResponse,
   DeleteThreadResponse,
   HealthResponse,
+  MemoryMaintenanceRequest,
+  MemoryMaintenanceResponse,
+  MemoryMaintenanceSettings,
+  MemoryListRequest,
+  MemoryListResponse,
+  MemoryRecord,
   ModelsResponse,
+  RunContextDetails,
+  ThreadSummaryRequest,
+  ThreadSummaryResponse,
+  ThreadSummariesRequest,
+  ThreadSummariesResponse,
   ToolsResponse,
+  UpdateMemoryMaintenanceSettingsRequest,
   UpdateAgentRequest,
+  UpdateMemoryRequest,
   UpdateAgentSoulRequest,
   UpdateAgentToolsRequest,
   UpdateUserProfileRequest,
@@ -55,6 +70,54 @@ export class AssistantApi {
     return await firstValueFrom(this.http.get<ToolsResponse>('/api/tools'));
   }
 
+  async memories(request: MemoryListRequest = {}): Promise<MemoryListResponse> {
+    const params = Object.fromEntries(
+      Object.entries(request)
+        .filter((entry): entry is [string, string | number] => entry[1] !== undefined)
+        .map(([key, value]) => [key, String(value)]),
+    );
+
+    return await firstValueFrom(this.http.get<MemoryListResponse>('/api/memories', { params }));
+  }
+
+  async createMemory(request: CreateMemoryRequest): Promise<MemoryRecord> {
+    return await firstValueFrom(this.http.post<MemoryRecord>('/api/memories', request));
+  }
+
+  async updateMemory(memoryId: string, request: UpdateMemoryRequest): Promise<MemoryRecord> {
+    return await firstValueFrom(
+      this.http.patch<MemoryRecord>(`/api/memories/${memoryId}`, request),
+    );
+  }
+
+  async deleteMemory(memoryId: string): Promise<DeleteMemoryResponse> {
+    return await firstValueFrom(
+      this.http.delete<DeleteMemoryResponse>(`/api/memories/${memoryId}`),
+    );
+  }
+
+  async runMemoryMaintenance(
+    request: MemoryMaintenanceRequest = {},
+  ): Promise<MemoryMaintenanceResponse> {
+    return await firstValueFrom(
+      this.http.post<MemoryMaintenanceResponse>('/api/memories/maintenance', request),
+    );
+  }
+
+  async memoryMaintenanceSettings(): Promise<MemoryMaintenanceSettings> {
+    return await firstValueFrom(
+      this.http.get<MemoryMaintenanceSettings>('/api/memories/maintenance/settings'),
+    );
+  }
+
+  async updateMemoryMaintenanceSettings(
+    request: UpdateMemoryMaintenanceSettingsRequest,
+  ): Promise<MemoryMaintenanceSettings> {
+    return await firstValueFrom(
+      this.http.patch<MemoryMaintenanceSettings>('/api/memories/maintenance/settings', request),
+    );
+  }
+
   async profile(): Promise<UserProfile> {
     return await firstValueFrom(this.http.get<UserProfile>('/api/profile'));
   }
@@ -77,6 +140,10 @@ export class AssistantApi {
 
   async updateAgent(agentId: string, request: UpdateAgentRequest): Promise<AgentProfile> {
     return await firstValueFrom(this.http.patch<AgentProfile>(`/api/agents/${agentId}`, request));
+  }
+
+  async runContext(runId: string): Promise<RunContextDetails> {
+    return await firstValueFrom(this.http.get<RunContextDetails>(`/api/runs/${runId}/context`));
   }
 
   async readAgentSoul(agentId: string): Promise<AgentSoulResponse> {
@@ -130,6 +197,28 @@ export class AssistantApi {
   async deleteThread(agentId: string, threadId: string): Promise<DeleteThreadResponse> {
     return await firstValueFrom(
       this.http.delete<DeleteThreadResponse>(`/api/agents/${agentId}/threads/${threadId}`),
+    );
+  }
+
+  async consolidateThreadSummary(
+    agentId: string,
+    threadId: string,
+    request: ThreadSummaryRequest = {},
+  ): Promise<ThreadSummaryResponse> {
+    return await firstValueFrom(
+      this.http.post<ThreadSummaryResponse>(
+        `/api/agents/${agentId}/threads/${threadId}/summary`,
+        request,
+      ),
+    );
+  }
+
+  async consolidateAgentThreadSummaries(
+    agentId: string,
+    request: ThreadSummariesRequest = {},
+  ): Promise<ThreadSummariesResponse> {
+    return await firstValueFrom(
+      this.http.post<ThreadSummariesResponse>(`/api/agents/${agentId}/threads/summaries`, request),
     );
   }
 

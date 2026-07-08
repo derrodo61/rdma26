@@ -36,6 +36,14 @@ rdma26 agents:create --id research --name "Research assistant"
 rdma26 agents:update --agent research --name "Researcher"
 ```
 
+### Set agent memory write permission
+
+```bash
+rdma26 agents:memory:set --agent research --can-write false
+```
+
+When memory writes are disabled, the agent does not receive `save_memory` and automatic thread-summary memories are not written after chat runs.
+
 ### Read an agent soul.md
 
 ```bash
@@ -79,6 +87,77 @@ All options are optional. Omitted fields keep their current values.
 ```bash
 rdma26 profile:agent-model:set --agent scotty --model gpt-4.1-mini
 ```
+
+## Memories
+
+### List or search memories
+
+```bash
+rdma26 memories:list --agent scotty --query "football"
+```
+
+Useful filters:
+
+- `--scope agent|agent_user|user`
+- `--type fact|preference|conversation_summary|open_task|tracked_topic`
+- `--status active|archived|superseded`
+- `--limit 20`
+
+### Read one memory
+
+```bash
+rdma26 memories:read --memory <memory-id>
+```
+
+### Create a memory
+
+```bash
+rdma26 memories:create --agent scotty --scope agent --type fact --content "The user prefers concise status updates."
+```
+
+Use `--file ./memory.md` instead of `--content "..."` for longer content. Use `--tags football,preference` to add tags.
+
+### Update a memory
+
+```bash
+rdma26 memories:update --memory <memory-id> --content "Updated memory content"
+```
+
+You can also update `--type`, `--status`, `--lifetime`, or `--tags`.
+
+### Archive a memory
+
+```bash
+rdma26 memories:archive --memory <memory-id>
+```
+
+### Delete a memory
+
+```bash
+rdma26 memories:delete --memory <memory-id>
+```
+
+### Run memory maintenance
+
+```bash
+rdma26 memories:maintenance --agent scotty --limit 25
+```
+
+This consolidates thread-summary memories for one agent. Omit `--agent` to run maintenance for all agents. Agents with memory writes disabled are skipped and reported.
+
+### Read memory maintenance schedule
+
+```bash
+rdma26 memories:maintenance:settings
+```
+
+### Configure memory maintenance schedule
+
+```bash
+rdma26 memories:maintenance:configure --enabled true --interval-minutes 1440 --limit 25
+```
+
+Use `--agent scotty` to limit scheduled maintenance to one agent. Omit `--agent` to cover all agents. Scheduled maintenance is disabled by default.
 
 ## Tools
 
@@ -144,6 +223,24 @@ rdma26 threads:read --agent scotty --thread <thread-id>
 rdma26 threads:delete --agent scotty --thread <thread-id>
 ```
 
+### Consolidate a thread summary memory
+
+```bash
+rdma26 threads:summary --agent scotty --thread <thread-id>
+```
+
+Creates or updates the `conversation_summary` memory for the thread using an LLM. Use `--model` to request a specific summary model.
+
+If no LLM provider is configured, no summary is created and the command returns an error.
+
+### Refresh thread summary memories for an agent
+
+```bash
+rdma26 threads:summaries --agent scotty --limit 25
+```
+
+Creates or updates summaries for multiple non-empty threads and reports skipped empty threads.
+
 ## Chat
 
 ### Send a message
@@ -153,6 +250,14 @@ rdma26 chat:send --agent scotty --thread <thread-id> --model gpt-4.1-mini --prom
 ```
 
 The command appends the user message, runs the selected agent, stores the assistant response, and prints the result as JSON.
+
+### Inspect run context
+
+```bash
+rdma26 runs:context --run <run-id>
+```
+
+The run id is included in `chat:send` output and in the API `run-started` event.
 
 ## Options
 

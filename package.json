@@ -9,6 +9,7 @@
     "server:start": "tsx server/src/index.ts",
     "server:lan": "HOST=0.0.0.0 npm run server:start",
     "server:typecheck": "tsc -p server/tsconfig.json --noEmit",
+    "server:test": "vitest run server/src/*.spec.ts",
     "rdma26": "tsx server/src/cli.ts",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",

@@ -6,7 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-No unreleased changes yet.
+### Added
+
+- Added local-first long-term memory records with scope, type, status, lifetime, tags, and source metadata.
+- Added memory CRUD through backend API endpoints and CLI commands.
+- Added a memory settings page for listing, creating, editing, archiving, restoring, and deleting memories.
+- Added a `save_memory` agent tool and prompt injection of relevant active memories for chat runs.
+- Added automatic per-thread `conversation_summary` memory upserts after chat runs.
+- Added recall-aware memory retrieval so new-thread questions about previous conversations include recent conversation summaries.
+- Added optional OpenAI embedding-backed semantic memory ranking with a local cache and lexical fallback.
+- Added manual thread-summary consolidation through the API, CLI, and chat UI.
+- Added LLM-backed thread-summary consolidation when OpenAI is configured.
+- Removed local compact transcript summaries; if no summary LLM is available, no summary is created.
+- Added bulk thread-summary refresh through the API, CLI, and memory settings UI.
+- Added visible memory maintenance through the API, CLI, and memory settings UI, with reports for skipped agents and empty threads.
+- Added optional scheduled memory maintenance with persistent settings exposed through the API, CLI, and memory settings UI.
+- Updated the agent bootloader prompt so disabled memory writes no longer instruct agents to use `save_memory`.
+- Added source-thread links for memories that were created from a conversation thread.
+- Added a run-context inspector page for viewing the memories, messages, tools, profile snapshot, and `soul.md` used by a chat run.
+- Expanded run-context snapshots with prompt, assistant response, thread title, memory metadata/source, and tool labels/providers.
+- Added run-context capture and display for tool calls, tool results, and token usage when returned by the agent runtime.
+- Added per-agent memory write permissions through backend, CLI, and the agent edit UI.
+- Added controlled Scotty tools for memory inspection, memory management, and memory-write permissions.
+- Added persisted run-context details with API and CLI inspection.
+- Added direct server tests for the memory store.
 
 ## [2026-07-06]
 

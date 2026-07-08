@@ -1,7 +1,7 @@
 import { Component, computed, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideArrowUp,
@@ -64,6 +64,7 @@ marked.use({
 export class ChatPage {
   private readonly api = inject(AssistantApi);
   private readonly agentSettingsStorage = inject(AgentSettingsStorage);
+  private readonly route = inject(ActivatedRoute);
   private readonly themePreference = inject(ThemePreferenceService);
   private readonly userProfileSync = inject(UserProfileSyncService);
   private readonly composerInput = viewChild<ElementRef<HTMLTextAreaElement>>('composerInput');
@@ -79,9 +80,12 @@ export class ChatPage {
   protected readonly selectedModel = signal('');
   protected readonly threads = signal<readonly ChatThreadSummary[]>([]);
   protected readonly activeThread = signal<ChatThread | null>(null);
+  protected readonly latestRunId = signal<string | null>(null);
+  protected readonly summaryMessage = signal<string | null>(null);
   protected readonly draft = signal('');
   protected readonly isLoading = signal(true);
   protected readonly isRunning = signal(false);
+  protected readonly isConsolidatingSummary = signal(false);
   protected readonly isSidebarCollapsed = signal(false);
   protected readonly isSettingsMenuOpen = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -105,6 +109,12 @@ export class ChatPage {
         this.selectedModel() &&
         this.draft().trim(),
       ) && !this.isRunning(),
+  );
+  protected readonly canConsolidateSummary = computed(
+    () =>
+      Boolean(this.selectedAgentId() && this.activeThread()?.messages.length) &&
+      !this.isRunning() &&
+      !this.isConsolidatingSummary(),
   );
   protected readonly activeAgent = computed<AgentProfile | null>(
     () => this.agents().find((agent) => agent.id === this.selectedAgentId()) ?? null,
@@ -279,6 +289,7 @@ export class ChatPage {
     this.resizeComposerInput();
     this.isRunning.set(true);
     this.error.set(null);
+    this.summaryMessage.set(null);
 
     const optimistic: ChatThread = {
       ...thread,
@@ -308,6 +319,14 @@ export class ChatPage {
             void this.refreshThreads();
           }
 
+          if (event.type === 'run-started') {
+            this.latestRunId.set(event.runId);
+          }
+
+          if (event.type === 'run-finished') {
+            this.latestRunId.set(event.runId);
+          }
+
           if (event.type === 'error') {
             this.error.set(event.message);
           }
@@ -317,6 +336,28 @@ export class ChatPage {
       this.error.set(error instanceof Error ? error.message : 'Agent request failed.');
     } finally {
       this.isRunning.set(false);
+    }
+  }
+
+  protected async consolidateActiveThreadSummary(): Promise<void> {
+    const agentId = this.selectedAgentId();
+    const thread = this.activeThread();
+
+    if (!agentId || !thread || !this.canConsolidateSummary()) {
+      return;
+    }
+
+    try {
+      this.isConsolidatingSummary.set(true);
+      const response = await this.api.consolidateThreadSummary(agentId, thread.id, {
+        model: this.selectedModel() || undefined,
+      });
+      const model = response.model ? ` using ${response.model}` : '';
+      this.summaryMessage.set(`Thread memory updated${model}: ${response.memory.id}`);
+    } catch (error) {
+      this.error.set(getErrorMessage(error, 'Could not consolidate thread summary.'));
+    } finally {
+      this.isConsolidatingSummary.set(false);
     }
   }
 
@@ -417,7 +458,14 @@ export class ChatPage {
     this.models.set(models.models);
     this.defaultModelId = models.defaultModel;
     await this.userProfileSync.loadAndHydrate(agentsResponse.agents);
-    await this.loadAgentThreads(agentsResponse.defaultAgentId);
+    const requestedAgentId = this.route.snapshot.queryParamMap.get('agentId');
+    const requestedThreadId = this.route.snapshot.queryParamMap.get('threadId');
+    const initialAgentId =
+      requestedAgentId && agentsResponse.agents.some((agent) => agent.id === requestedAgentId)
+        ? requestedAgentId
+        : agentsResponse.defaultAgentId;
+
+    await this.loadAgentThreads(initialAgentId, requestedThreadId ?? undefined);
   }
 
   private async refreshThreads(): Promise<void> {
@@ -430,14 +478,20 @@ export class ChatPage {
     this.threads.set(await this.api.listThreads(agentId));
   }
 
-  private async loadAgentThreads(agentId: string): Promise<void> {
+  private async loadAgentThreads(agentId: string, preferredThreadId?: string): Promise<void> {
     const threads = await this.api.listThreads(agentId);
     this.selectedAgentId.set(agentId);
     this.selectedModel.set(this.modelForAgent(agentId));
     this.threads.set(threads);
+    this.latestRunId.set(null);
 
     if (threads.length) {
-      this.activeThread.set(await this.api.readThread(agentId, threads[0].id));
+      const threadId =
+        preferredThreadId && threads.some((thread) => thread.id === preferredThreadId)
+          ? preferredThreadId
+          : threads[0].id;
+
+      this.activeThread.set(await this.api.readThread(agentId, threadId));
     } else {
       this.activeThread.set(await this.api.createThread(agentId));
       await this.refreshThreads();
