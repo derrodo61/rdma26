@@ -9,6 +9,7 @@ import type {
 @Component({
   selector: 'app-chat-message-list',
   templateUrl: './chat-message-list.html',
+  styleUrl: './chat-message-list.css',
 })
 export class ChatMessageList {
   readonly messages = input.required<readonly RenderedChatMessage[]>();
