@@ -79,6 +79,7 @@ async function main(): Promise<void> {
           dateStyle: parseDateStyle(options['date-style']),
           timeStyle: parseTimeStyle(options['time-style']),
           theme: parseTheme(options['theme']),
+          lastAgentId: options['last-agent'],
         }),
       );
       return;
@@ -105,7 +106,13 @@ async function main(): Promise<void> {
           agentId: options['agent'],
           scope: parseMemoryScope(options['scope']),
           type: parseMemoryType(options['type']),
+          lifetime: parseMemoryLifetime(options['lifetime']),
           status: parseMemoryStatus(options['status']),
+          tag: options['tag'],
+          createdFrom: options['created-from'],
+          createdTo: options['created-to'],
+          updatedFrom: options['updated-from'],
+          updatedTo: options['updated-to'],
           query: options['query'],
           limit: parseOptionalInteger(options['limit'], 'limit'),
         }),
@@ -513,9 +520,9 @@ Usage:
   rdma26 agents:soul:write --agent research --file ./soul.md
   rdma26 agents:delete --agent research
   rdma26 profile:read
-  rdma26 profile:update --name "Rolf" --time-zone Europe/Berlin --locale de-DE --language de --date-style medium --time-style short --theme system
+  rdma26 profile:update --name "Rolf" --time-zone Europe/Berlin --locale de-DE --language de --date-style medium --time-style short --theme system --last-agent ronaldo
   rdma26 profile:agent-model:set --agent scotty --model gpt-4.1-mini
-  rdma26 memories:list --agent scotty --query "football"
+  rdma26 memories:list --agent scotty --query "football" --tag project --updated-from 2026-07-01
   rdma26 memories:create --agent scotty --scope agent --type fact --content "The user prefers concise updates."
   rdma26 memories:update --memory <memory-id> --content "Updated memory"
   rdma26 memories:archive --memory <memory-id>

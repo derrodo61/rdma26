@@ -28,6 +28,12 @@ describe('PersonalAgent bootloader prompt', () => {
     );
 
     expect(enabledPrompt).toContain('Use the save_memory tool');
+    expect(enabledPrompt).toContain('Use agent_user for user preferences');
+    expect(enabledPrompt).toContain('Use user only when the user clearly wants the memory shared');
+    expect(enabledPrompt).toContain(
+      'If the user explicitly asks you to remember sensitive personal data',
+    );
+    expect(enabledPrompt).toContain('never save secrets or credentials');
     expect(disabledPrompt).toContain('Memory writing is disabled for this agent');
     expect(disabledPrompt).not.toContain('Use the save_memory tool');
   });
@@ -109,39 +115,6 @@ describe('PersonalAgent bootloader prompt', () => {
     );
   });
 
-  it('prefers verify_current_facts for precise current factual questions when enabled', () => {
-    const withoutVerifier = createBootloaderPromptForTest(
-      {
-        name: 'Agent',
-        soulVirtualPath: '/configuration/soul.md',
-      },
-      testProfile(),
-      false,
-      '# soul',
-      [],
-      true,
-      ['internet_search', 'read_web_page'],
-    );
-    const withVerifier = createBootloaderPromptForTest(
-      {
-        name: 'Agent',
-        soulVirtualPath: '/configuration/soul.md',
-      },
-      testProfile(),
-      false,
-      '# soul',
-      [],
-      true,
-      ['internet_search', 'read_web_page', 'verify_current_facts'],
-    );
-
-    expect(withoutVerifier).not.toContain('Current fact verification guidance');
-    expect(withVerifier).toContain('Current fact verification guidance');
-    expect(withVerifier).toContain('Use verify_current_facts only as a compatibility fallback');
-    expect(withVerifier).toContain('Set requiredItems when the user asks for a number of items');
-    expect(withVerifier).toContain('Do not manually start with internet_search or read_web_page');
-  });
-
   it('prefers research over low-level internet tools when enabled', () => {
     const prompt = createBootloaderPromptForTest(
       {
@@ -153,14 +126,16 @@ describe('PersonalAgent bootloader prompt', () => {
       '# soul',
       [],
       true,
-      ['research', 'internet_search', 'read_web_page', 'verify_current_facts'],
+      ['research', 'internet_search', 'read_web_page'],
     );
 
     expect(prompt).toContain('Research guidance');
     expect(prompt).toContain('A researcher subagent is available through Deep Agents');
     expect(prompt).toContain('Use the task tool to delegate internet research');
     expect(prompt).toContain("Use the researcher's structured result as your evidence");
-    expect(prompt).toContain('Prefer research when it is available');
+    expect(prompt).toContain("check the researcher's temporalCandidates");
+    expect(prompt).toContain("preserve the researcher's claimStatus");
+    expect(prompt).toContain('Do not convert official-source silence into "false"');
     expect(prompt).toContain('Do not manually start with internet_search or read_web_page');
   });
 });

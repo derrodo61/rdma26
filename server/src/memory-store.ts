@@ -1,5 +1,5 @@
 import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { OpenAIEmbeddings } from '@langchain/openai';
 
 import type {
@@ -14,6 +14,7 @@ import type {
   UpdateMemoryRequest,
 } from '../../shared/agent-contracts';
 import { validateAgentId } from './agent-registry';
+import { LocalDatabase } from './local-database';
 
 const memoryTypes = new Set<MemoryType>([
   'fact',
@@ -28,12 +29,17 @@ const memoryLifetimes = new Set<MemoryLifetime>(['permanent', 'active', 'tempora
 const embeddingModel = process.env['OPENAI_EMBEDDING_MODEL'] ?? 'text-embedding-3-small';
 
 export class MemoryStore {
-  constructor(private readonly dataDir: string) {}
+  private readonly database: LocalDatabase;
+
+  constructor(private readonly dataDir: string) {
+    this.database = new LocalDatabase(dataDir);
+  }
 
   async ensureReady(): Promise<void> {
-    await mkdir(this.userMemoriesDir(), { recursive: true });
     await mkdir(join(this.dataDir, 'agents'), { recursive: true });
     await mkdir(this.memoryIndexDir(), { recursive: true });
+    await this.database.ensureReady();
+    await this.importJsonMemories();
   }
 
   async listMemories(request: MemoryListRequest = {}): Promise<MemoryRecord[]> {
@@ -44,7 +50,15 @@ export class MemoryStore {
     const scored = memories
       .filter((memory) => memory.status === status)
       .filter((memory) => !request.type || memory.type === request.type)
+      .filter((memory) => !request.lifetime || memory.lifetime === request.lifetime)
       .filter((memory) => !request.scope || memory.scope === request.scope)
+      .filter((memory) => matchesTag(memory, request.tag))
+      .filter((memory) =>
+        matchesDateRange(memory.createdAt, request.createdFrom, request.createdTo),
+      )
+      .filter((memory) =>
+        matchesDateRange(memory.updatedAt, request.updatedFrom, request.updatedTo),
+      )
       .map((memory) => ({
         memory,
         score: scoreMemory(memory, query),
@@ -63,6 +77,7 @@ export class MemoryStore {
 
   async searchForRun(agentId: string, query: string, limit = 8): Promise<MemorySearchResult[]> {
     validateAgentId(agentId);
+    await this.ensureReady();
     const normalizedQuery = normalizeQuery(query);
     const memories = await this.readCandidateMemories({
       agentId,
@@ -107,16 +122,16 @@ export class MemoryStore {
     validateMemoryId(memoryId);
     await this.ensureReady();
 
-    for (const memory of await this.readAllMemories()) {
-      if (memory.id === memoryId) {
-        return memory;
-      }
-    }
+    const row = this.database
+      .get()
+      .prepare('select * from memory_records where id = ?')
+      .get(memoryId);
 
-    return null;
+    return row ? memoryFromRow(row) : null;
   }
 
   async createMemory(request: CreateMemoryRequest): Promise<MemoryRecord> {
+    await this.ensureReady();
     const now = new Date().toISOString();
     const memory: MemoryRecord = {
       id: crypto.randomUUID(),
@@ -126,13 +141,14 @@ export class MemoryStore {
       status: 'active',
       lifetime: request.lifetime ? normalizeLifetime(request.lifetime) : 'active',
       content: normalizeContent(request.content),
+      contentLines: contentLinesFor(request.content),
       tags: normalizeTags(request.tags ?? []),
       source: request.source,
       createdAt: now,
       updatedAt: now,
     };
 
-    await this.writeMemory(memory);
+    await this.writeMemory(memory, 'insert');
 
     return memory;
   }
@@ -145,12 +161,16 @@ export class MemoryStore {
       status: request.status ? normalizeStatus(request.status) : existing.status,
       lifetime: request.lifetime ? normalizeLifetime(request.lifetime) : existing.lifetime,
       content: request.content === undefined ? existing.content : normalizeContent(request.content),
+      contentLines:
+        request.content === undefined
+          ? contentLinesFor(existing.content)
+          : contentLinesFor(request.content),
       tags: request.tags === undefined ? existing.tags : normalizeTags(request.tags),
       source: request.source === undefined ? existing.source : request.source,
       updatedAt: new Date().toISOString(),
     };
 
-    await this.writeMemory(updated);
+    await this.writeMemory(updated, 'replace');
 
     return updated;
   }
@@ -163,14 +183,20 @@ export class MemoryStore {
       return false;
     }
 
-    await rm(this.memoryPath(memory), { force: true });
+    this.database.get().prepare('delete from memory_records where id = ?').run(memory.id);
 
     return true;
   }
 
   async deleteThreadSummaryMemories(agentId: string, threadId: string): Promise<number> {
     validateAgentId(agentId);
-    const memories = await this.readMemoriesFromDir(this.agentMemoriesDir(agentId));
+    const memories = await this.listMemories({
+      agentId,
+      scope: 'agent',
+      type: 'conversation_summary',
+      status: 'active',
+      limit: 100,
+    });
     const summaries = memories.filter(
       (memory) =>
         memory.type === 'conversation_summary' &&
@@ -207,25 +233,136 @@ export class MemoryStore {
   }
 
   private async readCandidateMemories(request: MemoryListRequest): Promise<MemoryRecord[]> {
+    const allMemories = await this.readAllMemories();
+
     if (request.scope === 'user') {
-      return await this.readMemoriesFromDir(this.userMemoriesDir());
+      return allMemories.filter((memory) => memory.scope === 'user');
     }
 
     if (request.agentId) {
       validateAgentId(request.agentId);
-      const agentMemories = await this.readMemoriesFromDir(this.agentMemoriesDir(request.agentId));
+      const agentMemories = allMemories.filter((memory) => memory.agentId === request.agentId);
 
       if (request.scope === 'agent' || request.scope === 'agent_user') {
         return agentMemories.filter((memory) => memory.scope === request.scope);
       }
 
-      return [...agentMemories, ...(await this.readMemoriesFromDir(this.userMemoriesDir()))];
+      return [...agentMemories, ...allMemories.filter((memory) => memory.scope === 'user')];
     }
 
-    return await this.readAllMemories();
+    return allMemories;
   }
 
   private async readAllMemories(): Promise<MemoryRecord[]> {
+    const rows = this.database
+      .get()
+      .prepare('select * from memory_records order by updated_at desc')
+      .all();
+
+    return rows.map((row) => memoryFromRow(row));
+  }
+
+  private async readMemoriesFromDir(dir: string): Promise<MemoryRecord[]> {
+    try {
+      const fileNames = await readdir(dir);
+      const memories = await Promise.all(
+        fileNames
+          .filter((fileName) => fileName.endsWith('.json'))
+          .map(async (fileName) => parseMemoryRecord(await readFile(join(dir, fileName), 'utf8'))),
+      );
+
+      return memories.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+    } catch (error) {
+      if (isNodeError(error) && error.code === 'ENOENT') {
+        return [];
+      }
+
+      throw error;
+    }
+  }
+
+  private writeMemory(memory: MemoryRecord, mode: 'insert' | 'replace' | 'insert-or-ignore'): void {
+    const statement =
+      mode === 'insert-or-ignore'
+        ? 'insert or ignore into memory_records'
+        : mode === 'replace'
+          ? 'insert or replace into memory_records'
+          : 'insert into memory_records';
+
+    this.database
+      .get()
+      .prepare(
+        `
+          ${statement} (
+            id,
+            scope,
+            agent_id,
+            type,
+            status,
+            lifetime,
+            content,
+            content_lines_json,
+            tags_json,
+            source_json,
+            created_at,
+            updated_at
+          ) values (
+            @id,
+            @scope,
+            @agentId,
+            @type,
+            @status,
+            @lifetime,
+            @content,
+            @contentLinesJson,
+            @tagsJson,
+            @sourceJson,
+            @createdAt,
+            @updatedAt
+          )
+        `,
+      )
+      .run(memoryToRow(memory));
+  }
+
+  private userMemoriesDir(): string {
+    return join(this.dataDir, 'user', 'memories');
+  }
+
+  private agentMemoriesDir(agentId: string): string {
+    return join(this.dataDir, 'agents', agentId, 'memories');
+  }
+
+  private async importJsonMemories(): Promise<void> {
+    const importMarker = this.database
+      .get()
+      .prepare("select value from schema_metadata where key = 'memory_json_imported_at'")
+      .get();
+
+    if (importMarker) {
+      await this.deleteImportedJsonMemories();
+      return;
+    }
+
+    const memories = await this.readJsonMemoriesForImport();
+
+    for (const memory of memories) {
+      this.writeMemory(memory, 'insert-or-ignore');
+    }
+
+    this.database
+      .get()
+      .prepare(
+        `
+          insert into schema_metadata (key, value)
+          values ('memory_json_imported_at', ?)
+        `,
+      )
+      .run(new Date().toISOString());
+    await this.deleteImportedJsonMemories();
+  }
+
+  private async readJsonMemoriesForImport(): Promise<MemoryRecord[]> {
     const agentsDir = join(this.dataDir, 'agents');
     const userMemories = await this.readMemoriesFromDir(this.userMemoriesDir());
 
@@ -249,47 +386,50 @@ export class MemoryStore {
     return [...userMemories, ...agentMemories.flat()];
   }
 
-  private async readMemoriesFromDir(dir: string): Promise<MemoryRecord[]> {
+  private async deleteImportedJsonMemories(): Promise<void> {
+    const agentsDir = join(this.dataDir, 'agents');
+    const memoryDirs = [this.userMemoriesDir()];
+
     try {
-      const fileNames = await readdir(dir);
-      const memories = await Promise.all(
-        fileNames
-          .filter((fileName) => fileName.endsWith('.json'))
-          .map(async (fileName) => parseMemoryRecord(await readFile(join(dir, fileName), 'utf8'))),
+      memoryDirs.push(
+        ...(await readdir(agentsDir, { withFileTypes: true }))
+          .filter((entry) => entry.isDirectory())
+          .map((entry) => this.agentMemoriesDir(entry.name)),
       );
-
-      return memories.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
     } catch (error) {
-      if (isNodeError(error) && error.code === 'ENOENT') {
-        return [];
+      if (!isNodeError(error) || error.code !== 'ENOENT') {
+        throw error;
       }
-
-      throw error;
     }
-  }
 
-  private async writeMemory(memory: MemoryRecord): Promise<void> {
-    const path = this.memoryPath(memory);
-    await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, `${JSON.stringify(memory, null, 2)}\n`, 'utf8');
-  }
+    await Promise.all(
+      memoryDirs.map(async (dir) => {
+        try {
+          const fileNames = await readdir(dir);
 
-  private memoryPath(memory: MemoryRecord): string {
-    return join(this.memoryDir(memory), `${memory.id}.json`);
-  }
+          await Promise.all(
+            fileNames
+              .filter((fileName) => fileName.endsWith('.json'))
+              .map(async (fileName) => {
+                const path = join(dir, fileName);
+                const memory = parseMemoryRecord(await readFile(path, 'utf8'));
+                const row = this.database
+                  .get()
+                  .prepare('select id from memory_records where id = ?')
+                  .get(memory.id);
 
-  private memoryDir(memory: Pick<MemoryRecord, 'scope' | 'agentId'>): string {
-    return memory.scope === 'user'
-      ? this.userMemoriesDir()
-      : this.agentMemoriesDir(requireAgentId(memory.agentId));
-  }
-
-  private userMemoriesDir(): string {
-    return join(this.dataDir, 'user', 'memories');
-  }
-
-  private agentMemoriesDir(agentId: string): string {
-    return join(this.dataDir, 'agents', agentId, 'memories');
+                if (row) {
+                  await rm(path, { force: true });
+                }
+              }),
+          );
+        } catch (error) {
+          if (!isNodeError(error) || error.code !== 'ENOENT') {
+            throw error;
+          }
+        }
+      }),
+    );
   }
 
   private memoryIndexDir(): string {
@@ -432,6 +572,89 @@ function parseMemoryRecord(raw: string): MemoryRecord {
   return value;
 }
 
+interface MemoryRecordRow {
+  readonly id: string;
+  readonly scope: string;
+  readonly agent_id?: string | null;
+  readonly type: string;
+  readonly status: string;
+  readonly lifetime: string;
+  readonly content: string;
+  readonly content_lines_json?: string | null;
+  readonly tags_json: string;
+  readonly source_json?: string | null;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+function memoryToRow(memory: MemoryRecord) {
+  const contentLines = memory.contentLines ?? contentLinesFor(memory.content);
+
+  return {
+    id: memory.id,
+    scope: memory.scope,
+    agentId: memory.agentId ?? null,
+    type: memory.type,
+    status: memory.status,
+    lifetime: memory.lifetime,
+    content: memory.content,
+    contentLinesJson: contentLines ? JSON.stringify(contentLines) : null,
+    tagsJson: JSON.stringify(memory.tags),
+    sourceJson: memory.source ? JSON.stringify(memory.source) : null,
+    createdAt: memory.createdAt,
+    updatedAt: memory.updatedAt,
+  };
+}
+
+function memoryFromRow(row: unknown): MemoryRecord {
+  if (!isMemoryRecordRow(row)) {
+    throw new Error('Invalid memory database row.');
+  }
+
+  const contentLines = parseJsonField<unknown>(row.content_lines_json);
+  const source = parseJsonField<unknown>(row.source_json);
+  const memory: MemoryRecord = {
+    id: row.id,
+    scope: normalizeScope(row.scope as MemoryScope),
+    ...(row.agent_id ? { agentId: row.agent_id } : {}),
+    type: normalizeType(row.type as MemoryType),
+    status: normalizeStatus(row.status as MemoryStatus),
+    lifetime: normalizeLifetime(row.lifetime as MemoryLifetime),
+    content: row.content,
+    ...(Array.isArray(contentLines) ? { contentLines } : {}),
+    tags: parseJsonField<readonly string[]>(row.tags_json),
+    ...(source ? { source } : {}),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+
+  if (!isMemoryRecord(memory)) {
+    throw new Error('Invalid memory record from database.');
+  }
+
+  return memory;
+}
+
+function isMemoryRecordRow(value: unknown): value is MemoryRecordRow {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as MemoryRecordRow).id === 'string' &&
+    typeof (value as MemoryRecordRow).scope === 'string' &&
+    typeof (value as MemoryRecordRow).type === 'string' &&
+    typeof (value as MemoryRecordRow).status === 'string' &&
+    typeof (value as MemoryRecordRow).lifetime === 'string' &&
+    typeof (value as MemoryRecordRow).content === 'string' &&
+    typeof (value as MemoryRecordRow).tags_json === 'string' &&
+    typeof (value as MemoryRecordRow).created_at === 'string' &&
+    typeof (value as MemoryRecordRow).updated_at === 'string'
+  );
+}
+
+function parseJsonField<T>(value: string | null | undefined): T {
+  return JSON.parse(value ?? 'null') as T;
+}
+
 function isMemoryRecord(value: unknown): value is MemoryRecord {
   return (
     typeof value === 'object' &&
@@ -451,6 +674,9 @@ function isMemoryRecord(value: unknown): value is MemoryRecord {
     memoryStatuses.has(value.status as MemoryStatus) &&
     memoryLifetimes.has(value.lifetime as MemoryLifetime) &&
     typeof value.content === 'string' &&
+    (!('contentLines' in value) ||
+      (Array.isArray(value.contentLines) &&
+        value.contentLines.every((line) => typeof line === 'string'))) &&
     Array.isArray(value.tags) &&
     value.tags.every((tag) => typeof tag === 'string') &&
     typeof value.createdAt === 'string' &&
@@ -518,24 +744,54 @@ function normalizeContent(content: string): string {
   return normalized;
 }
 
+function contentLinesFor(content: string): readonly string[] | undefined {
+  const normalized = content.trim();
+
+  return normalized.includes('\n') ? normalized.split('\n') : undefined;
+}
+
 function normalizeTags(tags: readonly string[]): string[] {
   return [...new Set(tags.map((tag) => tag.trim().toLowerCase()).filter(Boolean))].sort();
+}
+
+function matchesTag(memory: MemoryRecord, tag: string | undefined): boolean {
+  const normalized = tag?.trim().toLowerCase();
+
+  return !normalized || memory.tags.includes(normalized);
+}
+
+function matchesDateRange(
+  value: string,
+  from: string | undefined,
+  to: string | undefined,
+): boolean {
+  const lower = normalizeDateBoundary(from, 'start');
+  const upper = normalizeDateBoundary(to, 'end');
+
+  return (!lower || value >= lower) && (!upper || value <= upper);
+}
+
+function normalizeDateBoundary(
+  value: string | undefined,
+  edge: 'start' | 'end',
+): string | undefined {
+  const normalized = value?.trim();
+
+  if (!normalized) {
+    return undefined;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+    return edge === 'start' ? `${normalized}T00:00:00.000Z` : `${normalized}T23:59:59.999Z`;
+  }
+
+  return normalized;
 }
 
 function validateMemoryId(memoryId: string): void {
   if (!/^[a-f0-9-]{36}$/i.test(memoryId)) {
     throw new Error('Memory id must be a UUID.');
   }
-}
-
-function requireAgentId(agentId: string | undefined): string {
-  if (!agentId) {
-    throw new Error('Memory is missing agentId.');
-  }
-
-  validateAgentId(agentId);
-
-  return agentId;
 }
 
 function normalizeQuery(query: string | undefined): readonly string[] {

@@ -75,7 +75,13 @@ const memoryListQuerySchema = z.object({
   agentId: z.string().trim().min(1).optional(),
   scope: memoryScopeSchema.optional(),
   type: memoryTypeSchema.optional(),
+  lifetime: memoryLifetimeSchema.optional(),
   status: memoryStatusSchema.optional(),
+  tag: z.string().trim().min(1).optional(),
+  createdFrom: z.string().trim().min(1).optional(),
+  createdTo: z.string().trim().min(1).optional(),
+  updatedFrom: z.string().trim().min(1).optional(),
+  updatedTo: z.string().trim().min(1).optional(),
   query: z.string().trim().min(1).optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
 });
@@ -151,6 +157,7 @@ const updateUserProfileRequestSchema = z.object({
   dateStyle: z.enum(['short', 'medium', 'long', 'full']).optional(),
   timeStyle: z.enum(['short', 'medium']).optional(),
   theme: z.enum(['light', 'dark', 'system']).optional(),
+  lastAgentId: z.string().trim().min(1).optional(),
   agentSettings: z.record(z.string(), agentSettingsSchema).optional(),
 });
 
@@ -831,7 +838,7 @@ async function startServer(): Promise<void> {
     '/api/agents/:agentId/threads',
     routeDocs({
       tags: ['threads'],
-      summary: 'Create a thread for one agent.',
+      summary: 'Create a thread and summarize the previous thread when possible.',
       params: agentParamsSchema,
       body: createThreadRequestSchema,
     }),
@@ -862,7 +869,7 @@ async function startServer(): Promise<void> {
     '/api/agents/:agentId/threads/summaries',
     routeDocs({
       tags: ['threads', 'memories'],
-      summary: 'Create or update memory summaries for multiple threads.',
+      summary: 'Create missing memory summaries for multiple threads.',
       params: agentParamsSchema,
       body: threadSummariesRequestSchema,
     }),
@@ -941,11 +948,63 @@ async function startServer(): Promise<void> {
     },
   );
 
+  server.get(
+    '/api/agents/:agentId/threads/:threadId/latest-run-context',
+    routeDocs({
+      tags: ['run-context'],
+      summary: 'Read the latest run context for one thread, if one exists.',
+      params: threadParamsSchema,
+    }),
+    async (request, reply) => {
+      const params = threadParamsSchema.safeParse(request.params);
+
+      if (!params.success) {
+        return reply.code(400).send({
+          message: 'A valid agent id and thread id are required.',
+        });
+      }
+
+      try {
+        return await runtime.readLatestThreadRunContext(params.data.agentId, params.data.threadId);
+      } catch (error) {
+        return reply.code(404).send({
+          message: getErrorMessage(error),
+        });
+      }
+    },
+  );
+
+  server.get(
+    '/api/agents/:agentId/threads/:threadId/run-contexts',
+    routeDocs({
+      tags: ['run-context'],
+      summary: 'List run contexts for one thread.',
+      params: threadParamsSchema,
+    }),
+    async (request, reply) => {
+      const params = threadParamsSchema.safeParse(request.params);
+
+      if (!params.success) {
+        return reply.code(400).send({
+          message: 'A valid agent id and thread id are required.',
+        });
+      }
+
+      try {
+        return await runtime.listThreadRunContexts(params.data.agentId, params.data.threadId);
+      } catch (error) {
+        return reply.code(404).send({
+          message: getErrorMessage(error),
+        });
+      }
+    },
+  );
+
   server.post(
     '/api/agents/:agentId/threads/:threadId/summary',
     routeDocs({
       tags: ['threads', 'memories'],
-      summary: 'Create or update the memory summary for one thread.',
+      summary: 'Create the memory summary for one thread if missing.',
       params: threadParamsSchema,
       body: threadSummaryRequestSchema,
     }),
@@ -1005,7 +1064,16 @@ async function startServer(): Promise<void> {
       });
 
       try {
-        const result = await runtime.runAgent(runRequest, { runId });
+        const result = await runtime.runAgent(runRequest, {
+          runId,
+          onActivity: (activity) => {
+            writeServerSentEvent(reply.raw, {
+              type: 'run-activity',
+              label: activity.label,
+              detail: activity.detail,
+            });
+          },
+        });
 
         writeServerSentEvent(reply.raw, {
           type: 'message',

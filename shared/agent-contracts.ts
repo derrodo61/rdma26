@@ -123,6 +123,11 @@ export type AgentRunEvent =
       readonly threadId: string;
     }
   | {
+      readonly type: 'run-activity';
+      readonly label: string;
+      readonly detail?: string;
+    }
+  | {
       readonly type: 'message';
       readonly content: string;
     }
@@ -185,6 +190,7 @@ export interface UserProfile {
   readonly dateStyle: DateStylePreference;
   readonly timeStyle: TimeStylePreference;
   readonly theme: ThemePreference;
+  readonly lastAgentId?: string;
   readonly agentSettings: Readonly<Record<string, AgentSettings>>;
   readonly createdAt: string;
   readonly updatedAt: string;
@@ -198,6 +204,7 @@ export interface UpdateUserProfileRequest {
   readonly dateStyle?: DateStylePreference;
   readonly timeStyle?: TimeStylePreference;
   readonly theme?: ThemePreference;
+  readonly lastAgentId?: string;
   readonly agentSettings?: Readonly<Record<string, AgentSettings>>;
 }
 
@@ -222,6 +229,7 @@ export interface MemoryRecord {
   readonly status: MemoryStatus;
   readonly lifetime: MemoryLifetime;
   readonly content: string;
+  readonly contentLines?: readonly string[];
   readonly tags: readonly string[];
   readonly source?: MemorySource;
   readonly createdAt: string;
@@ -232,7 +240,13 @@ export interface MemoryListRequest {
   readonly agentId?: string;
   readonly scope?: MemoryScope;
   readonly type?: MemoryType;
+  readonly lifetime?: MemoryLifetime;
   readonly status?: MemoryStatus;
+  readonly tag?: string;
+  readonly createdFrom?: string;
+  readonly createdTo?: string;
+  readonly updatedFrom?: string;
+  readonly updatedTo?: string;
   readonly query?: string;
   readonly limit?: number;
 }
@@ -381,6 +395,7 @@ export interface RunContextDetails {
   readonly createdAt: string;
   readonly prompt?: string;
   readonly assistantResponse?: string;
+  readonly assistantMessageId?: string;
   readonly soulVirtualPath: string;
   readonly soulContent: string;
   readonly userProfile: UserProfile;

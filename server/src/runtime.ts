@@ -285,6 +285,24 @@ export class AssistantRuntime {
     return await this.runContextStore.requireRunContext(runId);
   }
 
+  async readLatestThreadRunContext(
+    agentId: string,
+    threadId: string,
+  ): Promise<RunContextDetails | null> {
+    await this.readThread(agentId, threadId);
+
+    return await this.runContextStore.readLatestRunContextForThread(agentId, threadId);
+  }
+
+  async listThreadRunContexts(
+    agentId: string,
+    threadId: string,
+  ): Promise<readonly RunContextDetails[]> {
+    await this.readThread(agentId, threadId);
+
+    return await this.runContextStore.listRunContextsForThread(agentId, threadId);
+  }
+
   async readAgent(agentId: string): Promise<AgentProfile> {
     const agent = await this.registry.readAgent(agentId);
 
@@ -303,8 +321,16 @@ export class AssistantRuntime {
 
   async createThread(agentId: string, request: CreateThreadRequest = {}): Promise<ChatThread> {
     const storage = await this.storageFor(agentId);
+    const previousThread = (await storage.listThreads()).find((thread) => thread.messageCount > 0);
+    const thread = await storage.createThread(request.title);
 
-    return await storage.createThread(request.title);
+    await this.createPreviousThreadSummaryIfPossible(
+      storage.agent.memory.canWrite,
+      previousThread?.id,
+      async (threadId) => await storage.readThread(threadId),
+    );
+
+    return thread;
   }
 
   async readThread(agentId: string, threadId: string): Promise<ChatThread> {
@@ -350,7 +376,7 @@ export class AssistantRuntime {
     return {
       agentId: thread.agentId,
       threadId: thread.id,
-      ...(await this.upsertThreadSummaryMemory(thread, request.model)),
+      ...(await this.createThreadSummaryMemoryIfMissing(thread, request.model)),
     };
   }
 
@@ -457,18 +483,13 @@ export class AssistantRuntime {
       memoryWritesEnabled: storage.agent.memory.canWrite,
       messages: userThread.messages,
       prompt: request.prompt,
+      onActivity: options.onActivity,
     });
     const thread = await storage.appendMessage(request.threadId, {
       role: 'assistant',
       content: agentResponse.content,
     });
-    if (storage.agent.memory.canWrite) {
-      try {
-        await this.upsertThreadSummaryMemory(thread, request.model);
-      } catch {
-        // Chat runs should not fail when no summary model is configured.
-      }
-    }
+    const assistantMessage = thread.messages.at(-1);
     const runContext = await this.runContextStore.writeRunContext({
       runId,
       agentId: storage.agent.id,
@@ -479,6 +500,7 @@ export class AssistantRuntime {
       createdAt: new Date().toISOString(),
       prompt: request.prompt,
       assistantResponse: agentResponse.content,
+      assistantMessageId: assistantMessage?.role === 'assistant' ? assistantMessage.id : undefined,
       soulVirtualPath: storage.agent.soulVirtualPath,
       soulContent,
       userProfile,
@@ -559,7 +581,7 @@ export class AssistantRuntime {
     return [...assignableTools, ...memoryTools, ...adminTools];
   }
 
-  private async upsertThreadSummaryMemory(
+  private async createThreadSummaryMemoryIfMissing(
     thread: ChatThread,
     requestedModel?: string,
   ): Promise<ThreadSummaryMemoryResult> {
@@ -568,11 +590,14 @@ export class AssistantRuntime {
     }
 
     const existing = await this.memoryStore.findThreadSummary(thread.agentId, thread.id);
-    const summary = await this.createThreadSummaryContent(
-      thread,
-      existing?.content,
-      requestedModel,
-    );
+
+    if (existing) {
+      return {
+        memory: existing,
+      };
+    }
+
+    const summary = await this.createThreadSummaryContent(thread, requestedModel);
     const request = {
       type: 'conversation_summary' as const,
       lifetime: 'active' as const,
@@ -585,13 +610,6 @@ export class AssistantRuntime {
       },
     };
 
-    if (existing) {
-      return {
-        model: summary.model,
-        memory: await this.memoryStore.updateMemory(existing.id, request),
-      };
-    }
-
     return {
       model: summary.model,
       memory: await this.memoryStore.createMemory({
@@ -602,9 +620,30 @@ export class AssistantRuntime {
     };
   }
 
+  private async createPreviousThreadSummaryIfPossible(
+    memoryWritesEnabled: boolean,
+    previousThreadId: string | undefined,
+    readThread: (threadId: string) => Promise<ChatThread | null>,
+  ): Promise<void> {
+    if (!memoryWritesEnabled || !previousThreadId || !process.env['OPENAI_API_KEY']) {
+      return;
+    }
+
+    try {
+      const previousThread = await readThread(previousThreadId);
+
+      if (!previousThread?.messages.length) {
+        return;
+      }
+
+      await this.createThreadSummaryMemoryIfMissing(previousThread);
+    } catch {
+      // Starting a new thread should not fail because memory maintenance is unavailable.
+    }
+  }
+
   private async createThreadSummaryContent(
     thread: ChatThread,
-    previousContent: string | undefined,
     requestedModel: string | undefined,
   ): Promise<ThreadSummaryContent> {
     const model = requestedModel ?? process.env['OPENAI_SUMMARY_MODEL'] ?? this.models[0]?.id;
@@ -617,7 +656,7 @@ export class AssistantRuntime {
       throw new Error('Cannot create a thread summary because no summary model is configured.');
     }
 
-    const content = await createModelThreadSummaryContent(thread, previousContent, model);
+    const content = await createModelThreadSummaryContent(thread, model);
 
     return {
       model,
@@ -636,11 +675,7 @@ interface ThreadSummaryContent {
   readonly content: string;
 }
 
-async function createModelThreadSummaryContent(
-  thread: ChatThread,
-  previousContent: string | undefined,
-  model: string,
-): Promise<string> {
+async function createModelThreadSummaryContent(thread: ChatThread, model: string): Promise<string> {
   const llm = new ChatOpenAI({
     apiKey: process.env['OPENAI_API_KEY'],
     model,
@@ -663,7 +698,7 @@ async function createModelThreadSummaryContent(
     {
       role: 'user',
       content: [
-        previousContent ? `Previous summary:\n${previousContent}` : 'Previous summary: none',
+        'No previous summary exists for this thread. Create the first durable summary.',
         '',
         `Thread title: ${thread.title}`,
         `Thread updated at: ${thread.updatedAt}`,
@@ -753,6 +788,7 @@ export interface RunAgentResult {
 
 export interface RunAgentOptions {
   readonly runId?: string;
+  readonly onActivity?: (activity: { readonly label: string; readonly detail?: string }) => void;
 }
 
 export interface AssistantRuntimeOptions {

@@ -3,16 +3,26 @@ import { z } from 'zod';
 
 import type { AssistantRuntime } from '../runtime';
 
+const memoryScopeSchema = z.enum(['agent', 'agent_user', 'user']);
+const memoryTypeSchema = z.enum([
+  'fact',
+  'preference',
+  'conversation_summary',
+  'open_task',
+  'tracked_topic',
+]);
+const memoryLifetimeSchema = z.enum(['permanent', 'active', 'temporary']);
+
 export function createMemoryTools(
   runtime: AssistantRuntime,
   agentId: string,
 ): readonly StructuredToolInterface[] {
   return [
     tool(
-      async ({ content, type, lifetime, tags }: SaveMemoryInput) =>
+      async ({ content, scope = 'agent', type, lifetime, tags }: SaveMemoryInput) =>
         await runtime.createMemory({
-          scope: 'agent',
-          agentId,
+          scope,
+          agentId: scope === 'user' ? undefined : agentId,
           type,
           lifetime,
           content,
@@ -25,14 +35,16 @@ export function createMemoryTools(
       {
         name: 'save_memory',
         description:
-          'Save an important long-term memory for this agent. Use for explicit remember requests or clearly useful, low-risk future context. Do not save secrets, credentials, sensitive data, raw long conversations, or temporary chat noise.',
+          'Save an important long-term memory. Use when the user explicitly asks you to remember something or when future-useful, low-risk context clearly fits the memory rules. Use agent_user for user preferences that apply only to this agent, such as how the user wants this agent to communicate. Use user only when the user clearly wants the memory shared across agents. Sensitive personal data may be saved only when the user explicitly asks for it. Never save secrets, credentials, raw long conversations, or temporary chat noise.',
         schema: z.object({
+          scope: memoryScopeSchema
+            .default('agent')
+            .describe(
+              'Memory scope: agent for this agent, agent_user for user information or interaction preferences only relevant to this agent, user for global user information explicitly useful to all agents.',
+            ),
           content: z.string().trim().min(1).describe('Concise memory content to save.'),
-          type: z
-            .enum(['fact', 'preference', 'conversation_summary', 'open_task', 'tracked_topic'])
-            .describe('Memory type.'),
-          lifetime: z
-            .enum(['permanent', 'active', 'temporary'])
+          type: memoryTypeSchema.describe('Memory type.'),
+          lifetime: memoryLifetimeSchema
             .default('active')
             .describe('How durable this memory should be.'),
           tags: z.array(z.string().trim().min(1)).default([]).describe('Short optional tags.'),
@@ -43,6 +55,7 @@ export function createMemoryTools(
 }
 
 interface SaveMemoryInput {
+  readonly scope?: 'agent' | 'agent_user' | 'user';
   readonly content: string;
   readonly type: 'fact' | 'preference' | 'conversation_summary' | 'open_task' | 'tracked_topic';
   readonly lifetime: 'permanent' | 'active' | 'temporary';

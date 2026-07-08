@@ -48,7 +48,7 @@ Clears the session cookie.
 
 ### `GET /api/profile`
 
-Returns the synced user profile, including name, timezone, regional format (`locale`), language, date/time display preferences, theme, and per-agent UI settings.
+Returns the synced user profile, including name, timezone, regional format (`locale`), language, date/time display preferences, theme, last used agent, and per-agent UI settings.
 
 ### `PATCH /api/profile`
 
@@ -63,6 +63,7 @@ Body:
   "dateStyle": "medium",
   "timeStyle": "short",
   "theme": "system",
+  "lastAgentId": "ronaldo",
   "agentSettings": {
     "scotty": {
       "model": "gpt-4.1-mini"
@@ -86,7 +87,6 @@ Returns configured OpenAI model options and the default model.
 Returns registered tools and their availability.
 
 - `research` is the recommended Deep Agents researcher subagent capability. It is available when `TAVILY_API_KEY` and `OPENAI_API_KEY` are configured.
-- `verify_current_facts` remains available as a compatibility factual verifier when `TAVILY_API_KEY` and `OPENAI_API_KEY` are configured.
 - `internet_search` is a low-level Tavily search primitive and is available when `TAVILY_API_KEY` is configured.
 - `read_web_page` is a low-level public web page reader.
 
@@ -103,7 +103,11 @@ Query parameters:
 - `agentId`
 - `scope`: `agent`, `agent_user`, or `user`
 - `type`: `fact`, `preference`, `conversation_summary`, `open_task`, or `tracked_topic`
+- `lifetime`: `permanent`, `active`, or `temporary`
 - `status`: `active`, `archived`, or `superseded`
+- `tag`: exact tag filter
+- `createdFrom` and `createdTo`: ISO timestamp or `YYYY-MM-DD`
+- `updatedFrom` and `updatedTo`: ISO timestamp or `YYYY-MM-DD`
 - `query`
 - `limit`
 
@@ -223,7 +227,7 @@ Body:
 }
 ```
 
-Updates agent settings. `memory.canWrite` controls whether the agent receives the `save_memory` tool and whether automatic thread-summary memories are written after chat runs.
+Updates agent settings. `memory.canWrite` controls whether the agent receives the `save_memory` tool and whether memory maintenance may create thread-summary memories for that agent.
 
 ### `GET /api/agents/:agentId/soul`
 
@@ -291,6 +295,8 @@ Body:
 
 Creates a thread. `title` is optional.
 
+When possible, this also creates a one-time summary for the previous latest non-empty thread for the same agent. The new thread is still created if summary creation is unavailable.
+
 ### `GET /api/agents/:agentId/threads/:threadId`
 
 Returns one full thread with messages.
@@ -301,9 +307,9 @@ Deletes one thread.
 
 ### `POST /api/agents/:agentId/threads/:threadId/summary`
 
-Creates or updates the `conversation_summary` memory for one thread.
+Creates the `conversation_summary` memory for one thread if it does not already exist.
 
-This uses the same consolidation path as automatic post-chat thread summaries. It is useful when the user corrected a thread, imported messages, or wants to refresh memory before starting a new thread.
+If the thread already has a summary, the existing summary is returned and no new summary is generated. This is useful after a thread is complete enough to make available for future recall.
 
 Optional body:
 
@@ -313,11 +319,11 @@ Optional body:
 }
 ```
 
-Summaries are created by an LLM. Use `model` to request a specific summary model. If no summary model or API key is available, the summary cannot be created. The response includes the model that created the summary.
+New summaries are created by an LLM. Use `model` to request a specific summary model. If no summary model or API key is available, a missing summary cannot be created. The response includes the model that created the summary, or an existing memory when the thread was already summarized.
 
 ### `POST /api/agents/:agentId/threads/summaries`
 
-Creates or updates `conversation_summary` memories for multiple non-empty threads of one agent.
+Creates missing `conversation_summary` memories for multiple non-empty threads of one agent.
 
 Optional body:
 
@@ -348,16 +354,35 @@ Body:
 Streams Server-Sent Events:
 
 - `run-started`
+- `run-activity`
 - `message`
 - `thread-updated`
 - `error`
 - `run-finished`
+
+`run-activity` reports friendly live progress from the agent runtime. Example:
+
+```json
+{
+  "type": "run-activity",
+  "label": "Researcher is searching the web",
+  "detail": "Angular latest stable version"
+}
+```
 
 ### `GET /api/runs/:runId/context`
 
 Returns optional run-context transparency details for one run. The `runId` is emitted by `POST /api/agent-runs` as the `run-started` event.
 
 The frontend exposes this data at `/settings/runs/:runId`.
+
+### `GET /api/agents/:agentId/threads/:threadId/latest-run-context`
+
+Returns the latest run context for one thread, or `null` when the thread has no runs yet.
+
+### `GET /api/agents/:agentId/threads/:threadId/run-contexts`
+
+Returns all run contexts for one thread, newest first. The chat UI uses this to attach research sources to the specific assistant message they support after live runs and page reloads.
 
 The response includes:
 

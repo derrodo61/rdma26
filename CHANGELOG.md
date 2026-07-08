@@ -12,13 +12,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added memory CRUD through backend API endpoints and CLI commands.
 - Added a memory settings page for listing, creating, editing, archiving, restoring, and deleting memories.
 - Added a `save_memory` agent tool and prompt injection of relevant active memories for chat runs.
-- Added automatic per-thread `conversation_summary` memory upserts after chat runs.
+- Added one-time per-thread `conversation_summary` memory creation through manual and scheduled maintenance.
 - Added recall-aware memory retrieval so new-thread questions about previous conversations include recent conversation summaries.
 - Added optional OpenAI embedding-backed semantic memory ranking with a local cache and lexical fallback.
 - Added manual thread-summary consolidation through the API, CLI, and chat UI.
 - Added LLM-backed thread-summary consolidation when OpenAI is configured.
 - Removed local compact transcript summaries; if no summary LLM is available, no summary is created.
-- Added bulk thread-summary refresh through the API, CLI, and memory settings UI.
+- Added bulk missing thread-summary creation through the API, CLI, and memory settings UI.
 - Added visible memory maintenance through the API, CLI, and memory settings UI, with reports for skipped agents and empty threads.
 - Added optional scheduled memory maintenance with persistent settings exposed through the API, CLI, and memory settings UI.
 - Updated the agent bootloader prompt so disabled memory writes no longer instruct agents to use `save_memory`.
@@ -39,14 +39,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Tightened search/page-read guidance so precise current-list and current-result answers should not rely on snippets alone when source-page reading is available.
 - Updated `read_web_page` to prefer Tavily Extract when `TAVILY_API_KEY` is configured, with local extraction as fallback.
 - Changed `read_web_page` extraction failures, including 403 responses, to return structured warnings instead of aborting the agent run.
-- Added a generic `verify_current_facts` tool that owns the search, page-reading, analysis, and targeted follow-up loop for precise current factual questions.
-- Improved `verify_current_facts` with an internal search-query planning step and stricter latest/current ordering verification.
 - Added a high-level `research` capability with structured findings, sources, searches, unresolved items, and run-context source affordances.
 - Reworked `research` to follow Deep Agents subagent concepts: enabling it now attaches a `researcher` subagent to the domain agent, and the domain agent delegates through the built-in `task` tool instead of calling a wrapper tool.
+- Added live `run-activity` streaming events from Deep Agents tool and subagent activity, and show the current activity in the chat UI while a run is active.
 - Added agent visibility metadata (`kind` and `chatEnabled`) so future internal capability agents can stay hidden from the normal chat selector.
-- Added separate `RESEARCH_PLANNER_MODEL` and `RESEARCH_VERIFIER_MODEL` environment overrides for the research query-planning and verification steps.
 - Updated agent bootloader guidance to prefer `research` over low-level `internet_search` and `read_web_page` workflows when available.
 - Added a compact chat UI source affordance for the latest research-backed run.
+- Added persisted last-used agent selection in the synced user profile so the chat page reopens with the previously selected agent.
+- Added stricter research-agent guardrails for latest/current temporal ordering, claim-status nuance, and contradiction warnings.
+- Added current date/time context to researcher subagents so relative-date questions such as "today" and "heute" are resolved before searching.
+- Added latest thread run-context lookup so source links and run inspection are restored after reloading an existing chat thread.
+- Added per-message source controls so research sources are shown next to the assistant answer they support instead of only for the latest thread run.
+- Added adaptive research search guidance so researcher subagents can stop early on strong evidence or escalate to local-language and regional sources when broad results are weak.
+- Changed web page DNS/URL validation failures to return structured reader warnings instead of aborting chat runs.
+- Changed thread-summary consolidation to return an existing summary instead of regenerating it, and added readable `contentLines` for multiline memory JSON files.
+- Changed `save_memory` so agents can save agent, agent-user, or global user memories, and may save sensitive personal data when the user explicitly asks for it.
+- Tightened memory-scope guidance so per-agent interaction preferences are saved as `agent_user` unless the user clearly wants a global preference.
+- Added a best-effort new-thread trigger that creates a one-time summary for the previous latest non-empty thread when summary creation is available.
+- Added a phased SQLite storage plan and moved memory records to `.assistant-data/rdma26.sqlite`, with one-time import of legacy JSON memory files.
+- Added memory browsing filters for lifetime, tag, and created/updated date ranges across the API, CLI, and memory settings UI.
+- Moved thread and message records to `.assistant-data/rdma26.sqlite`, with one-time import of legacy per-agent thread JSON files.
+- Updated orphaned run-context cleanup and agent deletion to use SQLite-backed thread, memory, and run-context ownership.
+- Moved run-context records to `.assistant-data/rdma26.sqlite`, with one-time import of legacy global and per-agent run-context JSON files.
+- Changed SQLite migration cleanup so imported JSON memory, thread, and run-context files are removed after successful import.
+- Removed the legacy `verify_current_facts` compatibility tool and its dedicated planner/verifier model overrides; `research` is now the single high-level current-facts research capability.
 
 ## [2026-07-06]
 

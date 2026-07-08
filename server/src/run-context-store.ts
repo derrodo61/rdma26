@@ -1,24 +1,25 @@
-import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import type { RunContextDetails } from '../../shared/agent-contracts';
+import { LocalDatabase } from './local-database';
 
 export class RunContextStore {
-  constructor(private readonly dataDir: string) {}
+  private readonly database: LocalDatabase;
+
+  constructor(private readonly dataDir: string) {
+    this.database = new LocalDatabase(dataDir);
+  }
 
   async ensureReady(): Promise<void> {
     await mkdir(this.agentsDir(), { recursive: true });
-    await this.migrateLegacyRuns();
+    await this.database.ensureReady();
+    await this.importRunJsonFiles();
   }
 
   async writeRunContext(context: RunContextDetails): Promise<RunContextDetails> {
     await this.ensureReady();
-    await mkdir(this.agentRunsDir(context.agentId), { recursive: true });
-    await writeFile(
-      this.agentRunPath(context.agentId, context.runId),
-      `${JSON.stringify(context, null, 2)}\n`,
-      'utf8',
-    );
+    this.writeRunContextRow(context, 'replace');
 
     return context;
   }
@@ -26,21 +27,12 @@ export class RunContextStore {
   async readRunContext(runId: string): Promise<RunContextDetails | null> {
     validateRunId(runId);
 
-    try {
-      const runPath = await this.findRunPath(runId);
+    const row = this.database
+      .get()
+      .prepare('select context_json from run_contexts where id = ?')
+      .get(runId);
 
-      if (!runPath) {
-        return null;
-      }
-
-      return JSON.parse(await readFile(runPath, 'utf8')) as RunContextDetails;
-    } catch (error) {
-      if (isNodeError(error) && error.code === 'ENOENT') {
-        return null;
-      }
-
-      throw error;
-    }
+    return row ? runContextFromRow(row) : null;
   }
 
   async requireRunContext(runId: string): Promise<RunContextDetails> {
@@ -53,47 +45,84 @@ export class RunContextStore {
     return context;
   }
 
+  async readLatestRunContextForThread(
+    agentId: string,
+    threadId: string,
+  ): Promise<RunContextDetails | null> {
+    validateAgentId(agentId);
+    validateThreadId(threadId);
+
+    const row = this.database
+      .get()
+      .prepare(
+        `
+          select context_json
+          from run_contexts
+          where agent_id = ?
+            and thread_id = ?
+          order by created_at desc
+          limit 1
+        `,
+      )
+      .get(agentId, threadId);
+
+    return row ? runContextFromRow(row) : null;
+  }
+
+  async listRunContextsForThread(
+    agentId: string,
+    threadId: string,
+  ): Promise<readonly RunContextDetails[]> {
+    validateAgentId(agentId);
+    validateThreadId(threadId);
+
+    const rows = this.database
+      .get()
+      .prepare(
+        `
+          select context_json
+          from run_contexts
+          where agent_id = ?
+            and thread_id = ?
+          order by created_at desc
+        `,
+      )
+      .all(agentId, threadId);
+
+    return rows.map((row) => runContextFromRow(row));
+  }
+
   async deleteRunsForThread(agentId: string, threadId: string): Promise<number> {
     validateAgentId(agentId);
     validateThreadId(threadId);
 
-    let deletedCount = 0;
+    const result = this.database
+      .get()
+      .prepare('delete from run_contexts where agent_id = ? and thread_id = ?')
+      .run(agentId, threadId);
 
-    for (const runFile of await this.listRunFilesForAgent(agentId)) {
-      const context = JSON.parse(await readFile(runFile, 'utf8')) as RunContextDetails;
-
-      if (context.agentId !== agentId || context.threadId !== threadId) {
-        continue;
-      }
-
-      await rm(runFile, { force: true });
-      deletedCount += 1;
-    }
-
-    return deletedCount;
+    return result.changes;
   }
 
   async deleteOrphanedRuns(): Promise<number> {
     await this.ensureReady();
 
-    let deletedCount = 0;
+    const result = this.database
+      .get()
+      .prepare(
+        `
+          delete from run_contexts
+          where not exists (
+            select 1
+            from threads
+            where threads.id = run_contexts.thread_id
+              and threads.agent_id = run_contexts.agent_id
+          )
+        `,
+      )
+      .run();
 
-    for (const agentId of await this.listAgentIds()) {
-      const threadIds = await this.listThreadIdsForAgent(agentId);
-
-      for (const runFile of await this.listRunFilesForAgent(agentId)) {
-        const context = await this.readRunContextFileSafely(runFile);
-
-        if (!context || context.agentId !== agentId || threadIds.has(context.threadId)) {
-          continue;
-        }
-
-        await rm(runFile, { force: true });
-        deletedCount += 1;
-      }
-    }
-
-    return deletedCount;
+    return result.changes;
   }
 
   private legacyRunsDir(): string {
@@ -110,35 +139,6 @@ export class RunContextStore {
     return join(this.agentsDir(), agentId, 'runs');
   }
 
-  private agentRunPath(agentId: string, runId: string): string {
-    validateAgentId(agentId);
-    validateRunId(runId);
-
-    return join(this.agentRunsDir(agentId), `${runId}.json`);
-  }
-
-  private async findRunPath(runId: string): Promise<string | null> {
-    validateRunId(runId);
-
-    for (const agentId of await this.listAgentIds()) {
-      const runPath = this.agentRunPath(agentId, runId);
-
-      try {
-        await readFile(runPath, 'utf8');
-
-        return runPath;
-      } catch (error) {
-        if (isNodeError(error) && error.code === 'ENOENT') {
-          continue;
-        }
-
-        throw error;
-      }
-    }
-
-    return null;
-  }
-
   private async listRunFilesForAgent(agentId: string): Promise<readonly string[]> {
     try {
       const fileNames = await readdir(this.agentRunsDir(agentId));
@@ -152,35 +152,6 @@ export class RunContextStore {
       }
 
       throw error;
-    }
-  }
-
-  private async listThreadIdsForAgent(agentId: string): Promise<ReadonlySet<string>> {
-    const threadsDir = join(this.agentsDir(), agentId, 'threads');
-
-    try {
-      const fileNames = await readdir(threadsDir);
-
-      return new Set(
-        fileNames
-          .filter((fileName) => fileName.endsWith('.json'))
-          .map((fileName) => fileName.slice(0, -'.json'.length))
-          .filter((threadId) => /^[a-f0-9-]{36}$/i.test(threadId)),
-      );
-    } catch (error) {
-      if (isNodeError(error) && error.code === 'ENOENT') {
-        return new Set();
-      }
-
-      throw error;
-    }
-  }
-
-  private async readRunContextFileSafely(runFile: string): Promise<RunContextDetails | null> {
-    try {
-      return JSON.parse(await readFile(runFile, 'utf8')) as RunContextDetails;
-    } catch {
-      return null;
     }
   }
 
@@ -200,35 +171,132 @@ export class RunContextStore {
     }
   }
 
-  private async migrateLegacyRuns(): Promise<void> {
-    let fileNames: readonly string[];
+  private async importRunJsonFiles(): Promise<void> {
+    const markerKey = 'run_context_json_imported_at';
+    const importMarker = this.database
+      .get()
+      .prepare('select value from schema_metadata where key = ?')
+      .get(markerKey);
 
+    if (importMarker) {
+      await this.deleteImportedRunJsonFiles();
+      return;
+    }
+
+    for (const runFile of await this.listLegacyRunFiles()) {
+      const context = await this.readRunContextFileSafely(runFile);
+
+      if (!context || !isValidAgentId(context.agentId)) {
+        await rm(runFile, { force: true });
+        continue;
+      }
+
+      this.writeRunContextRow(context, 'insert-or-ignore');
+    }
+
+    await this.deleteImportedRunJsonFiles();
+    this.database
+      .get()
+      .prepare('insert into schema_metadata (key, value) values (?, ?)')
+      .run(markerKey, new Date().toISOString());
+  }
+
+  private async listLegacyRunFiles(): Promise<readonly string[]> {
+    const globalRuns = await this.listRunFilesInDir(this.legacyRunsDir());
+    const agentRuns = await Promise.all(
+      (await this.listAgentIds()).map(async (agentId) => await this.listRunFilesForAgent(agentId)),
+    );
+
+    return [...globalRuns, ...agentRuns.flat()];
+  }
+
+  private async listRunFilesInDir(dir: string): Promise<readonly string[]> {
     try {
-      fileNames = await readdir(this.legacyRunsDir());
+      const fileNames = await readdir(dir);
+
+      return fileNames
+        .filter((fileName) => fileName.endsWith('.json'))
+        .map((fileName) => join(dir, fileName));
     } catch (error) {
       if (isNodeError(error) && error.code === 'ENOENT') {
-        return;
+        return [];
       }
 
       throw error;
     }
+  }
 
-    for (const fileName of fileNames.filter((candidate) => candidate.endsWith('.json'))) {
-      const legacyPath = join(this.legacyRunsDir(), fileName);
-      const raw = await readFile(legacyPath, 'utf8');
-      const context = JSON.parse(raw) as RunContextDetails;
+  private async readRunContextFileSafely(runFile: string): Promise<RunContextDetails | null> {
+    try {
+      return JSON.parse(await readFile(runFile, 'utf8')) as RunContextDetails;
+    } catch {
+      return null;
+    }
+  }
 
-      if (!isValidAgentId(context.agentId)) {
-        await rm(legacyPath, { force: true });
+  private async deleteImportedRunJsonFiles(): Promise<void> {
+    for (const runFile of await this.listLegacyRunFiles()) {
+      const context = await this.readRunContextFileSafely(runFile);
+
+      if (!context) {
         continue;
       }
 
-      await mkdir(this.agentRunsDir(context.agentId), { recursive: true });
-      await rename(legacyPath, this.agentRunPath(context.agentId, context.runId));
+      const row = this.database
+        .get()
+        .prepare('select id from run_contexts where id = ?')
+        .get(context.runId);
+
+      if (row) {
+        await rm(runFile, { force: true });
+      }
     }
 
-    await rm(this.legacyRunsDir(), { recursive: true, force: true });
+    const remainingGlobalRuns = await this.listRunFilesInDir(this.legacyRunsDir());
+
+    if (!remainingGlobalRuns.length) {
+      await rm(this.legacyRunsDir(), { recursive: true, force: true });
+    }
   }
+
+  private writeRunContextRow(
+    context: RunContextDetails,
+    mode: 'replace' | 'insert-or-ignore',
+  ): void {
+    const statement =
+      mode === 'replace'
+        ? 'insert or replace into run_contexts'
+        : 'insert or ignore into run_contexts';
+
+    this.database
+      .get()
+      .prepare(
+        `
+          ${statement} (id, agent_id, thread_id, created_at, context_json)
+          values (?, ?, ?, ?, ?)
+        `,
+      )
+      .run(
+        context.runId,
+        context.agentId,
+        context.threadId,
+        context.createdAt,
+        JSON.stringify(context),
+      );
+  }
+}
+
+function runContextFromRow(row: unknown): RunContextDetails {
+  if (
+    typeof row !== 'object' ||
+    row === null ||
+    !('context_json' in row) ||
+    typeof row.context_json !== 'string'
+  ) {
+    throw new Error('Invalid run-context database row.');
+  }
+
+  return JSON.parse(row.context_json) as RunContextDetails;
 }
 
 function validateRunId(runId: string): void {

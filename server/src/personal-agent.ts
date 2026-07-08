@@ -27,6 +27,7 @@ export interface PersonalAgentRequest {
   readonly memoryWritesEnabled: boolean;
   readonly messages: readonly ChatMessage[];
   readonly prompt: string;
+  readonly onActivity?: AgentActivityCallback;
 }
 
 export interface PersonalAgentResponse {
@@ -35,6 +36,11 @@ export interface PersonalAgentResponse {
   readonly toolCalls: readonly RunContextToolCall[];
   readonly tokenUsage?: RunContextTokenUsage;
 }
+
+type AgentActivityCallback = (activity: {
+  readonly label: string;
+  readonly detail?: string;
+}) => void;
 
 export class PersonalAgent {
   private readonly checkpointer = new MemorySaver();
@@ -67,7 +73,7 @@ export class PersonalAgent {
         virtualMode: true,
       }),
       tools: request.tools,
-      subagents: createEnabledSubagents(request.enabledToolIds),
+      subagents: createEnabledSubagents(request.enabledToolIds, request.userProfile),
       checkpointer: this.checkpointer,
       systemPrompt: createBootloaderPromptForTest(
         this.storage.agent,
@@ -80,7 +86,10 @@ export class PersonalAgent {
       ),
     });
 
-    const result: unknown = await agent.invoke(
+    emitActivity(request.onActivity, {
+      label: `${this.storage.agent.name} is preparing the run`,
+    });
+    const run = await agent.streamEvents(
       {
         messages: request.messages.map((message) => ({
           role: message.role,
@@ -88,11 +97,19 @@ export class PersonalAgent {
         })),
       },
       {
+        version: 'v3',
         configurable: {
           thread_id: request.threadId,
         },
       },
     );
+    const activityObserver = observeAgentRunActivity(run, request.onActivity);
+    const result: unknown = await run.output;
+    await waitForActivityObserver(activityObserver);
+
+    emitActivity(request.onActivity, {
+      label: `${this.storage.agent.name} is writing the answer`,
+    });
 
     return {
       content: extractText(result),
@@ -103,7 +120,154 @@ export class PersonalAgent {
   }
 }
 
-function createEnabledSubagents(enabledToolIds: readonly string[]): readonly SubAgent[] {
+async function observeAgentRunActivity(
+  run: AgentRunStreamLike,
+  onActivity?: AgentActivityCallback,
+): Promise<void> {
+  if (!onActivity) {
+    return;
+  }
+
+  await Promise.allSettled([
+    observeToolCalls(run.toolCalls, onActivity),
+    observeSubagents(run.subagents, onActivity),
+  ]);
+}
+
+async function observeToolCalls(
+  toolCalls: AsyncIterable<ToolCallStreamLike> | undefined,
+  onActivity: AgentActivityCallback,
+): Promise<void> {
+  if (!toolCalls) {
+    return;
+  }
+
+  for await (const toolCall of toolCalls) {
+    if (toolCall.name === 'task') {
+      const subagentType = readStringProperty(toolCall.input, 'subagent_type');
+      emitActivity(onActivity, {
+        label: subagentType
+          ? `Delegated work to ${formatSubagentName(subagentType)}`
+          : 'Delegated work to a subagent',
+      });
+    } else {
+      emitActivity(onActivity, {
+        label: `Using ${formatToolName(toolCall.name)}`,
+      });
+    }
+  }
+}
+
+async function observeSubagents(
+  subagents: AsyncIterable<SubagentRunStreamLike> | undefined,
+  onActivity: AgentActivityCallback,
+): Promise<void> {
+  if (!subagents) {
+    return;
+  }
+
+  for await (const subagent of subagents) {
+    const subagentName = formatSubagentName(subagent.name);
+    emitActivity(onActivity, {
+      label: `${subagentName} started`,
+    });
+
+    void observeSubagentToolCalls(subagent, onActivity);
+    void subagent.output.then(
+      () =>
+        emitActivity(onActivity, {
+          label: `${subagentName} returned findings`,
+        }),
+      () =>
+        emitActivity(onActivity, {
+          label: `${subagentName} stopped with an error`,
+        }),
+    );
+  }
+}
+
+async function observeSubagentToolCalls(
+  subagent: SubagentRunStreamLike,
+  onActivity: AgentActivityCallback,
+): Promise<void> {
+  for await (const toolCall of subagent.toolCalls ?? []) {
+    if (toolCall.name === 'research_web_search') {
+      emitActivity(onActivity, {
+        label: 'Researcher is searching the web',
+        detail: readStringProperty(toolCall.input, 'query'),
+      });
+      continue;
+    }
+
+    if (toolCall.name === 'research_read_web_page') {
+      emitActivity(onActivity, {
+        label: 'Researcher is reading a source',
+        detail: readStringProperty(toolCall.input, 'url'),
+      });
+      continue;
+    }
+
+    emitActivity(onActivity, {
+      label: `${formatSubagentName(subagent.name)} is using ${formatToolName(toolCall.name)}`,
+    });
+  }
+}
+
+async function waitForActivityObserver(observer: Promise<void>): Promise<void> {
+  await Promise.race([
+    observer,
+    new Promise<void>((resolve) => {
+      setTimeout(resolve, 1_000);
+    }),
+  ]);
+}
+
+function emitActivity(
+  onActivity: AgentActivityCallback | undefined,
+  activity: { readonly label: string; readonly detail?: string },
+): void {
+  onActivity?.(activity);
+}
+
+function formatSubagentName(name: string): string {
+  return name
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
+    .join(' ');
+}
+
+function formatToolName(name: string): string {
+  return name.replace(/_/g, ' ');
+}
+
+function readStringProperty(value: unknown, key: string): string | undefined {
+  const property = readProperty<unknown>(value, key);
+
+  return typeof property === 'string' && property.trim() ? property : undefined;
+}
+
+interface AgentRunStreamLike {
+  readonly output: Promise<unknown>;
+  readonly toolCalls?: AsyncIterable<ToolCallStreamLike>;
+  readonly subagents?: AsyncIterable<SubagentRunStreamLike>;
+}
+
+interface SubagentRunStreamLike {
+  readonly name: string;
+  readonly output: Promise<unknown>;
+  readonly toolCalls?: AsyncIterable<ToolCallStreamLike>;
+}
+
+interface ToolCallStreamLike {
+  readonly name: string;
+  readonly input: unknown;
+}
+
+function createEnabledSubagents(
+  enabledToolIds: readonly string[],
+  userProfile: UserProfile,
+): readonly SubAgent[] {
   if (!enabledToolIds.includes(researchToolId)) {
     return [];
   }
@@ -114,7 +278,7 @@ function createEnabledSubagents(enabledToolIds: readonly string[]): readonly Sub
     throw new Error('TAVILY_API_KEY is required to use the research capability.');
   }
 
-  return createResearchSubagents(new TavilySearchProvider(tavilyApiKey));
+  return createResearchSubagents(new TavilySearchProvider(tavilyApiKey), userProfile);
 }
 
 export function createBootloaderPromptForTest(
@@ -133,29 +297,23 @@ You are the protected operator agent. Your role is to help Rolf administer this 
 You may use admin tools when they are available to create agents, rename agents, delete non-protected agents, read or update agent soul.md files, list normal tools, grant or revoke normal tools, inspect and manage memories, and enable or disable memory writes for agents. These are controlled application tools, not raw CLI or shell access. Do not claim to have unrestricted terminal access.`
     : '';
   const memoryWriteGuidance = memoryWritesEnabled
-    ? 'Use the save_memory tool when the user explicitly asks you to remember something or when a future-useful, low-risk memory clearly fits the memory rules. Ask first when the memory is sensitive, ambiguous, conflicting, or unclear in scope.'
+    ? 'Use the save_memory tool when the user explicitly asks you to remember something or when a future-useful, low-risk memory clearly fits the memory rules. Use agent_user for user preferences that apply only to this agent, including how the user wants this agent to communicate. Use user only when the user clearly wants the memory shared across agents. If the user explicitly asks you to remember sensitive personal data, you may save it, but use the narrowest sensible scope and never save secrets or credentials. Ask first when sensitive information was not explicitly requested for memory, or when the content, consent, or scope is ambiguous or conflicting.'
     : 'Memory writing is disabled for this agent in the current run. Do not claim that you saved a new memory. If the user asks you to remember something, explain that memory writing is disabled for this agent and that the setting can be changed by the user.';
   const hasInternetSearch = enabledToolNames.includes('internet_search');
   const hasWebPageReader = enabledToolNames.includes('read_web_page');
   const hasResearch = enabledToolNames.includes('research');
-  const hasCurrentFactsVerifier = enabledToolNames.includes('verify_current_facts');
   const researchGuidance = hasResearch
     ? `
 Research guidance:
 - A researcher subagent is available through Deep Agents' task tool.
 - Use the task tool to delegate internet research and external information work to the researcher subagent, especially current, latest, recent, or uncertain facts.
 - Give the researcher the full user question and name concrete requirements such as date, teams, final_score, winner, version, price, source, or status.
-- Use the researcher's structured result as your evidence: answer from findings and sources, mention unresolved items when status is partial or unresolved, and do not guess missing values.
+- When the user uses relative dates such as today, yesterday, current, latest, recent, heute, gestern, aktuell, or neueste, include the current local date/time from the user profile and the resolved absolute date in the task description.
+- Use the researcher's structured result as your evidence: answer from findings and sources, mention unresolved items and warnings when status is partial or unresolved, and do not guess missing values.
+- For latest, last, current, most recent, and next questions, check the researcher's temporalCandidates before answering. Do not call an item "latest", "last", "current", or "next" when another candidate has a later or more relevant date.
+- For claim-checking or rumor questions, preserve the researcher's claimStatus. Say "reported" when reputable sources report something without official confirmation. Do not convert official-source silence into "false" unless the researcher found reliable evidence that directly contradicts the claim.
+- If the researcher's answer contradicts its findings, temporalCandidates, warnings, or sources, state that the result is unresolved and ask for/perform more research instead of presenting a confident answer.
 - Do not manually start with internet_search or read_web_page when the researcher subagent is available unless the user asks for low-level browsing or debugging.`
-    : '';
-  const currentFactsVerifierGuidance = hasCurrentFactsVerifier
-    ? `
-Current fact verification guidance:
-- Prefer research when it is available. Use verify_current_facts only as a compatibility fallback for precise current factual questions, including latest, last, current, top-N, results, statuses, dates, rankings, prices, versions, or other concrete values.
-- Use verify_current_facts when research is unavailable and the user asks for multiple current items where every item needs a concrete value.
-- Give verify_current_facts the full user question. Set requiredItems when the user asks for a number of items, and set requiredFields when the answer clearly needs fields such as date, teams, final_score, winner, source, or status.
-- Treat verify_current_facts as a compatibility alias for the shared research workflow. Do not manually start with internet_search or read_web_page unless neither research nor verify_current_facts is available or the user asks for exploratory browsing.
-- If verify_current_facts returns partial or unresolved, answer with the verified parts and clearly name what remains unverified. Do not guess missing values.`
     : '';
   const internetSearchGuidance = hasInternetSearch
     ? `
@@ -213,7 +371,6 @@ When presenting dates and times to the user, prefer the user profile's time zone
 
 Use enabled tools when they are useful. Do not claim to have tools that are not available in the current run.
 ${researchGuidance}
-${currentFactsVerifierGuidance}
 ${internetSearchGuidance}
 ${webPageReaderGuidance}
 

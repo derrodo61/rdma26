@@ -274,6 +274,38 @@
                       class="message-markdown text-[0.9375rem] leading-6"
                       [innerHTML]="message.renderedContent"
                     ></div>
+                    @if (sourcesForMessage(message.id); as messageSources) {
+                      @if (messageSources.length) {
+                        <details
+                          class="relative mt-2 inline-block rounded px-2 py-1 text-xs font-medium text-text-muted hover:bg-surface-muted hover:text-text"
+                        >
+                          <summary class="cursor-pointer list-none">
+                            Sources {{ messageSources.length }}
+                          </summary>
+                          <div
+                            class="absolute left-0 top-full z-20 mt-2 w-80 max-w-[calc(100vw-2rem)] border border-border bg-surface p-3 shadow-lg"
+                          >
+                            <ul class="space-y-2">
+                              @for (source of messageSources; track source.url) {
+                                <li class="min-w-0">
+                                  <a
+                                    class="block truncate text-sm text-text hover:underline"
+                                    [href]="source.url"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    {{ source.title }}
+                                  </a>
+                                  <p class="truncate text-xs text-text-muted">
+                                    {{ source.domain }}
+                                  </p>
+                                </li>
+                              }
+                            </ul>
+                          </div>
+                        </details>
+                      }
+                    }
                   } @else {
                     <p class="whitespace-pre-wrap text-[0.9375rem] leading-6">
                       {{ message.content }}
@@ -283,7 +315,16 @@
               }
 
               @if (isRunning()) {
-                <p class="text-sm text-text-muted">Thinking...</p>
+                <div class="max-w-[48rem] px-4 py-3 text-sm text-text-muted">
+                  @if (runActivity(); as activity) {
+                    <p>{{ activity.label }}</p>
+                    @if (activity.detail) {
+                      <p class="mt-1 truncate text-xs">{{ activity.detail }}</p>
+                    }
+                  } @else {
+                    <p>Working...</p>
+                  }
+                </div>
               }
             </div>
           }
@@ -304,7 +345,7 @@
             </p>
           }
 
-          @if (latestRunId() || latestResearchSources().length || canConsolidateSummary()) {
+          @if (latestRunId() || canConsolidateSummary()) {
             <div class="mx-auto mb-3 flex max-w-3xl flex-wrap justify-end gap-2">
               @if (canConsolidateSummary()) {
                 <button
@@ -323,34 +364,6 @@
                 >
                   Inspect latest run context
                 </a>
-              }
-              @if (latestResearchSources().length) {
-                <details
-                  class="relative rounded px-2 py-1 text-xs font-medium text-text-muted hover:bg-surface-muted hover:text-text"
-                >
-                  <summary class="cursor-pointer list-none">
-                    Sources {{ latestResearchSources().length }}
-                  </summary>
-                  <div
-                    class="absolute bottom-full right-0 z-20 mb-2 w-80 max-w-[calc(100vw-2rem)] border border-border bg-surface p-3 shadow-lg"
-                  >
-                    <ul class="space-y-2">
-                      @for (source of latestResearchSources(); track source.url) {
-                        <li class="min-w-0">
-                          <a
-                            class="block truncate text-sm text-text hover:underline"
-                            [href]="source.url"
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            {{ source.title }}
-                          </a>
-                          <p class="truncate text-xs text-text-muted">{{ source.domain }}</p>
-                        </li>
-                      }
-                    </ul>
-                  </div>
-                </details>
               }
             </div>
           }

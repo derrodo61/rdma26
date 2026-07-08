@@ -42,7 +42,7 @@ rdma26 agents:update --agent research --name "Researcher"
 rdma26 agents:memory:set --agent research --can-write false
 ```
 
-When memory writes are disabled, the agent does not receive `save_memory` and automatic thread-summary memories are not written after chat runs.
+When memory writes are disabled, the agent does not receive `save_memory` and memory maintenance skips that agent.
 
 ### Read an agent soul.md
 
@@ -77,7 +77,7 @@ rdma26 profile:read
 ### Update profile fields
 
 ```bash
-rdma26 profile:update --name "Rolf" --time-zone Europe/Berlin --locale de-DE --language de --date-style medium --time-style short --theme system
+rdma26 profile:update --name "Rolf" --time-zone Europe/Berlin --locale de-DE --language de --date-style medium --time-style short --theme system --last-agent ronaldo
 ```
 
 All options are optional. Omitted fields keep their current values.
@@ -93,14 +93,20 @@ rdma26 profile:agent-model:set --agent scotty --model gpt-4.1-mini
 ### List or search memories
 
 ```bash
-rdma26 memories:list --agent scotty --query "football"
+rdma26 memories:list --agent scotty --query "football" --tag world-cup --updated-from 2026-07-01
 ```
 
 Useful filters:
 
 - `--scope agent|agent_user|user`
 - `--type fact|preference|conversation_summary|open_task|tracked_topic`
+- `--lifetime permanent|active|temporary`
 - `--status active|archived|superseded`
+- `--tag <tag>`
+- `--created-from YYYY-MM-DD`
+- `--created-to YYYY-MM-DD`
+- `--updated-from YYYY-MM-DD`
+- `--updated-to YYYY-MM-DD`
 - `--limit 20`
 
 ### Read one memory
@@ -195,7 +201,7 @@ rdma26 agents:tools:grant --agent ronaldo --tool research
 rdma26 agents:tools:revoke --agent ronaldo --tool research
 ```
 
-`research` is the recommended Deep Agents researcher subagent capability for normal agents. `internet_search` and `read_web_page` are lower-level primitives for specialized or debugging workflows. `verify_current_facts` remains as a compatibility factual verifier.
+`research` is the recommended Deep Agents researcher subagent capability for normal agents. `internet_search` and `read_web_page` are lower-level primitives for specialized or debugging workflows.
 
 ## Threads
 
@@ -212,6 +218,8 @@ rdma26 threads:create --agent scotty --title "Planning"
 ```
 
 `--title` is optional.
+
+When possible, creating a new thread also creates a one-time summary for the previous latest non-empty thread for the same agent. The new thread is still created if summary creation is unavailable.
 
 ### Read a thread
 
@@ -231,17 +239,17 @@ rdma26 threads:delete --agent scotty --thread <thread-id>
 rdma26 threads:summary --agent scotty --thread <thread-id>
 ```
 
-Creates or updates the `conversation_summary` memory for the thread using an LLM. Use `--model` to request a specific summary model.
+Creates the `conversation_summary` memory for the thread using an LLM if it does not already exist. Use `--model` to request a specific summary model.
 
-If no LLM provider is configured, no summary is created and the command returns an error.
+If the thread already has a summary, the existing summary is returned. If no LLM provider is configured and the thread does not have a summary yet, no summary is created and the command returns an error.
 
-### Refresh thread summary memories for an agent
+### Create missing thread summary memories for an agent
 
 ```bash
 rdma26 threads:summaries --agent scotty --limit 25
 ```
 
-Creates or updates summaries for multiple non-empty threads and reports skipped empty threads.
+Creates missing summaries for multiple non-empty threads and reports skipped empty threads.
 
 ## Chat
 

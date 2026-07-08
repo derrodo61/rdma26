@@ -146,6 +146,28 @@ export class AssistantApi {
     return await firstValueFrom(this.http.get<RunContextDetails>(`/api/runs/${runId}/context`));
   }
 
+  async latestThreadRunContext(
+    agentId: string,
+    threadId: string,
+  ): Promise<RunContextDetails | null> {
+    return await firstValueFrom(
+      this.http.get<RunContextDetails | null>(
+        `/api/agents/${agentId}/threads/${threadId}/latest-run-context`,
+      ),
+    );
+  }
+
+  async threadRunContexts(
+    agentId: string,
+    threadId: string,
+  ): Promise<readonly RunContextDetails[]> {
+    return await firstValueFrom(
+      this.http.get<readonly RunContextDetails[]>(
+        `/api/agents/${agentId}/threads/${threadId}/run-contexts`,
+      ),
+    );
+  }
+
   async readAgentSoul(agentId: string): Promise<AgentSoulResponse> {
     return await firstValueFrom(this.http.get<AgentSoulResponse>(`/api/agents/${agentId}/soul`));
   }

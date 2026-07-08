@@ -14,7 +14,6 @@ import {
   lucideSun,
   lucideTrash2,
 } from '@ng-icons/lucide';
-import { marked } from 'marked';
 
 import type {
   AgentProfile,
@@ -24,6 +23,7 @@ import type {
   ChatThreadSummary,
   HealthResponse,
   ModelOption,
+  RunContextDetails,
   RunContextToolCall,
   ThemePreference,
 } from '../../../../shared/agent-contracts';
@@ -31,6 +31,7 @@ import { AgentSettingsStorage } from '../../settings/agent-settings-storage';
 import { ThemePreferenceService } from '../../settings/theme-preference';
 import { UserProfileSyncService } from '../../settings/user-profile-sync';
 import { AppSelect, type SelectOption } from '../../shared/app-select/app-select';
+import { renderMarkdown } from '../../shared/markdown/render-markdown';
 import { AssistantApi } from '../assistant-api';
 
 interface RenderedChatMessage extends ChatMessage {
@@ -44,17 +45,16 @@ interface ResearchSourceSummary {
 }
 
 interface ResearchToolResult {
+  readonly answerSourceUrls?: readonly unknown[];
+  readonly findings?: readonly {
+    readonly item?: unknown;
+    readonly sourceUrls?: readonly unknown[];
+  }[];
   readonly sources?: readonly {
     readonly url?: unknown;
     readonly title?: unknown;
   }[];
 }
-
-marked.use({
-  async: false,
-  breaks: true,
-  gfm: true,
-});
 
 @Component({
   selector: 'app-chat-page',
@@ -95,8 +95,14 @@ export class ChatPage {
   protected readonly threads = signal<readonly ChatThreadSummary[]>([]);
   protected readonly activeThread = signal<ChatThread | null>(null);
   protected readonly latestRunId = signal<string | null>(null);
-  protected readonly latestResearchSources = signal<readonly ResearchSourceSummary[]>([]);
+  protected readonly messageResearchSources = signal<
+    Readonly<Record<string, readonly ResearchSourceSummary[]>>
+  >({});
   protected readonly summaryMessage = signal<string | null>(null);
+  protected readonly runActivity = signal<{
+    readonly label: string;
+    readonly detail?: string;
+  } | null>(null);
   protected readonly draft = signal('');
   protected readonly isLoading = signal(true);
   protected readonly isRunning = signal(false);
@@ -199,7 +205,8 @@ export class ChatPage {
     await this.handleAsync(async () => {
       const thread = await this.api.createThread(agentId);
       this.activeThread.set(thread);
-      this.latestResearchSources.set([]);
+      this.latestRunId.set(null);
+      this.messageResearchSources.set({});
       await this.refreshThreads();
     });
   }
@@ -212,8 +219,9 @@ export class ChatPage {
     }
 
     await this.handleAsync(async () => {
-      this.activeThread.set(await this.api.readThread(agentId, threadId));
-      this.latestResearchSources.set([]);
+      const thread = await this.api.readThread(agentId, threadId);
+      this.activeThread.set(thread);
+      await this.loadLatestThreadRunContext(agentId, thread.id);
     });
   }
 
@@ -241,9 +249,13 @@ export class ChatPage {
       }
 
       if (threads.length) {
-        this.activeThread.set(await this.api.readThread(agentId, threads[0].id));
+        const thread = await this.api.readThread(agentId, threads[0].id);
+        this.activeThread.set(thread);
+        await this.loadLatestThreadRunContext(agentId, thread.id);
       } else {
         this.activeThread.set(await this.api.createThread(agentId));
+        this.latestRunId.set(null);
+        this.messageResearchSources.set({});
         await this.refreshThreads();
       }
     });
@@ -255,6 +267,7 @@ export class ChatPage {
     }
 
     await this.loadAgentThreads(agentId);
+    void this.userProfileSync.updateLastAgent(agentId);
   }
 
   protected async renameSelectedAgent(): Promise<void> {
@@ -308,8 +321,10 @@ export class ChatPage {
     this.draft.set('');
     this.resizeComposerInput();
     this.isRunning.set(true);
+    this.runActivity.set({
+      label: 'Starting run',
+    });
     this.error.set(null);
-    this.latestResearchSources.set([]);
     this.summaryMessage.set(null);
 
     const optimistic: ChatThread = {
@@ -344,9 +359,16 @@ export class ChatPage {
             this.latestRunId.set(event.runId);
           }
 
+          if (event.type === 'run-activity') {
+            this.runActivity.set({
+              label: event.label,
+              detail: event.detail,
+            });
+          }
+
           if (event.type === 'run-finished') {
             this.latestRunId.set(event.runId);
-            void this.loadLatestResearchSources(event.runId);
+            void this.loadMessageSourcesFromRun(event.runId);
           }
 
           if (event.type === 'error') {
@@ -358,6 +380,7 @@ export class ChatPage {
       this.error.set(error instanceof Error ? error.message : 'Agent request failed.');
     } finally {
       this.isRunning.set(false);
+      this.runActivity.set(null);
     }
   }
 
@@ -453,6 +476,10 @@ export class ChatPage {
     this.isSettingsMenuOpen.set(false);
   }
 
+  protected sourcesForMessage(messageId: string): readonly ResearchSourceSummary[] {
+    return this.messageResearchSources()[messageId] ?? [];
+  }
+
   protected stopThreadClick(event: Event): void {
     event.stopPropagation();
   }
@@ -479,16 +506,18 @@ export class ChatPage {
     this.agents.set(agentsResponse.agents);
     this.models.set(models.models);
     this.defaultModelId = models.defaultModel;
-    await this.userProfileSync.loadAndHydrate(agentsResponse.agents);
+    const profile = await this.userProfileSync.loadAndHydrate(agentsResponse.agents);
     const requestedAgentId = this.route.snapshot.queryParamMap.get('agentId');
     const requestedThreadId = this.route.snapshot.queryParamMap.get('threadId');
     const chatAgents = agentsResponse.agents.filter((agent) => agent.chatEnabled);
     const initialAgentId =
       requestedAgentId && chatAgents.some((agent) => agent.id === requestedAgentId)
         ? requestedAgentId
-        : (chatAgents.find((agent) => agent.id === agentsResponse.defaultAgentId)?.id ??
-          chatAgents[0]?.id ??
-          agentsResponse.defaultAgentId);
+        : profile.lastAgentId && chatAgents.some((agent) => agent.id === profile.lastAgentId)
+          ? profile.lastAgentId
+          : (chatAgents.find((agent) => agent.id === agentsResponse.defaultAgentId)?.id ??
+            chatAgents[0]?.id ??
+            agentsResponse.defaultAgentId);
 
     await this.loadAgentThreads(initialAgentId, requestedThreadId ?? undefined);
   }
@@ -509,7 +538,7 @@ export class ChatPage {
     this.selectedModel.set(this.modelForAgent(agentId));
     this.threads.set(threads);
     this.latestRunId.set(null);
-    this.latestResearchSources.set([]);
+    this.messageResearchSources.set({});
 
     if (threads.length) {
       const threadId =
@@ -517,19 +546,39 @@ export class ChatPage {
           ? preferredThreadId
           : threads[0].id;
 
-      this.activeThread.set(await this.api.readThread(agentId, threadId));
+      const thread = await this.api.readThread(agentId, threadId);
+      this.activeThread.set(thread);
+      await this.loadLatestThreadRunContext(agentId, thread.id);
     } else {
       this.activeThread.set(await this.api.createThread(agentId));
+      this.latestRunId.set(null);
+      this.messageResearchSources.set({});
       await this.refreshThreads();
     }
   }
 
-  private async loadLatestResearchSources(runId: string): Promise<void> {
+  private async loadLatestThreadRunContext(agentId: string, threadId: string): Promise<void> {
+    try {
+      const runContexts = await this.api.threadRunContexts(agentId, threadId);
+      this.latestRunId.set(runContexts[0]?.runId ?? null);
+      this.messageResearchSources.set(
+        buildMessageResearchSources(this.activeThread(), runContexts),
+      );
+    } catch {
+      this.latestRunId.set(null);
+      this.messageResearchSources.set({});
+    }
+  }
+
+  private async loadMessageSourcesFromRun(runId: string): Promise<void> {
     try {
       const runContext = await this.api.runContext(runId);
-      this.latestResearchSources.set(extractResearchSources(runContext.toolCalls ?? []));
+      this.latestRunId.set(runContext.runId);
+      this.messageResearchSources.set(
+        mergeMessageResearchSources(this.messageResearchSources(), this.activeThread(), runContext),
+      );
     } catch {
-      this.latestResearchSources.set([]);
+      return;
     }
   }
 
@@ -578,28 +627,33 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
-function renderMarkdown(content: string): string {
-  return marked.parse(content, { async: false, breaks: true, gfm: true });
-}
-
 function extractResearchSources(
   toolCalls: readonly RunContextToolCall[],
 ): readonly ResearchSourceSummary[] {
   const sources = new Map<string, ResearchSourceSummary>();
 
   for (const toolCall of toolCalls) {
-    if (
-      toolCall.name !== 'research' &&
-      toolCall.name !== 'verify_current_facts' &&
-      toolCall.name !== 'task'
-    ) {
+    if (toolCall.name !== 'research' && toolCall.name !== 'task') {
       continue;
     }
 
     const result = parseResearchToolResult(toolCall.result);
+    const answerSourceUrls = readAnswerSourceUrls(result);
+
+    for (const url of answerSourceUrls) {
+      sources.set(url, {
+        url,
+        title: readUrlDomain(url),
+        domain: readUrlDomain(url),
+      });
+    }
 
     for (const source of result?.sources ?? []) {
       if (typeof source.url !== 'string' || !source.url) {
+        continue;
+      }
+
+      if (answerSourceUrls.size > 0 && !answerSourceUrls.has(source.url)) {
         continue;
       }
 
@@ -612,6 +666,112 @@ function extractResearchSources(
   }
 
   return [...sources.values()];
+}
+
+function buildMessageResearchSources(
+  thread: ChatThread | null,
+  runContexts: readonly RunContextDetails[],
+): Readonly<Record<string, readonly ResearchSourceSummary[]>> {
+  return runContexts.reduce<Readonly<Record<string, readonly ResearchSourceSummary[]>>>(
+    (sourcesByMessageId, runContext) =>
+      mergeMessageResearchSources(sourcesByMessageId, thread, runContext),
+    {},
+  );
+}
+
+function mergeMessageResearchSources(
+  current: Readonly<Record<string, readonly ResearchSourceSummary[]>>,
+  thread: ChatThread | null,
+  runContext: RunContextDetails,
+): Readonly<Record<string, readonly ResearchSourceSummary[]>> {
+  const sources = extractResearchSources(runContext.toolCalls ?? []);
+
+  if (!sources.length) {
+    return current;
+  }
+
+  const messageId = resolveAssistantMessageId(thread, runContext, current);
+
+  if (!messageId) {
+    return current;
+  }
+
+  return {
+    ...current,
+    [messageId]: sources,
+  };
+}
+
+function resolveAssistantMessageId(
+  thread: ChatThread | null,
+  runContext: RunContextDetails,
+  current: Readonly<Record<string, readonly ResearchSourceSummary[]>>,
+): string | null {
+  if (
+    runContext.assistantMessageId &&
+    thread?.messages.some((message) => message.id === runContext.assistantMessageId)
+  ) {
+    return runContext.assistantMessageId;
+  }
+
+  const assistantResponse = runContext.assistantResponse?.trim();
+
+  if (!assistantResponse) {
+    return null;
+  }
+
+  return (
+    thread?.messages.find(
+      (message) =>
+        message.role === 'assistant' &&
+        message.content.trim() === assistantResponse &&
+        !current[message.id],
+    )?.id ?? null
+  );
+}
+
+function readAnswerSourceUrls(result: ResearchToolResult | null): ReadonlySet<string> {
+  const explicitUrls = new Set(
+    (result?.answerSourceUrls ?? []).filter((url): url is string => typeof url === 'string'),
+  );
+
+  if (explicitUrls.size > 0) {
+    return explicitUrls;
+  }
+
+  const fallbackUrls = new Set<string>();
+
+  for (const finding of result?.findings ?? []) {
+    if (isRejectedResearchFinding(finding.item)) {
+      continue;
+    }
+
+    for (const url of finding.sourceUrls ?? []) {
+      if (typeof url === 'string' && url) {
+        fallbackUrls.add(url);
+      }
+    }
+  }
+
+  return fallbackUrls;
+}
+
+function isRejectedResearchFinding(item: unknown): boolean {
+  if (typeof item !== 'string') {
+    return false;
+  }
+
+  const normalized = item.trim().toLowerCase();
+
+  return (
+    normalized.startsWith('not ') ||
+    normalized.startsWith('nicht ') ||
+    normalized.startsWith('kein ') ||
+    normalized.includes(' not the ') ||
+    normalized.includes(' nicht der ') ||
+    normalized.includes(' nicht die ') ||
+    normalized.includes(' nicht das ')
+  );
 }
 
 function parseResearchToolResult(result: string | undefined): ResearchToolResult | null {

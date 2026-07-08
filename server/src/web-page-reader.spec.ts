@@ -143,4 +143,17 @@ describe('web page reader helpers', () => {
     expect(result.extractionWarning).toContain('Tavily Extract failed');
     expect(result.extractionWarning).toContain('Local fallback also failed');
   });
+
+  it('returns a warning instead of throwing when DNS lookup fails', async () => {
+    const result = await readWebPage('https://www.wdc.invalid/match');
+
+    expect(result).toMatchObject({
+      url: 'https://www.wdc.invalid/match',
+      finalUrl: 'https://www.wdc.invalid/match',
+      text: '',
+      extractionProvider: 'local_fetch',
+    });
+    expect(result.extractionWarning).toContain('Page URL could not be used');
+    expect(result.extractionWarning).toContain('ENOTFOUND');
+  });
 });
