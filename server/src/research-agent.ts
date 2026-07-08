@@ -4,6 +4,7 @@ import { z } from 'zod/v3';
 
 import type { SearchProvider, SearchTopic } from './tools/search-provider';
 import { readWebPage } from './tools/web-page-reader';
+import type { UserProfile } from '../../shared/agent-contracts';
 
 export type ResearchMode = 'auto' | 'deep';
 export type ResearchExpectedOutput = 'answer' | 'structured_facts' | 'report';
@@ -114,13 +115,16 @@ export const researchResponseSchema = z.object({
   notes: z.array(z.string()).default([]),
 });
 
-export function createResearchSubagents(searchProvider: SearchProvider): readonly SubAgent[] {
+export function createResearchSubagents(
+  searchProvider: SearchProvider,
+  userProfile: UserProfile,
+): readonly SubAgent[] {
   return [
     {
       name: 'researcher',
       description:
         'Researches external facts with web search and source reading, then returns structured findings with source URLs.',
-      systemPrompt: createResearcherPrompt(),
+      systemPrompt: createResearcherPrompt(userProfile),
       tools: createResearcherTools(searchProvider),
       responseFormat: toolStrategy(researchResponseSchema),
     },
@@ -202,8 +206,14 @@ function createResearcherTools(searchProvider: SearchProvider) {
   return [searchTool, readTool];
 }
 
-function createResearcherPrompt(): string {
+function createResearcherPrompt(userProfile: UserProfile): string {
   return `You are an internal internet research subagent for rdma26.
+
+Current user date/time context:
+- Time zone: ${userProfile.timeZone}
+- Locale: ${userProfile.locale}
+- Current local date/time: ${formatLocalDateTime(userProfile)}
+- Current ISO date in the user's time zone: ${formatLocalIsoDate(userProfile)}
 
 Goal:
 - Answer the delegated question from current external sources.
@@ -212,6 +222,9 @@ Goal:
 Rules:
 - Do not answer from memory.
 - Translate the user's natural-language request into one or more search queries that a search engine can answer well.
+- Resolve relative dates such as "today", "heute", "yesterday", "gestern", "current", "aktuell", "latest", and "recent" against the current date/time context above.
+- Include the absolute date, year, entity, location, and requested answer type in search queries for date-sensitive questions.
+- Do not treat an older source as today's answer merely because it contains words like "today", "heute", "current", or "aktuell". Check the source publication/event date against the requested date.
 - Prefer primary, official, authoritative, or directly relevant sources when possible.
 - Match source type to the question. Use official sources for official records; use reputable reporting to evaluate allegations, controversy, or what people reportedly did.
 - Search snippets are leads, not final evidence. Read pages before relying on exact dates, scores, versions, prices, rankings, statuses, or other concrete values.
@@ -237,6 +250,40 @@ Rules:
 - Do not put rejected candidate pages, stale pages, unrelated pages, or diagnostic comparison pages in answerSourceUrls or sources. Mention those only in warnings, unresolved, temporalCandidates, or notes.
 
 Return the structured result required by the schema.`;
+}
+
+function formatLocalDateTime(userProfile: UserProfile): string {
+  try {
+    return new Intl.DateTimeFormat(userProfile.locale, {
+      dateStyle: 'full',
+      timeStyle: 'long',
+      timeZone: userProfile.timeZone,
+    }).format(new Date());
+  } catch {
+    return new Date().toISOString();
+  }
+}
+
+function formatLocalIsoDate(userProfile: UserProfile): string {
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      timeZone: userProfile.timeZone,
+    }).formatToParts(new Date());
+    const year = parts.find((part) => part.type === 'year')?.value;
+    const month = parts.find((part) => part.type === 'month')?.value;
+    const day = parts.find((part) => part.type === 'day')?.value;
+
+    if (year && month && day) {
+      return `${year}-${month}-${day}`;
+    }
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  return new Date().toISOString().slice(0, 10);
 }
 
 function parseSearchResults(rawResult: unknown): readonly SearchResultItem[] {

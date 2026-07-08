@@ -83,6 +83,7 @@ function createDefaultProfile(): UserProfile {
     dateStyle: 'medium',
     timeStyle: 'short',
     theme: 'system',
+    lastAgentId: undefined,
     agentSettings: {},
     createdAt: now,
     updatedAt: now,
@@ -106,6 +107,10 @@ function parseUserProfile(value: unknown): UserProfile | null {
     dateStyle: isDateStylePreference(record['dateStyle']) ? record['dateStyle'] : 'medium',
     timeStyle: isTimeStylePreference(record['timeStyle']) ? record['timeStyle'] : 'short',
     theme: isThemePreference(record['theme']) ? record['theme'] : 'system',
+    lastAgentId:
+      typeof record['lastAgentId'] === 'string' && record['lastAgentId'].trim()
+        ? record['lastAgentId'].trim()
+        : undefined,
     agentSettings: parseAgentSettings(record['agentSettings']),
     createdAt: typeof record['createdAt'] === 'string' ? record['createdAt'] : now,
     updatedAt: typeof record['updatedAt'] === 'string' ? record['updatedAt'] : now,
@@ -149,6 +154,10 @@ function normalizeProfileUpdate(request: UpdateUserProfileRequest): UpdateUserPr
 
   if (isThemePreference(request.theme)) {
     update['theme'] = request.theme;
+  }
+
+  if (typeof request.lastAgentId === 'string') {
+    update['lastAgentId'] = request.lastAgentId.trim() || undefined;
   }
 
   if (request.agentSettings) {

@@ -48,7 +48,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added separate `RESEARCH_PLANNER_MODEL` and `RESEARCH_VERIFIER_MODEL` environment overrides for the research query-planning and verification steps.
 - Updated agent bootloader guidance to prefer `research` over low-level `internet_search` and `read_web_page` workflows when available.
 - Added a compact chat UI source affordance for the latest research-backed run.
+- Added persisted last-used agent selection in the synced user profile so the chat page reopens with the previously selected agent.
 - Added stricter research-agent guardrails for latest/current temporal ordering, claim-status nuance, and contradiction warnings.
+- Added current date/time context to researcher subagents so relative-date questions such as "today" and "heute" are resolved before searching.
+- Added latest thread run-context lookup so source links and run inspection are restored after reloading an existing chat thread.
 - Changed web page DNS/URL validation failures to return structured reader warnings instead of aborting chat runs.
 - Changed thread-summary consolidation to return an existing summary instead of regenerating it, and added readable `contentLines` for multiline memory JSON files.
 - Changed `save_memory` so agents can save agent, agent-user, or global user memories, and may save sensitive personal data when the user explicitly asks for it.

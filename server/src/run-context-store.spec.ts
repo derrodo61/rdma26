@@ -82,6 +82,42 @@ describe('RunContextStore', () => {
     }
   });
 
+  it('reads the latest run context for one thread', async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-runs-'));
+
+    try {
+      const store = new RunContextStore(dataDir);
+      const threadId = crypto.randomUUID();
+      const olderRun = testRunContext({
+        agentId: 'ronaldo',
+        threadId,
+        createdAt: '2026-07-08T10:00:00.000Z',
+      });
+      const latestRun = testRunContext({
+        agentId: 'ronaldo',
+        threadId,
+        createdAt: '2026-07-08T11:00:00.000Z',
+      });
+      const otherThreadRun = testRunContext({
+        agentId: 'ronaldo',
+        threadId: crypto.randomUUID(),
+        createdAt: '2026-07-08T12:00:00.000Z',
+      });
+
+      await store.writeRunContext(olderRun);
+      await store.writeRunContext(latestRun);
+      await store.writeRunContext(otherThreadRun);
+
+      await expect(store.readLatestRunContextForThread('ronaldo', threadId)).resolves.toMatchObject(
+        {
+          runId: latestRun.runId,
+        },
+      );
+    } finally {
+      await rm(dataDir, { recursive: true, force: true });
+    }
+  });
+
   it('deletes orphaned run contexts whose threads no longer exist', async () => {
     const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-runs-'));
 

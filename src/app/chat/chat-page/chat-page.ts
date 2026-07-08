@@ -208,6 +208,7 @@ export class ChatPage {
     await this.handleAsync(async () => {
       const thread = await this.api.createThread(agentId);
       this.activeThread.set(thread);
+      this.latestRunId.set(null);
       this.latestResearchSources.set([]);
       await this.refreshThreads();
     });
@@ -221,8 +222,9 @@ export class ChatPage {
     }
 
     await this.handleAsync(async () => {
-      this.activeThread.set(await this.api.readThread(agentId, threadId));
-      this.latestResearchSources.set([]);
+      const thread = await this.api.readThread(agentId, threadId);
+      this.activeThread.set(thread);
+      await this.loadLatestThreadRunContext(agentId, thread.id);
     });
   }
 
@@ -250,9 +252,13 @@ export class ChatPage {
       }
 
       if (threads.length) {
-        this.activeThread.set(await this.api.readThread(agentId, threads[0].id));
+        const thread = await this.api.readThread(agentId, threads[0].id);
+        this.activeThread.set(thread);
+        await this.loadLatestThreadRunContext(agentId, thread.id);
       } else {
         this.activeThread.set(await this.api.createThread(agentId));
+        this.latestRunId.set(null);
+        this.latestResearchSources.set([]);
         await this.refreshThreads();
       }
     });
@@ -264,6 +270,7 @@ export class ChatPage {
     }
 
     await this.loadAgentThreads(agentId);
+    void this.userProfileSync.updateLastAgent(agentId);
   }
 
   protected async renameSelectedAgent(): Promise<void> {
@@ -499,16 +506,18 @@ export class ChatPage {
     this.agents.set(agentsResponse.agents);
     this.models.set(models.models);
     this.defaultModelId = models.defaultModel;
-    await this.userProfileSync.loadAndHydrate(agentsResponse.agents);
+    const profile = await this.userProfileSync.loadAndHydrate(agentsResponse.agents);
     const requestedAgentId = this.route.snapshot.queryParamMap.get('agentId');
     const requestedThreadId = this.route.snapshot.queryParamMap.get('threadId');
     const chatAgents = agentsResponse.agents.filter((agent) => agent.chatEnabled);
     const initialAgentId =
       requestedAgentId && chatAgents.some((agent) => agent.id === requestedAgentId)
         ? requestedAgentId
-        : (chatAgents.find((agent) => agent.id === agentsResponse.defaultAgentId)?.id ??
-          chatAgents[0]?.id ??
-          agentsResponse.defaultAgentId);
+        : profile.lastAgentId && chatAgents.some((agent) => agent.id === profile.lastAgentId)
+          ? profile.lastAgentId
+          : (chatAgents.find((agent) => agent.id === agentsResponse.defaultAgentId)?.id ??
+            chatAgents[0]?.id ??
+            agentsResponse.defaultAgentId);
 
     await this.loadAgentThreads(initialAgentId, requestedThreadId ?? undefined);
   }
@@ -537,10 +546,25 @@ export class ChatPage {
           ? preferredThreadId
           : threads[0].id;
 
-      this.activeThread.set(await this.api.readThread(agentId, threadId));
+      const thread = await this.api.readThread(agentId, threadId);
+      this.activeThread.set(thread);
+      await this.loadLatestThreadRunContext(agentId, thread.id);
     } else {
       this.activeThread.set(await this.api.createThread(agentId));
+      this.latestRunId.set(null);
+      this.latestResearchSources.set([]);
       await this.refreshThreads();
+    }
+  }
+
+  private async loadLatestThreadRunContext(agentId: string, threadId: string): Promise<void> {
+    try {
+      const runContext = await this.api.latestThreadRunContext(agentId, threadId);
+      this.latestRunId.set(runContext?.runId ?? null);
+      this.latestResearchSources.set(extractResearchSources(runContext?.toolCalls ?? []));
+    } catch {
+      this.latestRunId.set(null);
+      this.latestResearchSources.set([]);
     }
   }
 
@@ -618,6 +642,14 @@ function extractResearchSources(
 
     const result = parseResearchToolResult(toolCall.result);
     const answerSourceUrls = readAnswerSourceUrls(result);
+
+    for (const url of answerSourceUrls) {
+      sources.set(url, {
+        url,
+        title: readUrlDomain(url),
+        domain: readUrlDomain(url),
+      });
+    }
 
     for (const source of result?.sources ?? []) {
       if (typeof source.url !== 'string' || !source.url) {

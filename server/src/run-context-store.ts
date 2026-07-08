@@ -45,6 +45,30 @@ export class RunContextStore {
     return context;
   }
 
+  async readLatestRunContextForThread(
+    agentId: string,
+    threadId: string,
+  ): Promise<RunContextDetails | null> {
+    validateAgentId(agentId);
+    validateThreadId(threadId);
+
+    const row = this.database
+      .get()
+      .prepare(
+        `
+          select context_json
+          from run_contexts
+          where agent_id = ?
+            and thread_id = ?
+          order by created_at desc
+          limit 1
+        `,
+      )
+      .get(agentId, threadId);
+
+    return row ? runContextFromRow(row) : null;
+  }
+
   async deleteRunsForThread(agentId: string, threadId: string): Promise<number> {
     validateAgentId(agentId);
     validateThreadId(threadId);

@@ -157,6 +157,7 @@ const updateUserProfileRequestSchema = z.object({
   dateStyle: z.enum(['short', 'medium', 'long', 'full']).optional(),
   timeStyle: z.enum(['short', 'medium']).optional(),
   theme: z.enum(['light', 'dark', 'system']).optional(),
+  lastAgentId: z.string().trim().min(1).optional(),
   agentSettings: z.record(z.string(), agentSettingsSchema).optional(),
 });
 
@@ -939,6 +940,32 @@ async function startServer(): Promise<void> {
 
       try {
         return await runtime.deleteThread(params.data.agentId, params.data.threadId);
+      } catch (error) {
+        return reply.code(404).send({
+          message: getErrorMessage(error),
+        });
+      }
+    },
+  );
+
+  server.get(
+    '/api/agents/:agentId/threads/:threadId/latest-run-context',
+    routeDocs({
+      tags: ['run-context'],
+      summary: 'Read the latest run context for one thread, if one exists.',
+      params: threadParamsSchema,
+    }),
+    async (request, reply) => {
+      const params = threadParamsSchema.safeParse(request.params);
+
+      if (!params.success) {
+        return reply.code(400).send({
+          message: 'A valid agent id and thread id are required.',
+        });
+      }
+
+      try {
+        return await runtime.readLatestThreadRunContext(params.data.agentId, params.data.threadId);
       } catch (error) {
         return reply.code(404).send({
           message: getErrorMessage(error),

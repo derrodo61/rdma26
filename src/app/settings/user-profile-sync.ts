@@ -73,6 +73,16 @@ export class UserProfileSyncService {
     }
   }
 
+  async updateLastAgent(agentId: string): Promise<UserProfile | null> {
+    this.profile.update((profile) => (profile ? { ...profile, lastAgentId: agentId } : profile));
+
+    try {
+      return await this.updateProfile({ lastAgentId: agentId });
+    } catch {
+      return this.profile();
+    }
+  }
+
   private applyProfile(profile: UserProfile): void {
     this.profile.set(profile);
     this.themePreference.setTheme(profile.theme);

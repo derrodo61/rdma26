@@ -3,13 +3,26 @@ import { describe, expect, it, vi } from 'vitest';
 import { createResearchSubagents, researchResponseSchema } from './research-agent';
 import type { SearchProvider } from './tools/search-provider';
 
+const testUserProfile = {
+  name: '',
+  timeZone: 'Europe/Berlin',
+  language: 'de',
+  locale: 'de-DE',
+  dateStyle: 'medium' as const,
+  timeStyle: 'short' as const,
+  theme: 'system' as const,
+  agentSettings: {},
+  createdAt: '2026-07-08T00:00:00.000Z',
+  updatedAt: '2026-07-08T00:00:00.000Z',
+};
+
 describe('research subagent capability', () => {
   it('creates a Deep Agents researcher subagent with search and page-reading tools', () => {
     const searchProvider: SearchProvider = {
       search: vi.fn(),
     };
 
-    const subagents = createResearchSubagents(searchProvider);
+    const subagents = createResearchSubagents(searchProvider, testUserProfile);
 
     expect(subagents).toHaveLength(1);
     expect(subagents[0]?.name).toBe('researcher');
@@ -71,7 +84,7 @@ describe('research subagent capability', () => {
       search: vi.fn(),
     };
 
-    const subagents = createResearchSubagents(searchProvider);
+    const subagents = createResearchSubagents(searchProvider, testUserProfile);
     const systemPrompt = (subagents[0] as unknown as { systemPrompt: string }).systemPrompt;
 
     expect(systemPrompt).toContain(
@@ -89,12 +102,27 @@ describe('research subagent capability', () => {
       search: vi.fn(),
     };
 
-    const subagents = createResearchSubagents(searchProvider);
+    const subagents = createResearchSubagents(searchProvider, testUserProfile);
     const systemPrompt = (subagents[0] as unknown as { systemPrompt: string }).systemPrompt;
 
     expect(systemPrompt).toContain('For claim-checking or rumor questions');
     expect(systemPrompt).toContain('do not treat silence in an official source as proof');
     expect(systemPrompt).toContain('use "reported" when reputable sources report a claim');
     expect(systemPrompt).toContain('use "false" only when reliable evidence directly contradicts');
+  });
+
+  it('gives the researcher current date context for relative-date questions', () => {
+    const searchProvider: SearchProvider = {
+      search: vi.fn(),
+    };
+
+    const subagents = createResearchSubagents(searchProvider, testUserProfile);
+    const systemPrompt = (subagents[0] as unknown as { systemPrompt: string }).systemPrompt;
+
+    expect(systemPrompt).toContain('Current user date/time context');
+    expect(systemPrompt).toContain('Time zone: Europe/Berlin');
+    expect(systemPrompt).toContain('Resolve relative dates');
+    expect(systemPrompt).toContain('Include the absolute date');
+    expect(systemPrompt).toContain('Do not treat an older source as today');
   });
 });

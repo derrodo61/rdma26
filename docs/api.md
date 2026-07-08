@@ -48,7 +48,7 @@ Clears the session cookie.
 
 ### `GET /api/profile`
 
-Returns the synced user profile, including name, timezone, regional format (`locale`), language, date/time display preferences, theme, and per-agent UI settings.
+Returns the synced user profile, including name, timezone, regional format (`locale`), language, date/time display preferences, theme, last used agent, and per-agent UI settings.
 
 ### `PATCH /api/profile`
 
@@ -63,6 +63,7 @@ Body:
   "dateStyle": "medium",
   "timeStyle": "short",
   "theme": "system",
+  "lastAgentId": "ronaldo",
   "agentSettings": {
     "scotty": {
       "model": "gpt-4.1-mini"
@@ -375,6 +376,10 @@ Streams Server-Sent Events:
 Returns optional run-context transparency details for one run. The `runId` is emitted by `POST /api/agent-runs` as the `run-started` event.
 
 The frontend exposes this data at `/settings/runs/:runId`.
+
+### `GET /api/agents/:agentId/threads/:threadId/latest-run-context`
+
+Returns the latest run context for one thread, or `null` when the thread has no runs yet. The chat UI uses this to restore latest-run inspection and source links after a page reload.
 
 The response includes:
 

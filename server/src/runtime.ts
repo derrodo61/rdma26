@@ -285,6 +285,15 @@ export class AssistantRuntime {
     return await this.runContextStore.requireRunContext(runId);
   }
 
+  async readLatestThreadRunContext(
+    agentId: string,
+    threadId: string,
+  ): Promise<RunContextDetails | null> {
+    await this.readThread(agentId, threadId);
+
+    return await this.runContextStore.readLatestRunContextForThread(agentId, threadId);
+  }
+
   async readAgent(agentId: string): Promise<AgentProfile> {
     const agent = await this.registry.readAgent(agentId);
 

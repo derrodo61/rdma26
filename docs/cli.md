@@ -77,7 +77,7 @@ rdma26 profile:read
 ### Update profile fields
 
 ```bash
-rdma26 profile:update --name "Rolf" --time-zone Europe/Berlin --locale de-DE --language de --date-style medium --time-style short --theme system
+rdma26 profile:update --name "Rolf" --time-zone Europe/Berlin --locale de-DE --language de --date-style medium --time-style short --theme system --last-agent ronaldo
 ```
 
 All options are optional. Omitted fields keep their current values.

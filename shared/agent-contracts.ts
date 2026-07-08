@@ -190,6 +190,7 @@ export interface UserProfile {
   readonly dateStyle: DateStylePreference;
   readonly timeStyle: TimeStylePreference;
   readonly theme: ThemePreference;
+  readonly lastAgentId?: string;
   readonly agentSettings: Readonly<Record<string, AgentSettings>>;
   readonly createdAt: string;
   readonly updatedAt: string;
@@ -203,6 +204,7 @@ export interface UpdateUserProfileRequest {
   readonly dateStyle?: DateStylePreference;
   readonly timeStyle?: TimeStylePreference;
   readonly theme?: ThemePreference;
+  readonly lastAgentId?: string;
   readonly agentSettings?: Readonly<Record<string, AgentSettings>>;
 }
 

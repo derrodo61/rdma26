@@ -73,7 +73,7 @@ export class PersonalAgent {
         virtualMode: true,
       }),
       tools: request.tools,
-      subagents: createEnabledSubagents(request.enabledToolIds),
+      subagents: createEnabledSubagents(request.enabledToolIds, request.userProfile),
       checkpointer: this.checkpointer,
       systemPrompt: createBootloaderPromptForTest(
         this.storage.agent,
@@ -264,7 +264,10 @@ interface ToolCallStreamLike {
   readonly input: unknown;
 }
 
-function createEnabledSubagents(enabledToolIds: readonly string[]): readonly SubAgent[] {
+function createEnabledSubagents(
+  enabledToolIds: readonly string[],
+  userProfile: UserProfile,
+): readonly SubAgent[] {
   if (!enabledToolIds.includes(researchToolId)) {
     return [];
   }
@@ -275,7 +278,7 @@ function createEnabledSubagents(enabledToolIds: readonly string[]): readonly Sub
     throw new Error('TAVILY_API_KEY is required to use the research capability.');
   }
 
-  return createResearchSubagents(new TavilySearchProvider(tavilyApiKey));
+  return createResearchSubagents(new TavilySearchProvider(tavilyApiKey), userProfile);
 }
 
 export function createBootloaderPromptForTest(
@@ -306,6 +309,7 @@ Research guidance:
 - A researcher subagent is available through Deep Agents' task tool.
 - Use the task tool to delegate internet research and external information work to the researcher subagent, especially current, latest, recent, or uncertain facts.
 - Give the researcher the full user question and name concrete requirements such as date, teams, final_score, winner, version, price, source, or status.
+- When the user uses relative dates such as today, yesterday, current, latest, recent, heute, gestern, aktuell, or neueste, include the current local date/time from the user profile and the resolved absolute date in the task description.
 - Use the researcher's structured result as your evidence: answer from findings and sources, mention unresolved items and warnings when status is partial or unresolved, and do not guess missing values.
 - For latest, last, current, most recent, and next questions, check the researcher's temporalCandidates before answering. Do not call an item "latest", "last", "current", or "next" when another candidate has a later or more relevant date.
 - For claim-checking or rumor questions, preserve the researcher's claimStatus. Say "reported" when reputable sources report something without official confirmation. Do not convert official-source silence into "false" unless the researcher found reliable evidence that directly contradicts the claim.
