@@ -348,10 +348,21 @@ Body:
 Streams Server-Sent Events:
 
 - `run-started`
+- `run-activity`
 - `message`
 - `thread-updated`
 - `error`
 - `run-finished`
+
+`run-activity` reports friendly live progress from the agent runtime. Example:
+
+```json
+{
+  "type": "run-activity",
+  "label": "Researcher is searching the web",
+  "detail": "Angular latest stable version"
+}
+```
 
 ### `GET /api/runs/:runId/context`
 

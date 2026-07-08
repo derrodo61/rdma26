@@ -457,6 +457,7 @@ export class AssistantRuntime {
       memoryWritesEnabled: storage.agent.memory.canWrite,
       messages: userThread.messages,
       prompt: request.prompt,
+      onActivity: options.onActivity,
     });
     const thread = await storage.appendMessage(request.threadId, {
       role: 'assistant',
@@ -753,6 +754,7 @@ export interface RunAgentResult {
 
 export interface RunAgentOptions {
   readonly runId?: string;
+  readonly onActivity?: (activity: { readonly label: string; readonly detail?: string }) => void;
 }
 
 export interface AssistantRuntimeOptions {

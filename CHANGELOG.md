@@ -43,6 +43,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Improved `verify_current_facts` with an internal search-query planning step and stricter latest/current ordering verification.
 - Added a high-level `research` capability with structured findings, sources, searches, unresolved items, and run-context source affordances.
 - Reworked `research` to follow Deep Agents subagent concepts: enabling it now attaches a `researcher` subagent to the domain agent, and the domain agent delegates through the built-in `task` tool instead of calling a wrapper tool.
+- Added live `run-activity` streaming events from Deep Agents tool and subagent activity, and show the current activity in the chat UI while a run is active.
 - Added agent visibility metadata (`kind` and `chatEnabled`) so future internal capability agents can stay hidden from the normal chat selector.
 - Added separate `RESEARCH_PLANNER_MODEL` and `RESEARCH_VERIFIER_MODEL` environment overrides for the research query-planning and verification steps.
 - Updated agent bootloader guidance to prefer `research` over low-level `internet_search` and `read_web_page` workflows when available.

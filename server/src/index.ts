@@ -1005,7 +1005,16 @@ async function startServer(): Promise<void> {
       });
 
       try {
-        const result = await runtime.runAgent(runRequest, { runId });
+        const result = await runtime.runAgent(runRequest, {
+          runId,
+          onActivity: (activity) => {
+            writeServerSentEvent(reply.raw, {
+              type: 'run-activity',
+              label: activity.label,
+              detail: activity.detail,
+            });
+          },
+        });
 
         writeServerSentEvent(reply.raw, {
           type: 'message',

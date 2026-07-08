@@ -123,6 +123,11 @@ export type AgentRunEvent =
       readonly threadId: string;
     }
   | {
+      readonly type: 'run-activity';
+      readonly label: string;
+      readonly detail?: string;
+    }
+  | {
       readonly type: 'message';
       readonly content: string;
     }

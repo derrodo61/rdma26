@@ -97,6 +97,10 @@ export class ChatPage {
   protected readonly latestRunId = signal<string | null>(null);
   protected readonly latestResearchSources = signal<readonly ResearchSourceSummary[]>([]);
   protected readonly summaryMessage = signal<string | null>(null);
+  protected readonly runActivity = signal<{
+    readonly label: string;
+    readonly detail?: string;
+  } | null>(null);
   protected readonly draft = signal('');
   protected readonly isLoading = signal(true);
   protected readonly isRunning = signal(false);
@@ -308,6 +312,9 @@ export class ChatPage {
     this.draft.set('');
     this.resizeComposerInput();
     this.isRunning.set(true);
+    this.runActivity.set({
+      label: 'Starting run',
+    });
     this.error.set(null);
     this.latestResearchSources.set([]);
     this.summaryMessage.set(null);
@@ -344,6 +351,13 @@ export class ChatPage {
             this.latestRunId.set(event.runId);
           }
 
+          if (event.type === 'run-activity') {
+            this.runActivity.set({
+              label: event.label,
+              detail: event.detail,
+            });
+          }
+
           if (event.type === 'run-finished') {
             this.latestRunId.set(event.runId);
             void this.loadLatestResearchSources(event.runId);
@@ -358,6 +372,7 @@ export class ChatPage {
       this.error.set(error instanceof Error ? error.message : 'Agent request failed.');
     } finally {
       this.isRunning.set(false);
+      this.runActivity.set(null);
     }
   }
 

@@ -283,7 +283,16 @@
               }
 
               @if (isRunning()) {
-                <p class="text-sm text-text-muted">Thinking...</p>
+                <div class="max-w-[48rem] px-4 py-3 text-sm text-text-muted">
+                  @if (runActivity(); as activity) {
+                    <p>{{ activity.label }}</p>
+                    @if (activity.detail) {
+                      <p class="mt-1 truncate text-xs">{{ activity.detail }}</p>
+                    }
+                  } @else {
+                    <p>Working...</p>
+                  }
+                </div>
               }
             </div>
           }
