@@ -223,7 +223,7 @@ Body:
 }
 ```
 
-Updates agent settings. `memory.canWrite` controls whether the agent receives the `save_memory` tool and whether automatic thread-summary memories are written after chat runs.
+Updates agent settings. `memory.canWrite` controls whether the agent receives the `save_memory` tool and whether memory maintenance may create thread-summary memories for that agent.
 
 ### `GET /api/agents/:agentId/soul`
 
@@ -301,9 +301,9 @@ Deletes one thread.
 
 ### `POST /api/agents/:agentId/threads/:threadId/summary`
 
-Creates or updates the `conversation_summary` memory for one thread.
+Creates the `conversation_summary` memory for one thread if it does not already exist.
 
-This uses the same consolidation path as automatic post-chat thread summaries. It is useful when the user corrected a thread, imported messages, or wants to refresh memory before starting a new thread.
+If the thread already has a summary, the existing summary is returned and no new summary is generated. This is useful after a thread is complete enough to make available for future recall.
 
 Optional body:
 
@@ -313,11 +313,11 @@ Optional body:
 }
 ```
 
-Summaries are created by an LLM. Use `model` to request a specific summary model. If no summary model or API key is available, the summary cannot be created. The response includes the model that created the summary.
+New summaries are created by an LLM. Use `model` to request a specific summary model. If no summary model or API key is available, a missing summary cannot be created. The response includes the model that created the summary, or an existing memory when the thread was already summarized.
 
 ### `POST /api/agents/:agentId/threads/summaries`
 
-Creates or updates `conversation_summary` memories for multiple non-empty threads of one agent.
+Creates missing `conversation_summary` memories for multiple non-empty threads of one agent.
 
 Optional body:
 

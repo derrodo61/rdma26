@@ -126,6 +126,7 @@ export class MemoryStore {
       status: 'active',
       lifetime: request.lifetime ? normalizeLifetime(request.lifetime) : 'active',
       content: normalizeContent(request.content),
+      contentLines: contentLinesFor(request.content),
       tags: normalizeTags(request.tags ?? []),
       source: request.source,
       createdAt: now,
@@ -145,6 +146,10 @@ export class MemoryStore {
       status: request.status ? normalizeStatus(request.status) : existing.status,
       lifetime: request.lifetime ? normalizeLifetime(request.lifetime) : existing.lifetime,
       content: request.content === undefined ? existing.content : normalizeContent(request.content),
+      contentLines:
+        request.content === undefined
+          ? contentLinesFor(existing.content)
+          : contentLinesFor(request.content),
       tags: request.tags === undefined ? existing.tags : normalizeTags(request.tags),
       source: request.source === undefined ? existing.source : request.source,
       updatedAt: new Date().toISOString(),
@@ -451,6 +456,9 @@ function isMemoryRecord(value: unknown): value is MemoryRecord {
     memoryStatuses.has(value.status as MemoryStatus) &&
     memoryLifetimes.has(value.lifetime as MemoryLifetime) &&
     typeof value.content === 'string' &&
+    (!('contentLines' in value) ||
+      (Array.isArray(value.contentLines) &&
+        value.contentLines.every((line) => typeof line === 'string'))) &&
     Array.isArray(value.tags) &&
     value.tags.every((tag) => typeof tag === 'string') &&
     typeof value.createdAt === 'string' &&
@@ -516,6 +524,12 @@ function normalizeContent(content: string): string {
   }
 
   return normalized;
+}
+
+function contentLinesFor(content: string): readonly string[] | undefined {
+  const normalized = content.trim();
+
+  return normalized.includes('\n') ? normalized.split('\n') : undefined;
 }
 
 function normalizeTags(tags: readonly string[]): string[] {

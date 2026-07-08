@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -86,6 +86,34 @@ describe('MemoryStore', () => {
           content: 'This should fail.',
         }),
       ).rejects.toThrow('Agent-scoped memories require agentId.');
+    } finally {
+      await rm(dataDir, { recursive: true, force: true });
+    }
+  });
+
+  it('stores multiline memory content as readable content lines', async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-memory-'));
+
+    try {
+      const store = new MemoryStore(dataDir);
+      const memory = await store.createMemory({
+        scope: 'agent',
+        agentId: 'ronaldo',
+        type: 'conversation_summary',
+        content: ['Conversation summary for thread.', '- First point.', '- Second point.'].join(
+          '\n',
+        ),
+      });
+      const raw = JSON.parse(
+        await readFile(join(dataDir, 'agents', 'ronaldo', 'memories', `${memory.id}.json`), 'utf8'),
+      ) as { readonly contentLines?: readonly string[] };
+
+      expect(memory.contentLines).toEqual([
+        'Conversation summary for thread.',
+        '- First point.',
+        '- Second point.',
+      ]);
+      expect(raw.contentLines).toEqual(memory.contentLines);
     } finally {
       await rm(dataDir, { recursive: true, force: true });
     }

@@ -350,7 +350,7 @@ export class AssistantRuntime {
     return {
       agentId: thread.agentId,
       threadId: thread.id,
-      ...(await this.upsertThreadSummaryMemory(thread, request.model)),
+      ...(await this.createThreadSummaryMemoryIfMissing(thread, request.model)),
     };
   }
 
@@ -463,13 +463,6 @@ export class AssistantRuntime {
       role: 'assistant',
       content: agentResponse.content,
     });
-    if (storage.agent.memory.canWrite) {
-      try {
-        await this.upsertThreadSummaryMemory(thread, request.model);
-      } catch {
-        // Chat runs should not fail when no summary model is configured.
-      }
-    }
     const runContext = await this.runContextStore.writeRunContext({
       runId,
       agentId: storage.agent.id,
@@ -560,7 +553,7 @@ export class AssistantRuntime {
     return [...assignableTools, ...memoryTools, ...adminTools];
   }
 
-  private async upsertThreadSummaryMemory(
+  private async createThreadSummaryMemoryIfMissing(
     thread: ChatThread,
     requestedModel?: string,
   ): Promise<ThreadSummaryMemoryResult> {
@@ -569,11 +562,14 @@ export class AssistantRuntime {
     }
 
     const existing = await this.memoryStore.findThreadSummary(thread.agentId, thread.id);
-    const summary = await this.createThreadSummaryContent(
-      thread,
-      existing?.content,
-      requestedModel,
-    );
+
+    if (existing) {
+      return {
+        memory: existing,
+      };
+    }
+
+    const summary = await this.createThreadSummaryContent(thread, requestedModel);
     const request = {
       type: 'conversation_summary' as const,
       lifetime: 'active' as const,
@@ -585,13 +581,6 @@ export class AssistantRuntime {
         note: `Model-generated thread summary using ${summary.model}.`,
       },
     };
-
-    if (existing) {
-      return {
-        model: summary.model,
-        memory: await this.memoryStore.updateMemory(existing.id, request),
-      };
-    }
 
     return {
       model: summary.model,
@@ -605,7 +594,6 @@ export class AssistantRuntime {
 
   private async createThreadSummaryContent(
     thread: ChatThread,
-    previousContent: string | undefined,
     requestedModel: string | undefined,
   ): Promise<ThreadSummaryContent> {
     const model = requestedModel ?? process.env['OPENAI_SUMMARY_MODEL'] ?? this.models[0]?.id;
@@ -618,7 +606,7 @@ export class AssistantRuntime {
       throw new Error('Cannot create a thread summary because no summary model is configured.');
     }
 
-    const content = await createModelThreadSummaryContent(thread, previousContent, model);
+    const content = await createModelThreadSummaryContent(thread, model);
 
     return {
       model,
@@ -637,11 +625,7 @@ interface ThreadSummaryContent {
   readonly content: string;
 }
 
-async function createModelThreadSummaryContent(
-  thread: ChatThread,
-  previousContent: string | undefined,
-  model: string,
-): Promise<string> {
+async function createModelThreadSummaryContent(thread: ChatThread, model: string): Promise<string> {
   const llm = new ChatOpenAI({
     apiKey: process.env['OPENAI_API_KEY'],
     model,
@@ -664,7 +648,7 @@ async function createModelThreadSummaryContent(
     {
       role: 'user',
       content: [
-        previousContent ? `Previous summary:\n${previousContent}` : 'Previous summary: none',
+        'No previous summary exists for this thread. Create the first durable summary.',
         '',
         `Thread title: ${thread.title}`,
         `Thread updated at: ${thread.updatedAt}`,

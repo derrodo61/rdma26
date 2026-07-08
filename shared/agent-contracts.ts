@@ -227,6 +227,7 @@ export interface MemoryRecord {
   readonly status: MemoryStatus;
   readonly lifetime: MemoryLifetime;
   readonly content: string;
+  readonly contentLines?: readonly string[];
   readonly tags: readonly string[];
   readonly source?: MemorySource;
   readonly createdAt: string;

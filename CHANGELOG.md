@@ -12,13 +12,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added memory CRUD through backend API endpoints and CLI commands.
 - Added a memory settings page for listing, creating, editing, archiving, restoring, and deleting memories.
 - Added a `save_memory` agent tool and prompt injection of relevant active memories for chat runs.
-- Added automatic per-thread `conversation_summary` memory upserts after chat runs.
+- Added one-time per-thread `conversation_summary` memory creation through manual and scheduled maintenance.
 - Added recall-aware memory retrieval so new-thread questions about previous conversations include recent conversation summaries.
 - Added optional OpenAI embedding-backed semantic memory ranking with a local cache and lexical fallback.
 - Added manual thread-summary consolidation through the API, CLI, and chat UI.
 - Added LLM-backed thread-summary consolidation when OpenAI is configured.
 - Removed local compact transcript summaries; if no summary LLM is available, no summary is created.
-- Added bulk thread-summary refresh through the API, CLI, and memory settings UI.
+- Added bulk missing thread-summary creation through the API, CLI, and memory settings UI.
 - Added visible memory maintenance through the API, CLI, and memory settings UI, with reports for skipped agents and empty threads.
 - Added optional scheduled memory maintenance with persistent settings exposed through the API, CLI, and memory settings UI.
 - Updated the agent bootloader prompt so disabled memory writes no longer instruct agents to use `save_memory`.
@@ -50,6 +50,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added a compact chat UI source affordance for the latest research-backed run.
 - Added stricter research-agent guardrails for latest/current temporal ordering, claim-status nuance, and contradiction warnings.
 - Changed web page DNS/URL validation failures to return structured reader warnings instead of aborting chat runs.
+- Changed thread-summary consolidation to return an existing summary instead of regenerating it, and added readable `contentLines` for multiline memory JSON files.
 
 ## [2026-07-06]
 

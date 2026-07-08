@@ -458,11 +458,11 @@ Implemented first scope:
 - optional OpenAI embedding-backed semantic ranking for chat-run memory retrieval, with lexical recall as the fallback
 - local embedding cache under `.assistant-data/memory-index`
 - `save_memory` tool for agents
-- automatic per-thread `conversation_summary` memory upsert after chat runs
+- one-time per-thread `conversation_summary` memory creation through manual or scheduled maintenance
 - LLM-generated thread summaries for cross-thread recall
 - manual thread-summary consolidation through UI, API, and CLI
 - no local compact transcript fallback; if no summary LLM is available, no summary is created
-- bulk thread-summary refresh through UI, API, and CLI
+- bulk missing thread-summary creation through UI, API, and CLI
 - visible manual memory maintenance through UI, API, and CLI, with per-agent reports and disabled-write skips
 - optional scheduled memory maintenance through UI, API, and CLI, disabled by default
 - per-agent memory write permission through UI, API, and CLI

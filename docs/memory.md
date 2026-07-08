@@ -11,7 +11,7 @@ The memory system lets an agent remember useful information across threads witho
 It supports:
 
 - explicit memories created by the user, UI, CLI, API, or agent tool
-- automatic thread-summary memories after chat runs
+- one-time thread-summary memories created by manual or scheduled maintenance
 - manual and scheduled memory maintenance
 - relevant memory retrieval for future chat runs
 - run-context transparency so the user can inspect what was loaded
@@ -195,11 +195,20 @@ The prompt tells the agent to ask first when the memory is sensitive, ambiguous,
 
 If memory writes are disabled for the agent, `save_memory` is not injected and the prompt explicitly tells the agent not to claim it saved a new memory.
 
-### Automatic Thread Summary Writes
+### Thread Summary Writes
 
-After a successful chat run, if memory writes are enabled for the agent, the backend attempts to create or update a `conversation_summary` memory for that thread.
+Chat runs do not automatically create or update `conversation_summary` memories.
 
-This happens in `AssistantRuntime.runAgent()` through `upsertThreadSummaryMemory()`.
+Summaries are created only through explicit thread-summary consolidation or visible memory maintenance:
+
+- `POST /api/agents/:agentId/threads/:threadId/summary`
+- `POST /api/agents/:agentId/threads/summaries`
+- `POST /api/memories/maintenance`
+- `rdma26 threads:summary`
+- `rdma26 threads:summaries`
+- `rdma26 memories:maintenance`
+
+This happens through `AssistantRuntime.createThreadSummaryMemoryIfMissing()`.
 
 The summary memory:
 
@@ -211,7 +220,7 @@ The summary memory:
 - stores `source.threadId`
 - stores a source note showing which model created the summary
 
-If the thread already has a summary memory, it is updated instead of creating a duplicate.
+If the thread already has a summary memory, the backend returns the existing memory instead of creating a duplicate or regenerating it.
 
 ## Summary Creation
 
@@ -225,7 +234,7 @@ OPENAI_SUMMARY_MODEL
 
 If that is unset, the backend uses the first configured model option.
 
-If no LLM provider or API key is configured, no summary is created. Explicit summary and maintenance calls return an error. Automatic chat runs still complete, but they skip summary creation.
+If no LLM provider or API key is configured, no summary is created. Explicit summary and maintenance calls return an error unless the thread already has a summary memory, in which case the existing summary is returned.
 
 ## How Summaries Are Used In New Threads
 
@@ -254,38 +263,40 @@ flowchart TD
     E --> F["Agent/model creates reply"]
     F --> G["Backend stores assistant reply in thread JSON"]
 
-    G --> H{"Memory writes enabled?"}
-    H -- "No" --> I["No summary update"]
-    H -- "Yes" --> J{"LLM available for summaries?"}
-    J -- "No" --> K["Chat still succeeds; summary skipped"]
-    J -- "Yes" --> L["LLM creates or updates conversation_summary memory"]
-    L --> M["Summary stored as agent memory with source.threadId"]
+    G --> H["No automatic summary write"]
 
-    N["New thread starts"] --> O["User asks a question"]
-    O --> P["Backend searches active memories before model call"]
+    M["Manual or scheduled maintenance"] --> N{"Thread already has a summary?"}
+    N -- "Yes" --> O["Return existing conversation_summary memory"]
+    N -- "No" --> P{"LLM available for summaries?"}
+    P -- "No" --> Q["No summary created; report error"]
+    P -- "Yes" --> R["LLM creates first conversation_summary memory"]
+    R --> S["Summary stored as agent memory with source.threadId"]
 
-    P --> Q["String/token scoring"]
-    P --> R{"Recall-style prompt?"}
-    P --> S{"OpenAI API key available?"}
+    T["New thread starts"] --> U["User asks a question"]
+    U --> V["Backend searches active memories before model call"]
 
-    Q --> T["Match prompt words against memory content, tags, and type"]
-    R -- "Yes" --> U["Boost recent conversation_summary memories"]
-    R -- "No" --> V["No recall boost"]
-    S -- "Yes" --> W["Embedding ranking adds semantic score"]
-    S -- "No" --> X["Use string/recall scores only"]
+    V --> W["String/token scoring"]
+    V --> X{"Recall-style prompt?"}
+    V --> Y{"OpenAI API key available?"}
 
-    T --> Y["Combine scores"]
-    U --> Y
-    V --> Y
-    W --> Y
-    X --> Y
+    W --> Z["Match prompt words against memory content, tags, and type"]
+    X -- "Yes" --> AA["Boost recent conversation_summary memories"]
+    X -- "No" --> AB["No recall boost"]
+    Y -- "Yes" --> AC["Embedding ranking adds semantic score"]
+    Y -- "No" --> AD["Use string/recall scores only"]
 
-    Y --> Z["Sort memories by score and recency"]
-    Z --> AA["Take top relevant memories, currently up to 8"]
-    AA --> AB["Inject selected summaries and memories into prompt"]
-    AB --> AC["Agent answers with retrieved memory context"]
+    Z --> AE["Combine scores"]
+    AA --> AE
+    AB --> AE
+    AC --> AE
+    AD --> AE
 
-    M -. "available for future retrieval" .-> P
+    AE --> AF["Sort memories by score and recency"]
+    AF --> AG["Take top relevant memories, currently up to 8"]
+    AG --> AH["Inject selected summaries and memories into prompt"]
+    AH --> AI["Agent answers with retrieved memory context"]
+
+    S -. "available for future retrieval" .-> V
 ```
 
 ## Manual Maintenance
@@ -311,7 +322,7 @@ UI:
 The response reports:
 
 - each processed agent
-- summaries created or updated
+- summaries created or already existing
 - empty threads that were skipped
 - agents skipped because memory writes are disabled
 
@@ -381,8 +392,7 @@ The flow is:
 7. Inject only the retrieved memory snippets.
 8. Run the agent.
 9. Append the assistant response.
-10. Update the thread-summary memory when memory writes are enabled.
-11. Write a run-context snapshot.
+10. Write a run-context snapshot.
 
 Relevant code:
 
@@ -469,13 +479,11 @@ Each agent profile has:
 When `canWrite` is `true`:
 
 - the agent receives the `save_memory` tool
-- automatic thread-summary memories are written after chat runs
-- manual/scheduled maintenance can update that agent's thread summaries
+- manual/scheduled maintenance can create one thread summary per thread
 
 When `canWrite` is `false`:
 
 - the agent does not receive `save_memory`
-- automatic thread-summary memories are not written
 - memory maintenance skips that agent
 - the prompt tells the agent memory writing is disabled
 
@@ -589,7 +597,7 @@ Available memory setting:
 Chat UI:
 
 - shows a latest run-context link after a run
-- offers per-thread memory summary update controls
+- offers per-thread memory summary creation controls
 
 Run context UI:
 

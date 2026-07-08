@@ -862,7 +862,7 @@ async function startServer(): Promise<void> {
     '/api/agents/:agentId/threads/summaries',
     routeDocs({
       tags: ['threads', 'memories'],
-      summary: 'Create or update memory summaries for multiple threads.',
+      summary: 'Create missing memory summaries for multiple threads.',
       params: agentParamsSchema,
       body: threadSummariesRequestSchema,
     }),
@@ -945,7 +945,7 @@ async function startServer(): Promise<void> {
     '/api/agents/:agentId/threads/:threadId/summary',
     routeDocs({
       tags: ['threads', 'memories'],
-      summary: 'Create or update the memory summary for one thread.',
+      summary: 'Create the memory summary for one thread if missing.',
       params: threadParamsSchema,
       body: threadSummaryRequestSchema,
     }),

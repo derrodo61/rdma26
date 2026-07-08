@@ -177,6 +177,69 @@ describe('AssistantRuntime memory behavior', () => {
     }
   });
 
+  it('returns an existing thread summary without creating a duplicate or calling an LLM', async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-runtime-memory-'));
+    const previousApiKey = process.env['OPENAI_API_KEY'];
+    delete process.env['OPENAI_API_KEY'];
+
+    try {
+      const runtime = new AssistantRuntime({
+        dataDir,
+        defaultAgentId: 'scotty',
+        defaultAgentName: 'Scotty',
+      });
+      await runtime.ensureReady();
+      const thread = await runtime.createThread('scotty', {
+        title: 'Already summarized',
+      });
+      await runtime.runAgent({
+        agentId: 'scotty',
+        threadId: thread.id,
+        model: 'gpt-4.1-mini',
+        prompt: 'This thread already has one summary.',
+      });
+      const existingSummary = await runtime.createMemory({
+        scope: 'agent',
+        agentId: 'scotty',
+        type: 'conversation_summary',
+        content: 'Existing summary content.',
+        tags: ['thread-summary'],
+        source: {
+          agentId: 'scotty',
+          threadId: thread.id,
+        },
+      });
+
+      await expect(runtime.consolidateThreadSummary('scotty', thread.id)).resolves.toMatchObject({
+        agentId: 'scotty',
+        threadId: thread.id,
+        memory: {
+          id: existingSummary.id,
+          content: 'Existing summary content.',
+        },
+      });
+      await expect(
+        runtime.listMemories({
+          agentId: 'scotty',
+          type: 'conversation_summary',
+        }),
+      ).resolves.toMatchObject({
+        memories: [
+          {
+            id: existingSummary.id,
+          },
+        ],
+      });
+    } finally {
+      if (previousApiKey === undefined) {
+        delete process.env['OPENAI_API_KEY'];
+      } else {
+        process.env['OPENAI_API_KEY'] = previousApiKey;
+      }
+      await rm(dataDir, { recursive: true, force: true });
+    }
+  });
+
   it('deletes thread summary memories when a thread is deleted', async () => {
     const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-runtime-memory-'));
 
