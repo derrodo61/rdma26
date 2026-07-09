@@ -156,6 +156,14 @@
         >
           Memories
         </a>
+        <a
+          routerLink="/settings/costs"
+          class="mt-1 flex h-10 items-center rounded-md px-3 text-[0.875rem] font-medium leading-5 text-text-muted hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+          role="menuitem"
+          (click)="settingsMenuClosed.emit()"
+        >
+          Costs
+        </a>
         @if (session()?.authEnabled) {
           <button
             type="button"

@@ -4,7 +4,7 @@ Local-first Angular and Fastify app for rdma26, a personal multi-agent Deep Agen
 
 The backend runs currently on a MacBook and exposes a browser-friendly API for any frontend that can reach it. The first frontend is Angular. Conversations are organized as agent-specific threads, model selection starts with OpenAI model IDs, and each configured agent gets its own stable identity file at `.assistant-data/agents/<agent-id>/configuration/soul.md`.
 
-Agents can also have capabilities and tools assigned dynamically. The recommended internet research capability is `research`, which attaches a Deep Agents researcher subagent when `TAVILY_API_KEY` and `OPENAI_API_KEY` are configured. Lower-level `internet_search` and `read_web_page` tools remain available for specialized or debugging workflows. The protected operator agent is `Scotty` with id `scotty`, a local operator agent with controlled admin tools for managing agents and tool grants.
+Agents can also have capabilities and tools assigned dynamically. The recommended internet research capability is `research`, which attaches a Deep Agents researcher subagent when `TAVILY_API_KEY` and `OPENAI_API_KEY` are configured. Lower-level `internet_search` and `read_web_page` tools remain available for specialized or debugging workflows. The protected operator agent is `Scotty` with id `scotty`, a local operator agent with controlled admin tools for managing agents and tool grants. The internal `cost-analyst` agent uses the same protected tool mechanism for advisory LLM usage and cost optimization.
 
 The project is designed around one shared backend runtime. API endpoints and CLI commands call the same `AssistantRuntime` service, so functionality exposed through the browser is also available from the command line without maintaining a second implementation.
 
@@ -71,7 +71,7 @@ ASSISTANT_AGENT_NAME=Scotty
 
 At runtime the backend loads the configured agent's `configuration/soul.md` and injects it into the generated bootloader prompt. The agent's stable identity, role, personality, and operating principles belong in that `soul.md`, not in hardcoded TypeScript. Arbitrary memories, transient facts, game results, project notes, and conversation history do not belong in `soul.md`.
 
-The built-in protected operator agent has id `scotty` and display name `Scotty`. Scotty receives controlled backend admin tools during chat runs so Rolf can ask him to list agents, create agents, rename agents, delete non-protected agents, read or update agent `soul.md`, list normal tools, and grant or revoke normal tools. These are application tools backed by `AssistantRuntime`, not shell or unrestricted CLI access.
+The built-in protected operator agent has id `scotty` and display name `Scotty`. Scotty receives controlled backend admin tools during chat runs so Rolf can ask him to list agents, create agents, rename agents, delete non-protected agents, read or update agent `soul.md`, list normal tools, and grant or revoke normal tools. These are application tools backed by `AssistantRuntime`, not shell or unrestricted CLI access. The internal `cost-analyst` agent is hidden from normal chat selection and uses protected read/inspection tools for cost optimization advice.
 
 Scotty's local file paths:
 
@@ -97,7 +97,7 @@ Each agent gets isolated threads, history, identity configuration, and Deep Agen
 
 `POST /api/agent-runs` requires `agentId`, so a thread can only be read and continued through the agent it belongs to.
 
-Tool grants are agent-specific too. The agent profile stores `enabledTools`, while the backend registry owns the capability/tool implementation and required secrets. Scotty's admin tools are injected only for the protected operator agent and are not part of the normal tool grant list. To enable internet research for an agent:
+Tool grants are agent-specific too. The agent profile stores `enabledTools`, while the backend registry owns the capability/tool implementation and required secrets. Protected system tools are injected only for protected system agents and are not part of the normal tool grant list. To enable internet research for an agent:
 
 ```bash
 TAVILY_API_KEY=tvly-...

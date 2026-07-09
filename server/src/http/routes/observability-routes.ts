@@ -1,8 +1,17 @@
-import type { CostSummaryRequest, LlmCallListRequest } from '../../../../shared/agent-contracts';
+import type {
+  CostSummaryRequest,
+  LlmCallListRequest,
+  OptimizerRunRequest,
+} from '../../../../shared/agent-contracts';
 import { getErrorMessage } from '../errors';
 import type { RouteRegistrar } from '../route-context';
 import { routeDocs } from '../route-docs';
-import { costSummaryQuerySchema, llmCallListQuerySchema, llmCallParamsSchema } from '../schemas';
+import {
+  costSummaryQuerySchema,
+  llmCallListQuerySchema,
+  llmCallParamsSchema,
+  optimizerRunRequestSchema,
+} from '../schemas';
 
 export const registerObservabilityRoutes: RouteRegistrar = (server, { runtime }) => {
   server.get(
@@ -68,6 +77,26 @@ export const registerObservabilityRoutes: RouteRegistrar = (server, { runtime })
       }
 
       return await runtime.summarizeCosts(query.data satisfies CostSummaryRequest);
+    },
+  );
+
+  server.post(
+    '/api/optimizer-runs',
+    routeDocs({
+      tags: ['observability'],
+      summary: 'Ask the internal Cost Analyst agent to inspect LLM usage and cost data.',
+      body: optimizerRunRequestSchema,
+    }),
+    async (request, reply) => {
+      const body = optimizerRunRequestSchema.safeParse(request.body);
+
+      if (!body.success) {
+        return reply.code(400).send({
+          message: 'A valid optimizer request is required.',
+        });
+      }
+
+      return await runtime.runOptimizer(body.data satisfies OptimizerRunRequest);
     },
   );
 };

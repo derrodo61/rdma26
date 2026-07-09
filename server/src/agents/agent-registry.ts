@@ -16,6 +16,7 @@ import {
   type AssistantStorage,
 } from '../storage/assistant-storage';
 import { LocalDatabase } from '../storage/local-database';
+import { costAnalystAgentId } from './system-agents';
 
 const profileFileName = 'agent.json';
 const soulVirtualPath = '/configuration/soul.md';
@@ -163,14 +164,18 @@ export class AgentRegistry {
   async deleteAgent(agentId: string): Promise<boolean> {
     validateAgentId(agentId);
 
-    if (agentId === this.defaultAgentId) {
-      throw new Error('The protected operator agent cannot be deleted.');
+    if (agentId === this.defaultAgentId || agentId === costAnalystAgentId) {
+      throw new Error('Protected system agents cannot be deleted.');
     }
 
     const existing = await this.readAgent(agentId);
 
     if (!existing) {
       return false;
+    }
+
+    if (existing.kind === 'internal') {
+      throw new Error('Protected system agents cannot be deleted.');
     }
 
     await rm(this.agentDir(agentId), {

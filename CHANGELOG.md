@@ -30,6 +30,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added LLM call listing, single-call inspection, and estimated cost summaries through API and CLI.
 - Added backend-owned per-agent chat model settings and researcher subagent model settings through API, CLI, and the agent edit UI.
 - Added controlled Scotty observability tools for listing LLM calls, summarizing estimated costs, and reading pricing records.
+- Added a cost dashboard for filtering LLM calls, summarizing estimated costs, inspecting recent calls, and managing pricing records.
+- Added the protected internal Cost Analyst agent with API, CLI, and UI access for advisory LLM usage and cost optimization.
 
 ## [2026-07-08]
 

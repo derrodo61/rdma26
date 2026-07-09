@@ -41,8 +41,8 @@ export class AgentSettingsPage {
     this.newAgentName.set(value);
   }
 
-  protected isDefaultAgent(agent: AgentProfile): boolean {
-    return agent.id === this.defaultAgentId();
+  protected isProtectedAgent(agent: AgentProfile): boolean {
+    return agent.id === this.defaultAgentId() || agent.kind === 'internal';
   }
 
   protected async createAgent(): Promise<void> {
@@ -66,8 +66,8 @@ export class AgentSettingsPage {
   }
 
   protected async deleteAgent(agent: AgentProfile): Promise<void> {
-    if (this.isDefaultAgent(agent)) {
-      this.error.set('The protected operator agent cannot be deleted.');
+    if (this.isProtectedAgent(agent)) {
+      this.error.set('Protected system agents cannot be deleted.');
       return;
     }
 

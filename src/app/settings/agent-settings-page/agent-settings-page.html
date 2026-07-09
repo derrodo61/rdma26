@@ -67,8 +67,8 @@
                 <p class="truncate text-sm font-semibold text-text">{{ agent.name }}</p>
                 <p class="mt-1 text-xs text-text-muted">
                   {{ agent.id }}
-                  @if (isDefaultAgent(agent)) {
-                    <span> · Protected operator</span>
+                  @if (isProtectedAgent(agent)) {
+                    <span> · Protected system agent</span>
                   }
                 </p>
               </div>
@@ -83,7 +83,7 @@
               <button
                 type="button"
                 class="h-10 border border-danger-border bg-surface px-3 text-sm font-medium text-danger hover:bg-danger-soft focus:outline-none focus-visible:shadow-[var(--focus-shadow)] disabled:cursor-not-allowed disabled:border-border disabled:text-control-disabled"
-                [disabled]="isDefaultAgent(agent) || isSaving()"
+                [disabled]="isProtectedAgent(agent) || isSaving()"
                 (click)="deleteAgent(agent)"
               >
                 Delete

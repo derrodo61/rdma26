@@ -1,0 +1,430 @@
+<div class="min-h-dvh bg-app-bg text-text">
+  <header class="border-b border-border bg-surface">
+    <div class="flex min-h-16 flex-wrap items-center justify-between gap-4 px-4 py-3 sm:px-6">
+      <div class="min-w-0">
+        <h1 class="truncate text-lg font-semibold">Cost and LLM usage</h1>
+      </div>
+      <a
+        routerLink="/"
+        class="flex h-10 items-center border border-border bg-surface px-3 text-sm font-medium text-text-muted hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+      >
+        Back to chat
+      </a>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+    @if (error(); as currentError) {
+      <p class="mb-4 border border-danger-border bg-danger-soft px-3 py-2 text-sm text-danger">
+        {{ currentError }}
+      </p>
+    }
+
+    @if (savedMessage(); as currentSavedMessage) {
+      <p class="mb-4 border border-accent-border bg-accent-soft px-3 py-2 text-sm text-text">
+        {{ currentSavedMessage }}
+      </p>
+    }
+
+    @if (isLoading()) {
+      <p class="text-sm text-text-muted">Loading cost data...</p>
+    } @else {
+      <section class="grid gap-3 border border-border bg-surface p-4 lg:grid-cols-5">
+        <div class="lg:col-span-1">
+          <span class="mb-1 block text-sm font-medium text-text-muted">Agent</span>
+          <app-select
+            label="Agent"
+            [options]="agentOptions()"
+            [value]="selectedAgentId()"
+            (valueChange)="updateAgent($event)"
+          />
+        </div>
+
+        <div class="lg:col-span-1">
+          <span class="mb-1 block text-sm font-medium text-text-muted">Group by</span>
+          <app-select
+            label="Group by"
+            [options]="groupOptions"
+            [value]="selectedGroupBy()"
+            (valueChange)="updateGroupBy($event)"
+          />
+        </div>
+
+        <div class="lg:col-span-1">
+          <span class="mb-1 block text-sm font-medium text-text-muted">Purpose</span>
+          <app-select
+            label="Purpose"
+            [options]="purposeOptions"
+            [value]="selectedPurpose()"
+            (valueChange)="updatePurpose($event)"
+          />
+        </div>
+
+        <label class="block text-sm font-medium text-text-muted">
+          <span>From</span>
+          <input
+            class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+            [ngModel]="startedFrom()"
+            name="startedFrom"
+            placeholder="2026-07-01"
+            (ngModelChange)="updateStartedFrom($event)"
+          />
+        </label>
+
+        <label class="block text-sm font-medium text-text-muted">
+          <span>To</span>
+          <input
+            class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+            [ngModel]="startedTo()"
+            name="startedTo"
+            placeholder="2026-07-31"
+            (ngModelChange)="updateStartedTo($event)"
+          />
+        </label>
+
+        <div class="flex flex-wrap gap-2 lg:col-span-5">
+          <button
+            type="button"
+            class="h-10 bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-hover focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+            (click)="refresh()"
+          >
+            Refresh
+          </button>
+          <button
+            type="button"
+            class="h-10 border border-border px-4 text-sm font-semibold text-text-muted hover:bg-surface-muted hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+            (click)="clearFilters()"
+          >
+            Clear filters
+          </button>
+        </div>
+      </section>
+
+      <section class="mt-5 grid cost-grid gap-3">
+        <div class="border border-border bg-surface p-4">
+          <p class="text-sm font-medium text-text-muted">LLM calls</p>
+          <p class="mt-2 text-2xl font-semibold">{{ totalCalls() }}</p>
+        </div>
+        <div class="border border-border bg-surface p-4">
+          <p class="text-sm font-medium text-text-muted">Tokens</p>
+          <p class="mt-2 text-2xl font-semibold">{{ totalTokens() }}</p>
+        </div>
+        <div class="border border-border bg-surface p-4">
+          <p class="text-sm font-medium text-text-muted">Estimated cost</p>
+          @if (totalCosts().length) {
+            <ul class="mt-2 space-y-1 text-2xl font-semibold">
+              @for (total of totalCosts(); track total.currency) {
+                <li>{{ total.formatted }}</li>
+              }
+            </ul>
+          } @else {
+            <p class="mt-2 text-sm text-text-muted">No priced calls in this view.</p>
+          }
+        </div>
+      </section>
+
+      <div class="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,28rem)]">
+        <section class="space-y-5">
+          <section class="border border-border bg-surface">
+            <div class="border-b border-border px-4 py-3">
+              <h2 class="text-sm font-semibold text-text-muted">Estimated cost summary</h2>
+            </div>
+            @if (!summaryRows().length) {
+              <p class="p-4 text-sm text-text-muted">No cost rows match the current filters.</p>
+            } @else {
+              <div class="overflow-x-auto">
+                <table class="w-full min-w-[44rem] text-left text-sm">
+                  <thead class="border-b border-border text-xs uppercase text-text-muted">
+                    <tr>
+                      <th class="px-4 py-3 font-semibold">Group</th>
+                      <th class="px-4 py-3 font-semibold">Calls</th>
+                      <th class="px-4 py-3 font-semibold">Input</th>
+                      <th class="px-4 py-3 font-semibold">Output</th>
+                      <th class="px-4 py-3 font-semibold">Total tokens</th>
+                      <th class="px-4 py-3 font-semibold">Estimated cost</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-border">
+                    @for (row of summaryRows(); track row.key + (row.currency ?? '')) {
+                      <tr>
+                        <td class="px-4 py-3 font-medium">{{ row.key }}</td>
+                        <td class="px-4 py-3">{{ row.callCount }}</td>
+                        <td class="px-4 py-3">{{ row.inputTokens }}</td>
+                        <td class="px-4 py-3">{{ row.outputTokens }}</td>
+                        <td class="px-4 py-3">{{ row.totalTokens }}</td>
+                        <td class="px-4 py-3">{{ formatRowCost(row) }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </section>
+
+          <section class="border border-border bg-surface">
+            <div class="border-b border-border px-4 py-3">
+              <h2 class="text-sm font-semibold text-text-muted">Recent LLM calls</h2>
+            </div>
+            @if (!llmCalls().length) {
+              <p class="p-4 text-sm text-text-muted">No LLM calls match the current filters.</p>
+            } @else {
+              <div class="divide-y divide-border">
+                @for (call of llmCalls(); track call.id) {
+                  <article class="p-4">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                      <div class="min-w-0">
+                        <p class="truncate text-sm font-semibold text-text">
+                          {{ call.provider }} / {{ call.model }}
+                        </p>
+                        <p class="mt-1 text-xs text-text-muted">
+                          {{ agentName(call.agentId) }} · {{ call.purpose }} · {{ call.status }}
+                        </p>
+                      </div>
+                      <p class="text-sm font-medium">{{ formatCallCost(call) }}</p>
+                    </div>
+                    <dl class="mt-3 grid gap-3 text-xs sm:grid-cols-4">
+                      <div>
+                        <dt class="text-text-muted">Input</dt>
+                        <dd class="mt-1">{{ call.inputTokens ?? 'not reported' }}</dd>
+                      </div>
+                      <div>
+                        <dt class="text-text-muted">Output</dt>
+                        <dd class="mt-1">{{ call.outputTokens ?? 'not reported' }}</dd>
+                      </div>
+                      <div>
+                        <dt class="text-text-muted">Duration</dt>
+                        <dd class="mt-1">
+                          @if (call.durationMs !== undefined) {
+                            {{ call.durationMs }} ms
+                          } @else {
+                            not reported
+                          }
+                        </dd>
+                      </div>
+                      <div>
+                        <dt class="text-text-muted">Started</dt>
+                        <dd class="mt-1">{{ call.requestStartedAt }}</dd>
+                      </div>
+                    </dl>
+                    @if (call.errorMessage) {
+                      <p class="mt-3 text-xs text-danger">{{ call.errorMessage }}</p>
+                    }
+                  </article>
+                }
+              </div>
+            }
+          </section>
+        </section>
+
+        <aside class="space-y-5">
+          <section class="border border-border bg-surface p-4">
+            <h2 class="text-sm font-semibold text-text-muted">Cost Analyst</h2>
+            <label class="mt-3 block text-sm font-medium text-text-muted">
+              <span>Question</span>
+              <textarea
+                class="mt-1 min-h-28 w-full resize-y border border-border bg-surface px-3 py-2 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                [ngModel]="optimizerPrompt()"
+                name="optimizerPrompt"
+                placeholder="Which agent cost the most this week, and what should I optimize first?"
+                (ngModelChange)="updateOptimizerPrompt($event)"
+              ></textarea>
+            </label>
+            <button
+              type="button"
+              class="mt-3 h-10 bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-hover focus:outline-none focus-visible:shadow-[var(--focus-shadow)] disabled:cursor-not-allowed disabled:bg-control-disabled"
+              [disabled]="!canAskOptimizer()"
+              (click)="askOptimizer()"
+            >
+              Ask Cost Analyst
+            </button>
+
+            @if (optimizerResult(); as result) {
+              <div class="mt-4 border-t border-border pt-4">
+                <p class="text-xs text-text-muted">Run {{ result.runId }}</p>
+                <p class="mt-2 whitespace-pre-wrap text-sm leading-6 text-text">
+                  {{ result.content }}
+                </p>
+              </div>
+            }
+          </section>
+
+          <section class="border border-border bg-surface p-4">
+            <h2 class="text-sm font-semibold text-text-muted">Create pricing record</h2>
+            <div class="mt-3 grid gap-3">
+              <label class="block text-sm font-medium text-text-muted">
+                <span>Provider</span>
+                <input
+                  class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                  [ngModel]="draftProvider()"
+                  name="draftProvider"
+                  (ngModelChange)="updateDraftProvider($event)"
+                />
+              </label>
+              <label class="block text-sm font-medium text-text-muted">
+                <span>Model</span>
+                <input
+                  class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                  [ngModel]="draftModel()"
+                  name="draftModel"
+                  (ngModelChange)="updateDraftModel($event)"
+                />
+              </label>
+              <div class="grid gap-3 sm:grid-cols-2">
+                <label class="block text-sm font-medium text-text-muted">
+                  <span>Input / 1M</span>
+                  <input
+                    class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                    [ngModel]="draftInputCost()"
+                    name="draftInputCost"
+                    inputmode="decimal"
+                    (ngModelChange)="updateDraftInputCost($event)"
+                  />
+                </label>
+                <label class="block text-sm font-medium text-text-muted">
+                  <span>Output / 1M</span>
+                  <input
+                    class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                    [ngModel]="draftOutputCost()"
+                    name="draftOutputCost"
+                    inputmode="decimal"
+                    (ngModelChange)="updateDraftOutputCost($event)"
+                  />
+                </label>
+              </div>
+              <div class="grid gap-3 sm:grid-cols-2">
+                <label class="block text-sm font-medium text-text-muted">
+                  <span>Cached input / 1M</span>
+                  <input
+                    class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                    [ngModel]="draftCachedInputCost()"
+                    name="draftCachedInputCost"
+                    inputmode="decimal"
+                    (ngModelChange)="updateDraftCachedInputCost($event)"
+                  />
+                </label>
+                <label class="block text-sm font-medium text-text-muted">
+                  <span>Reasoning / 1M</span>
+                  <input
+                    class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                    [ngModel]="draftReasoningCost()"
+                    name="draftReasoningCost"
+                    inputmode="decimal"
+                    (ngModelChange)="updateDraftReasoningCost($event)"
+                  />
+                </label>
+              </div>
+              <div class="grid gap-3 sm:grid-cols-2">
+                <label class="block text-sm font-medium text-text-muted">
+                  <span>Currency</span>
+                  <input
+                    class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                    [ngModel]="draftCurrency()"
+                    name="draftCurrency"
+                    (ngModelChange)="updateDraftCurrency($event)"
+                  />
+                </label>
+                <div>
+                  <span class="mb-1 block text-sm font-medium text-text-muted">Status</span>
+                  <app-select
+                    label="Status"
+                    [options]="pricingStatusOptions"
+                    [value]="draftStatus()"
+                    (valueChange)="updateDraftStatus($event)"
+                  />
+                </div>
+              </div>
+              <label class="block text-sm font-medium text-text-muted">
+                <span>Source URL</span>
+                <input
+                  class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                  [ngModel]="draftSourceUrl()"
+                  name="draftSourceUrl"
+                  (ngModelChange)="updateDraftSourceUrl($event)"
+                />
+              </label>
+              <label class="block text-sm font-medium text-text-muted">
+                <span>Source name</span>
+                <input
+                  class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                  [ngModel]="draftSourceName()"
+                  name="draftSourceName"
+                  (ngModelChange)="updateDraftSourceName($event)"
+                />
+              </label>
+              <button
+                type="button"
+                class="h-10 bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-hover focus:outline-none focus-visible:shadow-[var(--focus-shadow)] disabled:cursor-not-allowed disabled:bg-control-disabled"
+                [disabled]="!canCreatePricing()"
+                (click)="createPricing()"
+              >
+                Create pricing
+              </button>
+            </div>
+          </section>
+
+          <section class="border border-border bg-surface">
+            <div class="border-b border-border px-4 py-3">
+              <h2 class="text-sm font-semibold text-text-muted">Pricing records</h2>
+            </div>
+            @if (!pricing().length) {
+              <p class="p-4 text-sm text-text-muted">No pricing records configured yet.</p>
+            } @else {
+              <div class="divide-y divide-border">
+                @for (record of pricing(); track record.id) {
+                  <article class="p-4">
+                    <div class="flex items-start justify-between gap-3">
+                      <div class="min-w-0">
+                        <p class="truncate text-sm font-semibold text-text">
+                          {{ record.provider }} / {{ record.model }}
+                        </p>
+                        <p class="mt-1 text-xs text-text-muted">
+                          {{ record.status }} · {{ record.currency }}
+                        </p>
+                      </div>
+                    </div>
+                    <dl class="mt-3 grid grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <dt class="text-text-muted">Input / 1M</dt>
+                        <dd class="mt-1">{{ record.inputCostPerMillionTokens }}</dd>
+                      </div>
+                      <div>
+                        <dt class="text-text-muted">Output / 1M</dt>
+                        <dd class="mt-1">{{ record.outputCostPerMillionTokens }}</dd>
+                      </div>
+                    </dl>
+                    <a
+                      [href]="record.sourceUrl"
+                      target="_blank"
+                      rel="noreferrer"
+                      class="mt-3 block truncate text-xs text-text-muted underline hover:text-text"
+                    >
+                      {{ record.sourceName || record.sourceUrl }}
+                    </a>
+                    <div class="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        class="h-8 border border-border px-3 text-xs font-semibold text-text-muted hover:bg-surface-muted hover:text-text disabled:cursor-not-allowed disabled:text-control-disabled"
+                        [disabled]="record.status === 'active' || isSaving()"
+                        (click)="activatePricing(record)"
+                      >
+                        Activate
+                      </button>
+                      <button
+                        type="button"
+                        class="h-8 border border-border px-3 text-xs font-semibold text-text-muted hover:bg-surface-muted hover:text-text disabled:cursor-not-allowed disabled:text-control-disabled"
+                        [disabled]="record.status === 'superseded' || isSaving()"
+                        (click)="supersedePricing(record)"
+                      >
+                        Supersede
+                      </button>
+                    </div>
+                  </article>
+                }
+              </div>
+            }
+          </section>
+        </aside>
+      </div>
+    }
+  </main>
+</div>

@@ -277,6 +277,15 @@ async function main(): Promise<void> {
       printJson(result);
       return;
     }
+    case 'optimizer:ask':
+      printJson(
+        await runtime.runOptimizer({
+          prompt: requiredOption(options, 'prompt'),
+          model: options['model'],
+          title: options['title'],
+        }),
+      );
+      return;
     case 'runs:context':
       printJson(await runtime.readRunContext(requiredOption(options, 'run')));
       return;
@@ -735,6 +744,7 @@ Usage:
   rdma26 threads:summary --agent scotty --thread <thread-id>
   rdma26 threads:summaries --agent scotty --limit 25
   rdma26 chat:send --agent scotty --thread <thread-id> --model gpt-4.1-mini --prompt "Hello"
+  rdma26 optimizer:ask --prompt "Which agent cost the most this week?"
   rdma26 runs:context --run <run-id>
   rdma26 llm-calls:list --agent scotty --limit 20
   rdma26 llm-calls:show --call <call-id>

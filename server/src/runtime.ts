@@ -33,6 +33,8 @@ import type {
   ModelPricingListResponse,
   ModelPricingRecord,
   ModelsResponse,
+  OptimizerRunRequest,
+  OptimizerRunResponse,
   RunContextDetails,
   ThreadSummaryRequest,
   ThreadSummaryResponse,
@@ -50,6 +52,11 @@ import type {
 } from '../../shared/agent-contracts';
 import { readAuthConfig } from './auth';
 import { AgentRegistry, validateAgentId } from './agents/agent-registry';
+import {
+  costAnalystAgentId,
+  costAnalystAgentName,
+  isSystemOperatorAgent,
+} from './agents/system-agents';
 import { listAdminToolDefinitions } from './capabilities/admin-tools';
 import { CapabilityRegistry } from './capabilities/capability-registry';
 import { ChatRunService, type RunAgentOptions, type RunAgentResult } from './chat/chat-run-service';
@@ -114,6 +121,13 @@ export class AssistantRuntime {
 
   async ensureReady(): Promise<void> {
     await this.registry.ensureReady();
+    await this.registry.ensureAgent({
+      id: costAnalystAgentId,
+      name: costAnalystAgentName,
+      kind: 'internal',
+      chatEnabled: false,
+    });
+    await (await this.registry.storageFor(costAnalystAgentId)).ensureReady();
     await this.userProfileStore.ensureReady();
     await this.memoryStore.ensureReady();
     await this.memoryMaintenanceSettingsStore.ensureReady();
@@ -444,6 +458,26 @@ export class AssistantRuntime {
     return await this.chatRuns.runAgent(request, options);
   }
 
+  async runOptimizer(request: OptimizerRunRequest): Promise<OptimizerRunResponse> {
+    const agent = await this.readAgent(costAnalystAgentId);
+    const thread = await this.createThread(agent.id, {
+      title: request.title ?? 'Cost optimization',
+    });
+    const result = await this.runAgent({
+      agentId: agent.id,
+      threadId: thread.id,
+      model: request.model ?? agent.models.chat ?? this.modelsResponse().defaultModel,
+      prompt: request.prompt,
+    });
+
+    return {
+      runId: result.runId,
+      thread: result.thread,
+      runContext: result.runContext,
+      content: result.agentResponse.content,
+    };
+  }
+
   private async withLlmCalls(context: RunContextDetails): Promise<RunContextDetails> {
     return {
       ...context,
@@ -462,7 +496,9 @@ export class AssistantRuntime {
   }
 
   controlledToolsFor(agentId: string) {
-    return agentId === this.getDefaultAgentId() ? listAdminToolDefinitions() : [];
+    return isSystemOperatorAgent(agentId, this.getDefaultAgentId())
+      ? listAdminToolDefinitions()
+      : [];
   }
 }
 

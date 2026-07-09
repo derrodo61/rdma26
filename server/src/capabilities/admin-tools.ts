@@ -182,7 +182,7 @@ export function createAdminTools(runtime: AssistantRuntime): readonly Structured
   return [
     tool(async () => await runtime.agentsResponse(), {
       name: 'admin_list_agents',
-      description: 'List all configured agents. Only available to the protected operator agent.',
+      description: 'List all configured agents. Only available to protected system agents.',
       schema: z.object({}),
     }),
     tool(
@@ -236,7 +236,7 @@ export function createAdminTools(runtime: AssistantRuntime): readonly Structured
     tool(async ({ agentId }: { agentId: string }) => await runtime.deleteAgent(agentId), {
       name: 'admin_delete_agent',
       description:
-        'Delete an agent and all related data. The protected operator agent cannot be deleted.',
+        'Delete an agent and all related data. Protected system agents cannot be deleted.',
       schema: z.object({
         agentId: z.string().trim().min(1).describe('Agent id to delete.'),
       }),

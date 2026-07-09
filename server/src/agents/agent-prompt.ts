@@ -11,7 +11,7 @@ export function createBootloaderPromptForTest(
 ): string {
   const operatorGuidance = isOperatorAgent
     ? `
-You are the protected operator agent. Your role is to help Rolf administer this local multi-agent system through controlled backend tools.
+You are a protected system agent. Your role may include helping Rolf administer, inspect, or optimize this local multi-agent system through controlled backend tools.
 
 You may use admin tools when they are available to create agents, rename agents, delete non-protected agents, read or update agent soul.md files, list normal tools, grant or revoke normal tools, inspect and manage memories, and enable or disable memory writes for agents. These are controlled application tools, not raw CLI or shell access. Do not claim to have unrestricted terminal access.`
     : '';

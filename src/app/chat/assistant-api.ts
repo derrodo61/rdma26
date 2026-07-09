@@ -12,12 +12,17 @@ import type {
   AuthSessionResponse,
   ChatThread,
   ChatThreadSummary,
+  CostSummaryRequest,
+  CostSummaryResponse,
   CreateAgentRequest,
   CreateMemoryRequest,
+  CreateModelPricingRequest,
   DeleteAgentResponse,
   DeleteMemoryResponse,
   DeleteThreadResponse,
   HealthResponse,
+  LlmCallListRequest,
+  LlmCallListResponse,
   MemoryMaintenanceRequest,
   MemoryMaintenanceResponse,
   MemoryMaintenanceSettings,
@@ -25,6 +30,11 @@ import type {
   MemoryListResponse,
   MemoryRecord,
   ModelsResponse,
+  ModelPricingListRequest,
+  ModelPricingListResponse,
+  ModelPricingRecord,
+  OptimizerRunRequest,
+  OptimizerRunResponse,
   RunContextDetails,
   ThreadSummaryRequest,
   ThreadSummaryResponse,
@@ -36,6 +46,7 @@ import type {
   UpdateMemoryRequest,
   UpdateAgentSoulRequest,
   UpdateAgentToolsRequest,
+  UpdateModelPricingRequest,
   UpdateUserProfileRequest,
   UserProfile,
 } from '../../../shared/agent-contracts';
@@ -70,14 +81,53 @@ export class AssistantApi {
     return await firstValueFrom(this.http.get<ToolsResponse>('/api/tools'));
   }
 
-  async memories(request: MemoryListRequest = {}): Promise<MemoryListResponse> {
-    const params = Object.fromEntries(
-      Object.entries(request)
-        .filter((entry): entry is [string, string | number] => entry[1] !== undefined)
-        .map(([key, value]) => [key, String(value)]),
+  async llmCalls(request: LlmCallListRequest = {}): Promise<LlmCallListResponse> {
+    return await firstValueFrom(
+      this.http.get<LlmCallListResponse>('/api/llm-calls', {
+        params: toHttpParams(request),
+      }),
     );
+  }
 
-    return await firstValueFrom(this.http.get<MemoryListResponse>('/api/memories', { params }));
+  async costSummary(request: CostSummaryRequest = {}): Promise<CostSummaryResponse> {
+    return await firstValueFrom(
+      this.http.get<CostSummaryResponse>('/api/costs/summary', {
+        params: toHttpParams(request),
+      }),
+    );
+  }
+
+  async modelPricing(request: ModelPricingListRequest = {}): Promise<ModelPricingListResponse> {
+    return await firstValueFrom(
+      this.http.get<ModelPricingListResponse>('/api/model-pricing', {
+        params: toHttpParams(request),
+      }),
+    );
+  }
+
+  async createModelPricing(request: CreateModelPricingRequest): Promise<ModelPricingRecord> {
+    return await firstValueFrom(this.http.post<ModelPricingRecord>('/api/model-pricing', request));
+  }
+
+  async updateModelPricing(
+    pricingId: string,
+    request: UpdateModelPricingRequest,
+  ): Promise<ModelPricingRecord> {
+    return await firstValueFrom(
+      this.http.patch<ModelPricingRecord>(`/api/model-pricing/${pricingId}`, request),
+    );
+  }
+
+  async runOptimizer(request: OptimizerRunRequest): Promise<OptimizerRunResponse> {
+    return await firstValueFrom(
+      this.http.post<OptimizerRunResponse>('/api/optimizer-runs', request),
+    );
+  }
+
+  async memories(request: MemoryListRequest = {}): Promise<MemoryListResponse> {
+    return await firstValueFrom(
+      this.http.get<MemoryListResponse>('/api/memories', { params: toHttpParams(request) }),
+    );
   }
 
   async createMemory(request: CreateMemoryRequest): Promise<MemoryRecord> {
@@ -270,6 +320,14 @@ export class AssistantApi {
       }
     }
   }
+}
+
+function toHttpParams<TRequest extends object>(request: TRequest): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(request)
+      .filter((entry): entry is [string, string | number | boolean] => entry[1] !== undefined)
+      .map(([key, value]) => [key, String(value)]),
+  );
 }
 
 function parseServerSentEvent(part: string): AgentRunEvent | null {

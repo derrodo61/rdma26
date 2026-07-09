@@ -135,7 +135,7 @@ Returns registered tools and their availability.
 - `internet_search` is a low-level Tavily search primitive and is available when `TAVILY_API_KEY` is configured.
 - `read_web_page` is a low-level public web page reader.
 
-The protected operator agent, `scotty`, also receives controlled admin tools during chat runs for managing agents, `soul.md`, and normal tool grants. Those admin tools are injected by the backend only for the protected operator agent and are not part of the normal assignable tool catalog returned here.
+Protected system agents such as `scotty` and the internal `cost-analyst` also receive controlled admin tools during chat runs for managing agents, `soul.md`, normal tool grants, memory, and observability data. Those admin tools are injected by the backend only for protected system agents and are not part of the normal assignable tool catalog returned here.
 
 ## Observability
 
@@ -173,6 +173,22 @@ Optional query parameters:
 - `purpose`
 - `status`
 - `startedFrom` and `startedTo`
+
+### `POST /api/optimizer-runs`
+
+Creates a hidden internal Cost Analyst thread and asks the protected optimization agent to inspect local LLM usage, pricing, run context, and model settings.
+
+Body:
+
+```json
+{
+  "prompt": "Which agent cost the most this week, and what should I optimize first?",
+  "title": "Cost dashboard",
+  "model": "gpt-4.1-mini"
+}
+```
+
+`prompt` is required. `title` and `model` are optional. The response includes the optimizer run id, thread, run context, and answer content.
 
 ## Memories
 
@@ -344,7 +360,7 @@ Replaces the agent's `configuration/soul.md` content. Use this file for stable i
 
 ### `DELETE /api/agents/:agentId`
 
-Deletes an agent and all related threads and Deep Agents data. The protected operator agent cannot be deleted.
+Deletes an agent and all related threads and Deep Agents data. Protected system agents cannot be deleted.
 
 The built-in protected operator agent has id `scotty` and display name `Scotty`.
 

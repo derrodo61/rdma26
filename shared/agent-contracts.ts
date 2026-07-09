@@ -40,6 +40,19 @@ export interface AgentRunRequest {
   readonly model?: string;
 }
 
+export interface OptimizerRunRequest {
+  readonly prompt: string;
+  readonly model?: string;
+  readonly title?: string;
+}
+
+export interface OptimizerRunResponse {
+  readonly runId: string;
+  readonly thread: ChatThread;
+  readonly runContext: RunContextDetails;
+  readonly content: string;
+}
+
 export type AgentKind = 'chat' | 'operator' | 'internal';
 
 export interface AgentProfile {

@@ -73,7 +73,7 @@ Use `--content "..."` instead of `--file` for short inline updates.
 rdma26 agents:delete --agent research
 ```
 
-The protected operator agent cannot be deleted.
+Protected system agents cannot be deleted.
 
 ## Profile
 
@@ -174,6 +174,19 @@ rdma26 costs:summary --started-from 2026-07-01 --group-by model
 
 `--group-by` supports `day`, `agent`, `model`, and `purpose`. The same filters as `llm-calls:list` are available, except `--run` and `--limit`.
 
+### Ask the Cost Analyst
+
+```bash
+rdma26 optimizer:ask --prompt "Which agent cost the most this week, and what should I optimize first?"
+```
+
+Optional flags:
+
+- `--title "Cost review"`
+- `--model gpt-4.1-mini`
+
+This uses the same internal optimizer runtime as the API. The Cost Analyst can inspect local LLM call records, pricing records, run context, and model settings through protected tools, but it only gives advice unless the user explicitly approves a change.
+
 ## Memories
 
 ### List or search memories
@@ -265,7 +278,7 @@ rdma26 tools:list
 rdma26 agents:tools --agent research
 ```
 
-For the protected operator agent, the response also includes `controlledTools`, which are read-only admin capabilities injected by the backend.
+For protected system agents, the response also includes `controlledTools`, which are controlled admin and inspection capabilities injected by the backend.
 
 ### Replace an agent's enabled tools
 

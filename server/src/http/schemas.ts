@@ -144,6 +144,12 @@ export const agentRunRequestSchema = z.object({
   model: z.string().trim().min(1).optional(),
 });
 
+export const optimizerRunRequestSchema = z.object({
+  prompt: z.string().trim().min(1),
+  model: z.string().trim().min(1).optional(),
+  title: z.string().trim().min(1).optional(),
+});
+
 export const loginRequestSchema = z.object({
   username: z.string().trim().min(1),
   password: z.string().min(1),

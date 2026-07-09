@@ -10,6 +10,7 @@ import type {
 } from '../../../shared/agent-contracts';
 import type { AgentRegistry } from '../agents/agent-registry';
 import { PersonalAgent, type PersonalAgentResponse } from '../agents/personal-agent';
+import { isSystemOperatorAgent } from '../agents/system-agents';
 import { createAdminTools, listAdminToolDefinitions } from '../capabilities/admin-tools';
 import type { CapabilityRegistry } from '../capabilities/capability-registry';
 import { createMemoryTools } from '../capabilities/memory-tools';
@@ -65,7 +66,7 @@ export class ChatRunService {
       agentModels: storage.agent.models,
       tools,
       enabledToolIds: storage.agent.enabledTools,
-      isOperatorAgent: storage.agent.id === this.registry.getDefaultAgentId(),
+      isOperatorAgent: isSystemOperatorAgent(storage.agent.id, this.registry.getDefaultAgentId()),
       userProfile,
       soulContent,
       memories: memories.map((memory) => memory.memory),
@@ -117,11 +118,15 @@ export class ChatRunService {
   }
 
   private adminToolsFor(agentId: string): readonly StructuredToolInterface[] {
-    return agentId === this.registry.getDefaultAgentId() ? createAdminTools(this.runtime) : [];
+    return isSystemOperatorAgent(agentId, this.registry.getDefaultAgentId())
+      ? createAdminTools(this.runtime)
+      : [];
   }
 
   private controlledToolsFor(agentId: string) {
-    return agentId === this.registry.getDefaultAgentId() ? listAdminToolDefinitions() : [];
+    return isSystemOperatorAgent(agentId, this.registry.getDefaultAgentId())
+      ? listAdminToolDefinitions()
+      : [];
   }
 
   private runContextToolsFor(

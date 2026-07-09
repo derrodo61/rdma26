@@ -35,6 +35,13 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'settings/costs',
+    loadComponent: () =>
+      import('./settings/cost-settings-page/cost-settings-page').then(
+        (module) => module.CostSettingsPage,
+      ),
+  },
+  {
     path: 'settings/runs/:runId',
     loadComponent: () =>
       import('./settings/run-context-page/run-context-page').then(
