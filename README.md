@@ -71,7 +71,7 @@ ASSISTANT_AGENT_NAME=Scotty
 
 At runtime the backend loads the configured agent's `configuration/soul.md` and injects it into the generated bootloader prompt. The agent's stable identity, role, personality, and operating principles belong in that `soul.md`, not in hardcoded TypeScript. Arbitrary memories, transient facts, game results, project notes, and conversation history do not belong in `soul.md`.
 
-The built-in protected operator agent has id `scotty` and display name `Scotty`. Scotty receives controlled backend admin tools during chat runs so Rolf can ask him to list agents, create agents, rename agents, delete non-protected agents, read or update agent `soul.md`, list normal tools, and grant or revoke normal tools. These are application tools backed by `AssistantRuntime`, not shell or unrestricted CLI access. The internal `cost-analyst` agent is hidden from normal chat selection and uses protected read/inspection tools for cost optimization advice.
+The built-in protected operator agent has id `scotty` and display name `Scotty`. Scotty receives controlled backend admin tools during chat runs so Rolf can ask him to list agents, create agents, rename agents, delete non-protected agents, read or update agent `soul.md`, list normal tools, and grant or revoke normal tools. These are application tools backed by `AssistantRuntime`, not shell or unrestricted CLI access. The internal `cost-analyst` agent is hidden from normal chat selection and uses protected tools for cost optimization advice, pricing inspection, and unverified pricing proposals. Pricing activation still requires explicit approval.
 
 Scotty's local file paths:
 

@@ -176,7 +176,7 @@ Optional query parameters:
 
 ### `POST /api/optimizer-runs`
 
-Creates a hidden internal Cost Analyst thread and asks the protected optimization agent to inspect local LLM usage, pricing, run context, and model settings.
+Creates a hidden internal Cost Analyst thread and asks the protected optimization agent to inspect local LLM usage, pricing, run context, and model settings. The Cost Analyst has the `research` capability and can create unverified pricing proposals from provider sources, but active pricing changes still require explicit approval.
 
 Body:
 

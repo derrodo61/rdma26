@@ -185,7 +185,7 @@ Optional flags:
 - `--title "Cost review"`
 - `--model gpt-4.1-mini`
 
-This uses the same internal optimizer runtime as the API. The Cost Analyst can inspect local LLM call records, pricing records, run context, and model settings through protected tools, but it only gives advice unless the user explicitly approves a change.
+This uses the same internal optimizer runtime as the API. The Cost Analyst can inspect local LLM call records, pricing records, run context, and model settings through protected tools. It can also research provider pricing and create unverified pricing proposals, but it only activates or replaces active pricing when the user explicitly approves the change.
 
 ## Memories
 

@@ -2,14 +2,16 @@ import { tool, type StructuredToolInterface } from '@langchain/core/tools';
 import { z } from 'zod';
 
 import type {
-  CreateMemoryRequest,
   CostSummaryGroupBy,
+  CreateMemoryRequest,
+  CreateModelPricingRequest,
   LlmCallPurpose,
   LlmCallStatus,
   MemoryLifetime,
   MemoryScope,
   MemoryStatus,
   MemoryType,
+  ModelPricingStatus,
   ToolDefinition,
 } from '../../../shared/agent-contracts';
 import type { AssistantRuntime } from '../runtime';
@@ -37,6 +39,7 @@ const llmCallPurposeSchema = z.enum([
 ]);
 const llmCallStatusSchema = z.enum(['success', 'error', 'cancelled']);
 const costSummaryGroupBySchema = z.enum(['day', 'agent', 'model', 'purpose']);
+const modelPricingStatusSchema = z.enum(['active', 'superseded', 'unverified']);
 
 const adminToolDefinitions: readonly ToolDefinition[] = [
   {
@@ -169,6 +172,20 @@ const adminToolDefinitions: readonly ToolDefinition[] = [
     id: 'admin_list_model_pricing',
     label: 'List pricing',
     description: 'List configured model pricing records used for estimated costs.',
+    provider: 'rdma26-admin',
+    available: true,
+  },
+  {
+    id: 'admin_create_model_pricing',
+    label: 'Create pricing',
+    description: 'Create an unverified model pricing record from a researched source.',
+    provider: 'rdma26-admin',
+    available: true,
+  },
+  {
+    id: 'admin_update_model_pricing',
+    label: 'Update pricing',
+    description: 'Activate, supersede, or annotate a model pricing record after approval.',
     provider: 'rdma26-admin',
     available: true,
   },
@@ -490,6 +507,92 @@ export function createAdminTools(runtime: AssistantRuntime): readonly Structured
         }),
       },
     ),
+    tool(
+      async (input: AdminCreateModelPricingInput) =>
+        await runtime.createModelPricing({
+          ...input,
+          status: 'unverified',
+        }),
+      {
+        name: 'admin_create_model_pricing',
+        description:
+          'Create an unverified model pricing proposal after researching a trustworthy source. Prefer official provider pricing pages. This does not activate the price.',
+        schema: z.object({
+          provider: z.string().trim().min(1).describe('Provider id, such as openai.'),
+          model: z.string().trim().min(1).describe('Exact model id.'),
+          inputCostPerMillionTokens: z
+            .number()
+            .min(0)
+            .describe('Input token cost per 1 million tokens.'),
+          outputCostPerMillionTokens: z
+            .number()
+            .min(0)
+            .describe('Output token cost per 1 million tokens.'),
+          cachedInputCostPerMillionTokens: z
+            .number()
+            .min(0)
+            .optional()
+            .describe('Cached input token cost per 1 million tokens when the provider lists it.'),
+          reasoningCostPerMillionTokens: z
+            .number()
+            .min(0)
+            .optional()
+            .describe('Reasoning token cost per 1 million tokens when the provider lists it.'),
+          currency: z.string().trim().min(1).default('USD').describe('Pricing currency.'),
+          sourceUrl: z.string().url().describe('Source URL used for the pricing record.'),
+          sourceName: z.string().trim().min(1).optional().describe('Human-readable source name.'),
+          sourceRetrievedAt: z
+            .string()
+            .trim()
+            .min(1)
+            .optional()
+            .describe('ISO timestamp or date when the source was retrieved.'),
+          validFrom: z
+            .string()
+            .trim()
+            .min(1)
+            .optional()
+            .describe('Optional date/time when this pricing became valid.'),
+          validUntil: z
+            .string()
+            .trim()
+            .min(1)
+            .optional()
+            .describe('Optional date/time when this pricing stops being valid.'),
+          notes: z.string().trim().min(1).optional().describe('Short evidence or caveat note.'),
+        }),
+      },
+    ),
+    tool(
+      async ({ pricingId, status, validUntil, notes, confirm }: AdminUpdateModelPricingInput) => {
+        if (!confirm) {
+          throw new Error('Pricing status changes require confirm=true after explicit approval.');
+        }
+
+        return await runtime.updateModelPricing(pricingId, {
+          status,
+          validUntil,
+          notes,
+        });
+      },
+      {
+        name: 'admin_update_model_pricing',
+        description:
+          'Activate, supersede, or annotate a pricing record. Only use after the user explicitly approves this pricing change.',
+        schema: z.object({
+          pricingId: z.string().uuid().describe('Pricing record id.'),
+          status: modelPricingStatusSchema.describe('New pricing status.'),
+          validUntil: z
+            .string()
+            .trim()
+            .min(1)
+            .optional()
+            .describe('Optional date/time when superseded pricing stopped being valid.'),
+          notes: z.string().trim().min(1).optional().describe('Optional update note.'),
+          confirm: z.literal(true).describe('Must be true after explicit user approval.'),
+        }),
+      },
+    ),
   ];
 }
 
@@ -536,5 +639,20 @@ interface AdminSummarizeCostsInput extends Omit<AdminListLlmCallsInput, 'limit'>
 interface AdminListModelPricingInput {
   readonly provider?: string;
   readonly model?: string;
-  readonly status?: 'active' | 'superseded' | 'unverified';
+  readonly status?: ModelPricingStatus;
+}
+
+interface AdminCreateModelPricingInput extends Omit<
+  CreateModelPricingRequest,
+  'status' | 'currency'
+> {
+  readonly currency: string;
+}
+
+interface AdminUpdateModelPricingInput {
+  readonly pricingId: string;
+  readonly status: ModelPricingStatus;
+  readonly validUntil?: string;
+  readonly notes?: string;
+  readonly confirm: true;
 }

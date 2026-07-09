@@ -53,6 +53,7 @@ import type {
 import { readAuthConfig } from './auth';
 import { AgentRegistry, validateAgentId } from './agents/agent-registry';
 import {
+  costAnalystDefaultEnabledTools,
   costAnalystAgentId,
   costAnalystAgentName,
   isSystemOperatorAgent,
@@ -121,13 +122,26 @@ export class AssistantRuntime {
 
   async ensureReady(): Promise<void> {
     await this.registry.ensureReady();
-    await this.registry.ensureAgent({
+    const costAnalyst = await this.registry.ensureAgent({
       id: costAnalystAgentId,
       name: costAnalystAgentName,
       kind: 'internal',
       chatEnabled: false,
     });
-    await (await this.registry.storageFor(costAnalystAgentId)).ensureReady();
+    const costAnalystTools = new Set([
+      ...costAnalyst.enabledTools,
+      ...costAnalystDefaultEnabledTools,
+    ]);
+
+    if (costAnalystTools.size !== costAnalyst.enabledTools.length) {
+      await this.registry.updateAgentTools(costAnalystAgentId, {
+        enabledTools: Array.from(costAnalystTools),
+      });
+    }
+
+    const costAnalystStorage = await this.registry.storageFor(costAnalystAgentId);
+    await costAnalystStorage.ensureReady();
+    await this.ensureCostAnalystSoulSupportsPricingMaintenance(costAnalystStorage);
     await this.userProfileStore.ensureReady();
     await this.memoryStore.ensureReady();
     await this.memoryMaintenanceSettingsStore.ensureReady();
@@ -493,6 +507,26 @@ export class AssistantRuntime {
     validateAgentId(agentId);
 
     return await this.registry.storageFor(agentId);
+  }
+
+  private async ensureCostAnalystSoulSupportsPricingMaintenance(
+    storage: Awaited<ReturnType<AgentRegistry['storageFor']>>,
+  ): Promise<void> {
+    const soulContent = await storage.readSoul();
+
+    if (soulContent.includes('## Pricing maintenance')) {
+      return;
+    }
+
+    await storage.writeSoul(`${soulContent.trim()}
+
+## Pricing maintenance
+
+- Use research when the user asks you to find current provider prices.
+- Prefer official provider pricing pages and include source URL, source name, and retrieval date.
+- You may create unverified model pricing records when the user asks you to store researched prices.
+- Do not activate, supersede, or replace active pricing unless the user explicitly approves that specific change.
+`);
   }
 
   controlledToolsFor(agentId: string) {
