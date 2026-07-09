@@ -178,7 +178,50 @@ The existing run-context inspector already stores many useful parts. The observa
 - subagent name when applicable
 - context token estimate if available
 
-The first implementation does not need to store the full raw prompt for every internal call if that becomes too large or sensitive. It should at least store structured references plus token counts. Full prompt capture can be a debug setting.
+By default, LLM call records should store structured context references, not the full prompt payload.
+
+Example:
+
+```json
+{
+  "llmCallId": "call-123",
+  "contextItems": [
+    {
+      "type": "soul",
+      "agentId": "ronaldo",
+      "path": "configuration/soul.md",
+      "contentHash": "..."
+    },
+    { "type": "user_profile", "profileVersion": "2026-07-09T12:00:00.000Z" },
+    { "type": "memory", "memoryId": "mem-1", "tokens": 120 },
+    { "type": "message", "messageId": "msg-1", "tokens": 42 },
+    { "type": "tool_schema", "toolId": "research", "tokens": 300 }
+  ]
+}
+```
+
+Structured references make it possible to inspect what shaped a model call without duplicating sensitive text into every accounting record. They also make cost optimization easier because the app can show how many tokens came from memories, thread history, tool schemas, profile data, and agent identity.
+
+Full prompt capture should exist, but only as an explicit local debug setting. When enabled, the system may store the exact raw prompt or message payload sent to the provider in addition to the structured references.
+
+Full prompt capture must be:
+
+- off by default
+- clearly marked as sensitive
+- local-only
+- visible in settings
+- easy to disable
+- easy to purge
+
+This gives two modes:
+
+```text
+normal mode:
+  structured context references + token counts
+
+debug prompt-capture mode:
+  structured context references + token counts + exact full prompt payload
+```
 
 ## Storage
 
@@ -456,17 +499,6 @@ This gives:
 - Later, let it propose pricing updates based on official pricing pages.
 
 ## Open Questions
-
-### Should full prompts be stored?
-
-Full prompts are useful for debugging and optimization, but can contain sensitive user data and can grow large.
-
-Options:
-
-- never store full prompts
-- store only context item references and token counts
-- store full prompts only when debug mode is enabled
-- store full prompts for local-only operator users
 
 ### How exact should cost calculations be?
 

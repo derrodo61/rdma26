@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Decided that all backend LLM calls should go through one accounting-aware model factory so parent-agent and subagent requests can be measured consistently.
 - Added the accounting-aware model factory rule to the repository instructions for future agents, subagents, tools, summaries, and maintenance jobs.
 - Decided that model settings should be backend-owned, live-editable through UI/API/CLI, and layered as global defaults plus per-agent and per-capability overrides.
+- Decided that LLM context inspection should store structured context references by default, with exact full prompt capture available only through an explicit local debug setting and purge support.
 
 ## [2026-07-08]
 
