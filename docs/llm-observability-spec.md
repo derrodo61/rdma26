@@ -329,6 +329,12 @@ Failed LLM calls should still be logged with `status: 'error'`. If provider usag
 
 ## UI Surfaces
 
+Estimated cost should not be shown inline in normal chat by default.
+
+Normal chat should stay focused on the conversation. Most individual message costs are small, and always-visible cost labels would add noise. Detailed cost belongs in inspection and dashboard surfaces.
+
+The app can add an optional compact per-message cost indicator later for users who want constant visibility, but it should be off by default.
+
 ### Run Context Page
 
 The run-context page should show:
@@ -561,15 +567,6 @@ This gives:
 - Later, let it propose pricing updates based on official pricing pages.
 
 ## Open Questions
-
-### Should cost be visible in normal chat?
-
-Possibilities:
-
-- only in run inspector
-- small cost indicator under each assistant message
-- dashboard only
-- configurable visibility
 
 ### Should optimization ever happen automatically?
 

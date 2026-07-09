@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Decided that pricing updates should use unverified proposals and explicit user approval before changing active cost calculations.
 - Decided that LLM call records should be retained indefinitely by default, with manual cleanup controls and separate full-prompt payload purging.
 - Decided that failed LLM calls should be logged, with estimated cost calculated only when usage metadata is available.
+- Decided that estimated cost should not be shown inline in normal chat by default, with detailed cost shown in run inspection and dashboards instead.
 
 ## [2026-07-08]
 
