@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Decided that LLM call records should be retained indefinitely by default, with manual cleanup controls and separate full-prompt payload purging.
 - Decided that failed LLM calls should be logged, with estimated cost calculated only when usage metadata is available.
 - Decided that estimated cost should not be shown inline in normal chat by default, with detailed cost shown in run inspection and dashboards instead.
+- Decided that LLM cost optimization should be advisory by default and require explicit user approval before applying model, context, tool, or pricing changes.
 
 ## [2026-07-08]
 

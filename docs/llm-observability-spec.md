@@ -452,6 +452,28 @@ It should not:
 - delete accounting data
 - send usage data to external services unless the user explicitly permits it
 
+Optimization must be advisory by default.
+
+The system and future optimization agent may:
+
+- detect expensive runs
+- explain why a run was expensive
+- compare model usage and estimated cost
+- suggest cheaper model choices
+- suggest context-window reductions
+- suggest different summary, maintenance, or research models
+- draft configuration changes
+
+But applying changes requires explicit user approval through UI, CLI, or API. The default optimization flow is:
+
+```text
+observe -> analyze -> suggest -> user approves -> apply
+```
+
+The system must not silently change agent chat models, research models, summary models, maintenance models, enabled tools, context selection rules, or pricing records.
+
+Automatic optimization can be reconsidered later only as an explicit opt-in mode with clear boundaries, visible change history, and rollback.
+
 ## Model Call Interception
 
 All backend LLM instances should be created through one central accounting-aware model factory or model registry.
@@ -565,9 +587,3 @@ This gives:
 - Add an internal agent that can inspect LLM calls, pricing, and settings.
 - Let it answer cost and optimization questions.
 - Later, let it propose pricing updates based on official pricing pages.
-
-## Open Questions
-
-### Should optimization ever happen automatically?
-
-The first answer should probably be no. The system can suggest cheaper model choices, but changing model configuration should require user approval.
