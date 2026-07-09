@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added an LLM observability and cost-control specification covering call accounting, pricing records, cost estimates, model configuration, dashboards, and a future optimization agent.
 - Decided that all backend LLM calls should go through one accounting-aware model factory so parent-agent and subagent requests can be measured consistently.
 - Added the accounting-aware model factory rule to the repository instructions for future agents, subagents, tools, summaries, and maintenance jobs.
+- Decided that model settings should be backend-owned, live-editable through UI/API/CLI, and layered as global defaults plus per-agent and per-capability overrides.
 
 ## [2026-07-08]
 

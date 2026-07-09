@@ -261,6 +261,22 @@ Agent settings should expose model choices that affect cost:
 - thread-summary model
 - memory-maintenance model
 
+LLM-backed capabilities should declare their model slots so the UI, CLI, API, and cost accounting can all refer to the same settings.
+
+Examples:
+
+```text
+research:
+  researcherModel
+  verificationModel
+
+thread_summary:
+  summaryModel
+
+memory_maintenance:
+  maintenanceModel
+```
+
 The first version may show only the settings that already exist and add the research model settings next.
 
 ## CLI Surfaces
@@ -356,6 +372,50 @@ This is the project rule:
 
 Implementation still needs to verify the exact LangChain and Deep Agents TypeScript hooks for token usage and subagent calls, but the design decision is settled: logging happens at model creation/invocation time through one shared factory path.
 
+## Model Configuration
+
+Model settings should be backend-owned and editable live through UI, CLI, and API.
+
+The configuration should be layered:
+
+```text
+per-agent or per-capability override
+  -> global system model default
+  -> built-in fallback model
+```
+
+Examples:
+
+```text
+Ronaldo chat model:
+  Ronaldo chat model override
+  else global default chat model
+  else built-in fallback
+
+Ronaldo research model:
+  Ronaldo research capability override
+  else global default research model
+  else built-in fallback
+
+Thread-summary model:
+  agent summary override if one exists
+  else global default summary model
+  else built-in fallback
+```
+
+The user profile should keep UI preferences and last-used selections. It should not be the main source of backend runtime model configuration.
+
+Changing a model in the chat composer should update the backend-owned chat model setting for that agent. It should not live only in browser local storage.
+
+Any LLM-backed capability or tool workflow must declare its configurable model slots. When the capability is enabled for an agent, those model slots should be visible and editable where the capability is configured. For example, enabling `research` should expose the research subagent model settings for that agent.
+
+This gives:
+
+- UI/API/CLI parity
+- consistent behavior across computers
+- predictable cost analysis
+- a clean path for future optimization suggestions
+
 ## Implementation Phases
 
 ### Phase 1: Raw LLM Call Logging
@@ -383,9 +443,11 @@ Implementation still needs to verify the exact LangChain and Deep Agents TypeScr
 
 ### Phase 4: Configurable Internal Models
 
-- Add model settings for research subagents, summaries, and maintenance.
-- Expose these settings in UI and CLI.
-- Store settings in backend profile or system configuration instead of hardcoding.
+- Add backend-owned global model defaults.
+- Add per-agent and per-capability model overrides.
+- Expose these settings in UI, API, and CLI.
+- Move composer-selected chat models from browser-only storage to backend-owned agent model settings.
+- Store capability model slots explicitly so LLM-backed tools can declare and display their configurable models.
 
 ### Phase 5: Cost/Optimization Agent
 
@@ -394,17 +456,6 @@ Implementation still needs to verify the exact LangChain and Deep Agents TypeScr
 - Later, let it propose pricing updates based on official pricing pages.
 
 ## Open Questions
-
-### Where should model settings live?
-
-Options:
-
-- per-agent settings
-- global system settings
-- user profile settings
-- a dedicated model-configuration table
-
-The answer may differ for normal chat models, research models, and maintenance models.
 
 ### Should full prompts be stored?
 
