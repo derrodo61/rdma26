@@ -246,10 +246,30 @@ Later, a specialized cost/optimization agent can help maintain pricing by:
 - finding official pricing pages
 - saving source URLs
 - reading pricing pages periodically
-- suggesting updated pricing records
-- marking old pricing as superseded
+- extracting candidate prices
+- creating unverified pricing proposals
+- notifying the user/operator when prices may have changed
 
-The agent should not silently change pricing without leaving a trace. Price updates affect cost reporting, so they should be auditable.
+Pricing updates should use a suggestion, review, approve flow.
+
+The cost/optimization agent may create an `unverified` pricing record or proposal from an official source, but it must not silently replace active pricing. Activating a new pricing record requires explicit user approval through UI, CLI, or API.
+
+Approval should:
+
+- mark the previous active pricing record for the same provider/model as `superseded`
+- mark the approved pricing record as `active`
+- keep source URL and source retrieval date
+- keep proposal metadata
+- keep approval timestamp and approval actor when available
+
+The pricing lifecycle is:
+
+```text
+unverified -> active -> superseded
+             rejected
+```
+
+Periodic checks may create proposals or notifications, but must not automatically alter active cost calculations. Price updates affect cost reporting, so they must remain auditable.
 
 ## Cost Calculation
 
@@ -521,15 +541,6 @@ This gives:
 - Later, let it propose pricing updates based on official pricing pages.
 
 ## Open Questions
-
-### How should pricing updates be approved?
-
-If a cost/optimization agent finds a new price, should it:
-
-- only suggest the change
-- create an unverified pricing record
-- update pricing after explicit user approval
-- periodically check and notify
 
 ### How long should LLM call records be kept?
 
