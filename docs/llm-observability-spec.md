@@ -253,6 +253,16 @@ The agent should not silently change pricing without leaving a trace. Price upda
 
 ## Cost Calculation
 
+The system distinguishes usage from cost.
+
+`Usage`
+
+Token counts, call counts, model ids, durations, and statuses. Usage is factual when the provider or runtime returns it.
+
+`Estimated cost`
+
+Cost calculated from usage plus the model-pricing record active at the time of calculation.
+
 Estimated cost:
 
 ```text
@@ -263,7 +273,19 @@ totalCost = inputCost + outputCost
 
 If cached input or reasoning-token pricing is available, those token categories should be calculated separately.
 
-All costs are estimates. Provider billing can include details not visible to the app, such as discounts, cached-token rules, batch pricing, failed-call billing, or future provider-specific token categories.
+All costs must be labeled as estimates in UI, API, and CLI output. Provider billing can include details not visible to the app, such as discounts, cached-token rules, batch pricing, failed-call billing, account-level discounts, rounding, or future provider-specific token categories.
+
+Cost displays should include or link to:
+
+- provider
+- model
+- usage values used in the calculation
+- pricing snapshot id
+- pricing source URL
+- pricing retrieval date
+- unknown or unpriced token categories
+
+Exact billing reconciliation is out of scope for the first implementation. The system should prefer honest partial estimates over pretending to know exact provider bills.
 
 ## UI Surfaces
 
@@ -499,10 +521,6 @@ This gives:
 - Later, let it propose pricing updates based on official pricing pages.
 
 ## Open Questions
-
-### How exact should cost calculations be?
-
-Provider pricing can include cached tokens, batch discounts, model-specific token categories, and billing details not exposed by the API response. We need to decide whether `rdma26` reports approximate cost, billing-like cost, or both.
 
 ### How should pricing updates be approved?
 
