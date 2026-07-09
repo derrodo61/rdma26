@@ -47,6 +47,43 @@ export class RunContextPage {
       ['Theme', profile.theme],
     ] as const;
   });
+  protected readonly llmCallTotals = computed(() => {
+    const calls = this.context()?.llmCalls ?? [];
+
+    return calls.reduce(
+      (totals, call) => ({
+        inputTokens: totals.inputTokens + (call.inputTokens ?? 0),
+        outputTokens: totals.outputTokens + (call.outputTokens ?? 0),
+        totalTokens: totals.totalTokens + (call.totalTokens ?? 0),
+      }),
+      {
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+      },
+    );
+  });
+  protected readonly llmCostTotals = computed(() => {
+    const calls = this.context()?.llmCalls ?? [];
+    const totals = new Map<string, number>();
+
+    for (const call of calls) {
+      if (call.estimatedTotalCost === undefined || !call.estimatedCostCurrency) {
+        continue;
+      }
+
+      totals.set(
+        call.estimatedCostCurrency,
+        (totals.get(call.estimatedCostCurrency) ?? 0) + call.estimatedTotalCost,
+      );
+    }
+
+    return Array.from(totals.entries()).map(([currency, amount]) => ({
+      currency,
+      amount,
+      formatted: formatCost(amount, currency),
+    }));
+  });
 
   constructor() {
     void this.load();
@@ -69,6 +106,19 @@ export class RunContextPage {
       this.isLoading.set(false);
     }
   }
+
+  protected formatCallCost(amount: number | undefined, currency: string | undefined): string {
+    return amount === undefined || !currency ? 'unpriced' : formatCost(amount, currency);
+  }
+}
+
+function formatCost(amount: number, currency: string): string {
+  return new Intl.NumberFormat(undefined, {
+    currency,
+    maximumFractionDigits: 6,
+    minimumFractionDigits: 0,
+    style: 'currency',
+  }).format(amount);
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {

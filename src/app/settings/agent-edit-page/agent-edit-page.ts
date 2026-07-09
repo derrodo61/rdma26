@@ -73,6 +73,7 @@ export class AgentEditPage {
   protected readonly soulContent = signal('');
   protected readonly draftSoulContent = signal('');
   protected readonly selectedModel = signal('');
+  protected readonly selectedResearcherModel = signal('');
   protected readonly enabledToolIds = signal<readonly string[]>([]);
   protected readonly canWriteMemory = signal(true);
   protected readonly activeTab = signal<AgentEditTab>('basic');
@@ -185,7 +186,29 @@ export class AgentEditPage {
 
     this.agentSettingsStorage.update(agent.id, { model: value });
     void this.userProfileSync.updateAgentModel(agent.id, value);
-    this.savedMessage.set('Agent settings saved.');
+    void this.saveAgentModels({
+      ...agent.models,
+      chat: value,
+    });
+  }
+
+  protected updateResearcherModel(value: string): void {
+    const agent = this.agent();
+
+    this.selectedResearcherModel.set(value);
+
+    if (!agent || !this.isAvailableModel(value)) {
+      this.savedMessage.set(null);
+      return;
+    }
+
+    void this.saveAgentModels({
+      ...agent.models,
+      research: {
+        ...agent.models.research,
+        researcher: value,
+      },
+    });
   }
 
   protected updateTool(toolId: string, isEnabled: boolean): void {
@@ -284,16 +307,31 @@ export class AgentEditPage {
       this.draftSoulContent.set(soul.content);
       this.enabledToolIds.set(agentTools.enabledTools);
       this.agentSettingsStorage.replaceAll(profile.agentSettings);
-      this.selectedModel.set(this.initialModel(agent.id, models.defaultModel, models.models));
+      this.selectedModel.set(
+        this.initialModel(agent.id, agent.models.chat, models.defaultModel, models.models),
+      );
+      this.selectedResearcherModel.set(
+        this.initialModel(
+          agent.id,
+          agent.models.research?.researcher,
+          models.defaultModel,
+          models.models,
+        ),
+      );
     });
     this.isLoading.set(false);
   }
 
   private initialModel(
     agentId: string,
+    agentModel: string | undefined,
     defaultModel: string,
     models: readonly ModelOption[],
   ): string {
+    if (agentModel && models.some((model) => model.id === agentModel)) {
+      return agentModel;
+    }
+
     const storedModel = this.agentSettingsStorage.read(agentId).model;
 
     if (storedModel && models.some((model) => model.id === storedModel)) {
@@ -309,6 +347,22 @@ export class AgentEditPage {
 
   private isAvailableModel(model: string): boolean {
     return this.models().some((candidate) => candidate.id === model);
+  }
+
+  private async saveAgentModels(models: AgentProfile['models']): Promise<void> {
+    const agent = this.agent();
+
+    if (!agent) {
+      return;
+    }
+
+    try {
+      const updatedAgent = await this.api.updateAgent(agent.id, { models });
+      this.agent.set(updatedAgent);
+      this.savedMessage.set('Agent settings saved.');
+    } catch (error) {
+      this.error.set(getErrorMessage(error, 'Could not save model settings.'));
+    }
   }
 
   private async handleAsync(work: () => Promise<void>): Promise<void> {

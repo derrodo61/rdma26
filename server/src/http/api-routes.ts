@@ -4,6 +4,8 @@ import type { RegisterRoutesOptions } from './route-context';
 import { registerAgentRoutes } from './routes/agent-routes';
 import { registerAuthRoutes } from './routes/auth-routes';
 import { registerMemoryRoutes } from './routes/memory-routes';
+import { registerModelPricingRoutes } from './routes/model-pricing-routes';
+import { registerObservabilityRoutes } from './routes/observability-routes';
 import { registerProfileRoutes } from './routes/profile-routes';
 import { registerRunRoutes } from './routes/run-routes';
 import { registerSystemRoutes } from './routes/system-routes';
@@ -14,6 +16,8 @@ export function registerApiRoutes(server: FastifyInstance, options: RegisterRout
   registerProfileRoutes(server, options);
   registerSystemRoutes(server, options);
   registerMemoryRoutes(server, options);
+  registerModelPricingRoutes(server, options);
+  registerObservabilityRoutes(server, options);
   registerAgentRoutes(server, options);
   registerThreadRoutes(server, options);
   registerRunRoutes(server, options);

@@ -19,6 +19,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Decided that failed LLM calls should be logged, with estimated cost calculated only when usage metadata is available.
 - Decided that estimated cost should not be shown inline in normal chat by default, with detailed cost shown in run inspection and dashboards instead.
 - Decided that LLM cost optimization should be advisory by default and require explicit user approval before applying model, context, tool, or pricing changes.
+- Added raw LLM call logging in SQLite for chat runs and thread-summary generation, including provider, model, purpose, status, timing, token usage, cached input tokens, and reasoning tokens when reported.
+- Added a central OpenAI chat model factory so backend chat and summary LLM construction no longer happens directly in feature modules.
+- Added LangChain callback-based LLM accounting so nested Deep Agents model calls can be recorded under the user-visible run.
+- Added LLM call cleanup for deleted threads, deleted agents, and startup orphan cleanup.
+- Added LLM call totals and per-call details to the run-context inspector page.
+- Added SQLite-backed model pricing records with API and CLI management.
+- Added estimated LLM call cost calculation from active pricing records, including cached input and reasoning token categories when priced.
+- Added run-level estimated cost totals to the run-context inspector page.
+- Added LLM call listing, single-call inspection, and estimated cost summaries through API and CLI.
+- Added backend-owned per-agent chat model settings and researcher subagent model settings through API, CLI, and the agent edit UI.
+- Added controlled Scotty observability tools for listing LLM calls, summarizing estimated costs, and reading pricing records.
 
 ## [2026-07-08]
 

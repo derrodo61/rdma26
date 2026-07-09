@@ -44,6 +44,15 @@ rdma26 agents:memory:set --agent research --can-write false
 
 When memory writes are disabled, the agent does not receive `save_memory` and memory maintenance skips that agent.
 
+### Set agent model settings
+
+```bash
+rdma26 agents:model:set --agent research --model gpt-4.1-mini
+rdma26 agents:research-model:set --agent research --model gpt-4.1
+```
+
+`agents:model:set` changes the normal chat model. `agents:research-model:set` changes the model used by the internal researcher subagent when the `research` capability is enabled.
+
 ### Read an agent soul.md
 
 ```bash
@@ -87,6 +96,83 @@ All options are optional. Omitted fields keep their current values.
 ```bash
 rdma26 profile:agent-model:set --agent scotty --model gpt-4.1-mini
 ```
+
+## Pricing
+
+### List model pricing records
+
+```bash
+rdma26 pricing:list --provider openai --model gpt-4.1-mini
+```
+
+Useful filters:
+
+- `--provider openai`
+- `--model gpt-4.1-mini`
+- `--status active|superseded|unverified`
+
+### Create a model pricing record
+
+```bash
+rdma26 pricing:create --provider openai --model gpt-4.1-mini --input 0.40 --output 1.60 --source-url "https://openai.com/api/pricing/" --status active
+```
+
+New records default to `unverified`. Use `--status active` only after checking the source.
+
+Optional fields:
+
+- `--cached-input <cost-per-million-tokens>`
+- `--reasoning <cost-per-million-tokens>`
+- `--currency USD`
+- `--source-name "OpenAI API pricing"`
+- `--source-retrieved-at <iso-timestamp>`
+- `--valid-from <iso-timestamp>`
+- `--valid-until <iso-timestamp>`
+- `--notes "..."`
+
+### Activate or supersede pricing
+
+```bash
+rdma26 pricing:activate --pricing <pricing-id>
+rdma26 pricing:supersede --pricing <pricing-id>
+```
+
+Activating a pricing record supersedes the previous active record for the same provider and model.
+
+## Observability
+
+### List LLM calls
+
+```bash
+rdma26 llm-calls:list --agent scotty --limit 20
+```
+
+Useful filters:
+
+- `--agent scotty`
+- `--thread <thread-id>`
+- `--run <run-id>`
+- `--provider openai`
+- `--model gpt-4.1-mini`
+- `--purpose chat|research_parent|research_subagent|research_verification|thread_summary|memory_retrieval|memory_maintenance|operator|unknown`
+- `--status success|error|cancelled`
+- `--started-from <iso-timestamp-or-date>`
+- `--started-to <iso-timestamp-or-date>`
+- `--limit 100`
+
+### Read one LLM call
+
+```bash
+rdma26 llm-calls:show --call <call-id>
+```
+
+### Summarize estimated costs
+
+```bash
+rdma26 costs:summary --started-from 2026-07-01 --group-by model
+```
+
+`--group-by` supports `day`, `agent`, `model`, and `purpose`. The same filters as `llm-calls:list` are available, except `--run` and `--limit`.
 
 ## Memories
 
@@ -268,6 +354,8 @@ rdma26 runs:context --run <run-id>
 ```
 
 The run id is included in `chat:send` output and in the API `run-started` event.
+
+Run context includes LLM calls, token usage, and estimated costs when active model pricing exists.
 
 ## Options
 

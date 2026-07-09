@@ -1,5 +1,3 @@
-import { ChatOpenAI } from '@langchain/openai';
-
 import type {
   AgentMemoryMaintenanceResult,
   AgentProfile,
@@ -13,11 +11,15 @@ import type {
   ThreadSummaryRequest,
   ThreadSummaryResponse,
 } from '../../../shared/agent-contracts';
+import { LlmAccountingCallbackHandler } from '../llm/llm-accounting-callback';
+import type { LlmCallStore } from '../llm/llm-call-store';
+import { createOpenAiChatModel } from '../llm/model-factory';
 import type { MemoryStore } from './memory-store';
 
 export class ThreadSummaryService {
   constructor(
     private readonly memoryStore: MemoryStore,
+    private readonly llmCallStore: LlmCallStore,
     private readonly models: readonly { readonly id: string }[],
   ) {}
 
@@ -185,7 +187,7 @@ export class ThreadSummaryService {
       throw new Error('Cannot create a thread summary because no summary model is configured.');
     }
 
-    const content = await createModelThreadSummaryContent(thread, model);
+    const content = await createModelThreadSummaryContent(thread, model, this.llmCallStore);
 
     return {
       model,
@@ -204,39 +206,52 @@ interface ThreadSummaryContent {
   readonly content: string;
 }
 
-async function createModelThreadSummaryContent(thread: ChatThread, model: string): Promise<string> {
-  const llm = new ChatOpenAI({
-    apiKey: process.env['OPENAI_API_KEY'],
+async function createModelThreadSummaryContent(
+  thread: ChatThread,
+  model: string,
+  llmCallStore: LlmCallStore,
+): Promise<string> {
+  const llm = createOpenAiChatModel(model, { temperature: 0 });
+  const llmAccounting = new LlmAccountingCallbackHandler(llmCallStore, {
+    runId: crypto.randomUUID(),
+    provider: 'openai',
     model,
-    temperature: 0,
+    purpose: 'thread_summary',
+    agentId: thread.agentId,
+    threadId: thread.id,
   });
   const transcript = thread.messages
     .slice(-40)
     .map((message) => `${message.role === 'user' ? 'User' : 'Assistant'}: ${message.content}`)
     .join('\n\n');
-  const result = await llm.invoke([
+  const result = await llm.invoke(
+    [
+      {
+        role: 'system',
+        content: [
+          'Create a concise long-term memory summary for a personal multi-agent assistant.',
+          'Focus on durable facts, preferences, decisions, tracked topics, and open tasks.',
+          'Do not invent details. Do not include private information that is not in the transcript.',
+          'Use plain language. Prefer compact bullet points.',
+        ].join(' '),
+      },
+      {
+        role: 'user',
+        content: [
+          'No previous summary exists for this thread. Create the first durable summary.',
+          '',
+          `Thread title: ${thread.title}`,
+          `Thread updated at: ${thread.updatedAt}`,
+          '',
+          'Recent transcript:',
+          transcript,
+        ].join('\n'),
+      },
+    ],
     {
-      role: 'system',
-      content: [
-        'Create a concise long-term memory summary for a personal multi-agent assistant.',
-        'Focus on durable facts, preferences, decisions, tracked topics, and open tasks.',
-        'Do not invent details. Do not include private information that is not in the transcript.',
-        'Use plain language. Prefer compact bullet points.',
-      ].join(' '),
+      callbacks: [llmAccounting],
     },
-    {
-      role: 'user',
-      content: [
-        'No previous summary exists for this thread. Create the first durable summary.',
-        '',
-        `Thread title: ${thread.title}`,
-        `Thread updated at: ${thread.updatedAt}`,
-        '',
-        'Recent transcript:',
-        transcript,
-      ].join('\n'),
-    },
-  ]);
+  );
   const modelSummary = extractModelText(result).trim();
 
   if (!modelSummary) {

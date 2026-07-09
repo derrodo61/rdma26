@@ -3,10 +3,14 @@ import { readFile } from 'node:fs/promises';
 
 import type {
   DateStylePreference,
+  CostSummaryGroupBy,
+  LlmCallPurpose,
+  LlmCallStatus,
   MemoryLifetime,
   MemoryScope,
   MemoryStatus,
   MemoryType,
+  ModelPricingStatus,
   ThemePreference,
   TimeStylePreference,
 } from '../../shared/agent-contracts';
@@ -53,6 +57,31 @@ async function main(): Promise<void> {
         }),
       );
       return;
+    case 'agents:model:set':
+      printJson(
+        await runtime.updateAgent(agentId(options), {
+          models: {
+            chat: requiredOption(options, 'model'),
+          },
+        }),
+      );
+      return;
+    case 'agents:research-model:set': {
+      const agent = await runtime.readAgent(agentId(options));
+
+      printJson(
+        await runtime.updateAgent(agent.id, {
+          models: {
+            ...agent.models,
+            research: {
+              ...agent.models.research,
+              researcher: requiredOption(options, 'model'),
+            },
+          },
+        }),
+      );
+      return;
+    }
     case 'agents:soul:read':
       printJson(await runtime.readAgentSoul(agentId(options)));
       return;
@@ -251,6 +280,87 @@ async function main(): Promise<void> {
     case 'runs:context':
       printJson(await runtime.readRunContext(requiredOption(options, 'run')));
       return;
+    case 'llm-calls:list':
+      printJson(
+        await runtime.listLlmCalls({
+          agentId: options['agent'],
+          threadId: options['thread'],
+          runId: options['run'],
+          provider: options['provider'],
+          model: options['model'],
+          purpose: parseLlmCallPurpose(options['purpose']),
+          status: parseLlmCallStatus(options['status']),
+          startedFrom: options['started-from'],
+          startedTo: options['started-to'],
+          limit: parseOptionalInteger(options['limit'], 'limit'),
+        }),
+      );
+      return;
+    case 'llm-calls:show':
+      printJson(await runtime.readLlmCall(requiredOption(options, 'call')));
+      return;
+    case 'costs:summary':
+      printJson(
+        await runtime.summarizeCosts({
+          agentId: options['agent'],
+          threadId: options['thread'],
+          provider: options['provider'],
+          model: options['model'],
+          purpose: parseLlmCallPurpose(options['purpose']),
+          status: parseLlmCallStatus(options['status']),
+          startedFrom: options['started-from'],
+          startedTo: options['started-to'],
+          groupBy: parseCostSummaryGroupBy(options['group-by']),
+        }),
+      );
+      return;
+    case 'pricing:list':
+      printJson(
+        await runtime.listModelPricing({
+          provider: options['provider'],
+          model: options['model'],
+          status: parseModelPricingStatus(options['status']),
+        }),
+      );
+      return;
+    case 'pricing:create':
+      printJson(
+        await runtime.createModelPricing({
+          provider: requiredOption(options, 'provider'),
+          model: requiredOption(options, 'model'),
+          inputCostPerMillionTokens: parseRequiredNumber(options['input'], 'input'),
+          outputCostPerMillionTokens: parseRequiredNumber(options['output'], 'output'),
+          cachedInputCostPerMillionTokens: parseOptionalNumber(
+            options['cached-input'],
+            'cached-input',
+          ),
+          reasoningCostPerMillionTokens: parseOptionalNumber(options['reasoning'], 'reasoning'),
+          currency: options['currency'],
+          sourceUrl: requiredOption(options, 'source-url'),
+          sourceName: options['source-name'],
+          sourceRetrievedAt: options['source-retrieved-at'],
+          validFrom: options['valid-from'],
+          validUntil: options['valid-until'],
+          status: parseModelPricingStatus(options['status']) ?? 'unverified',
+          notes: options['notes'],
+        }),
+      );
+      return;
+    case 'pricing:activate':
+      printJson(
+        await runtime.updateModelPricing(requiredOption(options, 'pricing'), {
+          status: 'active',
+        }),
+      );
+      return;
+    case 'pricing:supersede':
+      printJson(
+        await runtime.updateModelPricing(requiredOption(options, 'pricing'), {
+          status: 'superseded',
+          validUntil: options['valid-until'],
+        }),
+      );
+      return;
     case 'help':
     case '--help':
     case '-h':
@@ -365,6 +475,30 @@ function parseOptionalInteger(value: string | undefined, name: string): number |
   return parsed;
 }
 
+function parseRequiredNumber(value: string | undefined, name: string): number {
+  const parsed = parseOptionalNumber(value, name);
+
+  if (parsed === undefined) {
+    throw new Error(`Missing required option: --${name}`);
+  }
+
+  return parsed;
+}
+
+function parseOptionalNumber(value: string | undefined, name: string): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`--${name} must be a positive number.`);
+  }
+
+  return parsed;
+}
+
 function parseBooleanOption(value: string, name: string): boolean {
   if (value === 'true') {
     return true;
@@ -457,6 +591,64 @@ function parseMemoryLifetime(value: string | undefined): MemoryLifetime | undefi
   throw new Error('--lifetime must be permanent, active, or temporary.');
 }
 
+function parseModelPricingStatus(value: string | undefined): ModelPricingStatus | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  if (value === 'active' || value === 'superseded' || value === 'unverified') {
+    return value;
+  }
+
+  throw new Error('--status must be active, superseded, or unverified.');
+}
+
+function parseLlmCallPurpose(value: string | undefined): LlmCallPurpose | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  if (
+    value === 'chat' ||
+    value === 'research_parent' ||
+    value === 'research_subagent' ||
+    value === 'research_verification' ||
+    value === 'thread_summary' ||
+    value === 'memory_retrieval' ||
+    value === 'memory_maintenance' ||
+    value === 'operator' ||
+    value === 'unknown'
+  ) {
+    return value;
+  }
+
+  throw new Error('--purpose is not a known LLM call purpose.');
+}
+
+function parseLlmCallStatus(value: string | undefined): LlmCallStatus | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  if (value === 'success' || value === 'error' || value === 'cancelled') {
+    return value;
+  }
+
+  throw new Error('--status must be success, error, or cancelled.');
+}
+
+function parseCostSummaryGroupBy(value: string | undefined): CostSummaryGroupBy | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  if (value === 'day' || value === 'agent' || value === 'model' || value === 'purpose') {
+    return value;
+  }
+
+  throw new Error('--group-by must be day, agent, model, or purpose.');
+}
+
 function parseTheme(value: string | undefined): ThemePreference | undefined {
   if (!value) {
     return undefined;
@@ -516,6 +708,8 @@ Usage:
   rdma26 agents:create --id research --name "Research assistant"
   rdma26 agents:update --agent research --name "Researcher"
   rdma26 agents:memory:set --agent research --can-write true
+  rdma26 agents:model:set --agent research --model gpt-4.1-mini
+  rdma26 agents:research-model:set --agent research --model gpt-4.1-mini
   rdma26 agents:soul:read --agent research
   rdma26 agents:soul:write --agent research --file ./soul.md
   rdma26 agents:delete --agent research
@@ -542,6 +736,13 @@ Usage:
   rdma26 threads:summaries --agent scotty --limit 25
   rdma26 chat:send --agent scotty --thread <thread-id> --model gpt-4.1-mini --prompt "Hello"
   rdma26 runs:context --run <run-id>
+  rdma26 llm-calls:list --agent scotty --limit 20
+  rdma26 llm-calls:show --call <call-id>
+  rdma26 costs:summary --started-from 2026-07-01 --group-by model
+  rdma26 pricing:list --provider openai --model gpt-4.1-mini
+  rdma26 pricing:create --provider openai --model gpt-4.1-mini --input 0.40 --output 1.60 --source-url "https://openai.com/api/pricing/" --status active
+  rdma26 pricing:activate --pricing <pricing-id>
+  rdma26 pricing:supersede --pricing <pricing-id>
 
 Options:
   --agent   Agent id. Defaults to ASSISTANT_AGENT_ID or scotty.

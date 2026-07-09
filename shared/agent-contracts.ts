@@ -37,7 +37,7 @@ export interface AgentRunRequest {
   readonly agentId: string;
   readonly threadId: string;
   readonly prompt: string;
-  readonly model: string;
+  readonly model?: string;
 }
 
 export type AgentKind = 'chat' | 'operator' | 'internal';
@@ -49,6 +49,7 @@ export interface AgentProfile {
   readonly chatEnabled: boolean;
   readonly enabledTools: readonly string[];
   readonly memory: AgentMemorySettings;
+  readonly models: AgentModelSettings;
   readonly soulVirtualPath: string;
   readonly createdAt: string;
   readonly updatedAt: string;
@@ -56,6 +57,17 @@ export interface AgentProfile {
 
 export interface AgentMemorySettings {
   readonly canWrite: boolean;
+}
+
+export interface AgentModelSettings {
+  readonly chat?: string;
+  readonly research?: AgentResearchModelSettings;
+  readonly threadSummary?: string;
+  readonly memoryMaintenance?: string;
+}
+
+export interface AgentResearchModelSettings {
+  readonly researcher?: string;
 }
 
 export interface AgentsResponse {
@@ -75,6 +87,7 @@ export interface UpdateAgentRequest {
   readonly kind?: AgentKind;
   readonly chatEnabled?: boolean;
   readonly memory?: Partial<AgentMemorySettings>;
+  readonly models?: Partial<AgentModelSettings>;
 }
 
 export interface AgentSoulResponse {
@@ -383,6 +396,151 @@ export interface RunContextTokenUsage {
   readonly inputTokens?: number;
   readonly outputTokens?: number;
   readonly totalTokens?: number;
+  readonly cachedInputTokens?: number;
+  readonly reasoningTokens?: number;
+}
+
+export type LlmCallStatus = 'success' | 'error' | 'cancelled';
+export type ModelPricingStatus = 'active' | 'superseded' | 'unverified';
+
+export type LlmCallPurpose =
+  | 'chat'
+  | 'research_parent'
+  | 'research_subagent'
+  | 'research_verification'
+  | 'thread_summary'
+  | 'memory_retrieval'
+  | 'memory_maintenance'
+  | 'operator'
+  | 'unknown';
+
+export interface LlmCallRecord {
+  readonly id: string;
+  readonly runId?: string;
+  readonly provider: string;
+  readonly model: string;
+  readonly purpose: LlmCallPurpose;
+  readonly status: LlmCallStatus;
+  readonly agentId?: string;
+  readonly threadId?: string;
+  readonly parentProviderRunId?: string;
+  readonly providerRunId?: string;
+  readonly inputTokens?: number;
+  readonly outputTokens?: number;
+  readonly totalTokens?: number;
+  readonly cachedInputTokens?: number;
+  readonly reasoningTokens?: number;
+  readonly requestStartedAt: string;
+  readonly requestFinishedAt?: string;
+  readonly durationMs?: number;
+  readonly errorMessage?: string;
+  readonly pricingSnapshotId?: string;
+  readonly estimatedInputCost?: number;
+  readonly estimatedOutputCost?: number;
+  readonly estimatedCachedInputCost?: number;
+  readonly estimatedReasoningCost?: number;
+  readonly estimatedTotalCost?: number;
+  readonly estimatedCostCurrency?: string;
+  readonly metadata?: Readonly<Record<string, unknown>>;
+}
+
+export interface LlmCallListRequest {
+  readonly agentId?: string;
+  readonly threadId?: string;
+  readonly runId?: string;
+  readonly provider?: string;
+  readonly model?: string;
+  readonly purpose?: LlmCallPurpose;
+  readonly status?: LlmCallStatus;
+  readonly startedFrom?: string;
+  readonly startedTo?: string;
+  readonly limit?: number;
+}
+
+export interface LlmCallListResponse {
+  readonly calls: readonly LlmCallRecord[];
+}
+
+export type CostSummaryGroupBy = 'day' | 'agent' | 'model' | 'purpose';
+
+export interface CostSummaryRequest {
+  readonly agentId?: string;
+  readonly threadId?: string;
+  readonly provider?: string;
+  readonly model?: string;
+  readonly purpose?: LlmCallPurpose;
+  readonly status?: LlmCallStatus;
+  readonly startedFrom?: string;
+  readonly startedTo?: string;
+  readonly groupBy?: CostSummaryGroupBy;
+}
+
+export interface CostSummaryRow {
+  readonly key: string;
+  readonly currency?: string;
+  readonly callCount: number;
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+  readonly totalTokens: number;
+  readonly estimatedTotalCost?: number;
+}
+
+export interface CostSummaryResponse {
+  readonly groupBy: CostSummaryGroupBy;
+  readonly rows: readonly CostSummaryRow[];
+}
+
+export interface ModelPricingRecord {
+  readonly id: string;
+  readonly provider: string;
+  readonly model: string;
+  readonly inputCostPerMillionTokens: number;
+  readonly outputCostPerMillionTokens: number;
+  readonly cachedInputCostPerMillionTokens?: number;
+  readonly reasoningCostPerMillionTokens?: number;
+  readonly currency: string;
+  readonly sourceUrl: string;
+  readonly sourceName?: string;
+  readonly sourceRetrievedAt: string;
+  readonly validFrom?: string;
+  readonly validUntil?: string;
+  readonly status: ModelPricingStatus;
+  readonly notes?: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface ModelPricingListRequest {
+  readonly provider?: string;
+  readonly model?: string;
+  readonly status?: ModelPricingStatus;
+}
+
+export interface ModelPricingListResponse {
+  readonly pricing: readonly ModelPricingRecord[];
+}
+
+export interface CreateModelPricingRequest {
+  readonly provider: string;
+  readonly model: string;
+  readonly inputCostPerMillionTokens: number;
+  readonly outputCostPerMillionTokens: number;
+  readonly cachedInputCostPerMillionTokens?: number;
+  readonly reasoningCostPerMillionTokens?: number;
+  readonly currency?: string;
+  readonly sourceUrl: string;
+  readonly sourceName?: string;
+  readonly sourceRetrievedAt?: string;
+  readonly validFrom?: string;
+  readonly validUntil?: string;
+  readonly status?: ModelPricingStatus;
+  readonly notes?: string;
+}
+
+export interface UpdateModelPricingRequest {
+  readonly status?: ModelPricingStatus;
+  readonly validUntil?: string;
+  readonly notes?: string;
 }
 
 export interface RunContextDetails {
@@ -404,5 +562,6 @@ export interface RunContextDetails {
   readonly tools: readonly RunContextTool[];
   readonly toolCalls?: readonly RunContextToolCall[];
   readonly tokenUsage?: RunContextTokenUsage;
+  readonly llmCalls?: readonly LlmCallRecord[];
   readonly memoryWritesEnabled: boolean;
 }

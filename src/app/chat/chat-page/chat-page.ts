@@ -365,10 +365,25 @@ export class ChatPage {
 
   protected updateModel(value: string): void {
     const agentId = this.selectedAgentId();
+    const agent = this.agents().find((candidate) => candidate.id === agentId);
 
     this.selectedModel.set(value);
 
-    if (agentId && this.isAvailableModel(value)) {
+    if (agent && this.isAvailableModel(value)) {
+      void this.api
+        .updateAgent(agent.id, {
+          models: {
+            ...agent.models,
+            chat: value,
+          },
+        })
+        .then((updatedAgent) => {
+          this.agents.update((agents) =>
+            agents.map((candidate) =>
+              candidate.id === updatedAgent.id ? updatedAgent : candidate,
+            ),
+          );
+        });
       void this.userProfileSync.updateAgentModel(agentId, value);
     }
   }
@@ -443,6 +458,12 @@ export class ChatPage {
   }
 
   private modelForAgent(agentId: string): string {
+    const agentModel = this.agents().find((agent) => agent.id === agentId)?.models.chat;
+
+    if (agentModel && this.isAvailableModel(agentModel)) {
+      return agentModel;
+    }
+
     const storedModel = this.agentSettingsStorage.read(agentId).model;
 
     if (storedModel && this.isAvailableModel(storedModel)) {

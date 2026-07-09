@@ -7,6 +7,7 @@ import type {
 import type { AgentRegistry } from '../agents/agent-registry';
 import type { MemoryStore } from '../memory/memory-store';
 import type { ThreadSummaryService } from '../memory/thread-summary-service';
+import type { LlmCallStore } from '../llm/llm-call-store';
 import type { RunContextStore } from '../runs/run-context-store';
 
 export class ThreadService {
@@ -14,6 +15,7 @@ export class ThreadService {
     private readonly registry: AgentRegistry,
     private readonly memoryStore: MemoryStore,
     private readonly runContextStore: RunContextStore,
+    private readonly llmCallStore: LlmCallStore,
     private readonly threadSummaries: ThreadSummaryService,
   ) {}
 
@@ -58,6 +60,7 @@ export class ThreadService {
 
     await this.memoryStore.deleteThreadSummaryMemories(agentId, threadId);
     await this.runContextStore.deleteRunsForThread(agentId, threadId);
+    await this.llmCallStore.deleteCallsForThread(agentId, threadId);
 
     return {
       deleted: true,

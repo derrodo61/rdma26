@@ -15,6 +15,7 @@ import type { CapabilityRegistry } from '../capabilities/capability-registry';
 import { createMemoryTools } from '../capabilities/memory-tools';
 import type { MemoryStore } from '../memory/memory-store';
 import type { UserProfileStore } from '../profiles/user-profile-store';
+import type { LlmCallStore } from '../llm/llm-call-store';
 import type { RunContextStore } from '../runs/run-context-store';
 import type { AssistantRuntime } from '../runtime';
 
@@ -24,6 +25,7 @@ export class ChatRunService {
     private readonly capabilities: CapabilityRegistry,
     private readonly memoryStore: MemoryStore,
     private readonly runContextStore: RunContextStore,
+    private readonly llmCallStore: LlmCallStore,
     private readonly userProfileStore: UserProfileStore,
     private readonly runtime: AssistantRuntime,
   ) {}
@@ -32,6 +34,8 @@ export class ChatRunService {
     const runId = options.runId ?? crypto.randomUUID();
     const storage = await this.registry.storageFor(request.agentId);
     const existingThread = await storage.readThread(request.threadId);
+    const model =
+      request.model ?? storage.agent.models.chat ?? this.runtime.modelsResponse().defaultModel;
 
     if (!existingThread) {
       throw new Error(`Thread ${request.threadId} does not exist for agent ${request.agentId}.`);
@@ -55,8 +59,10 @@ export class ChatRunService {
       content: request.prompt,
     });
     const agentResponse = await new PersonalAgent(storage).run({
+      runId,
       threadId: request.threadId,
-      model: request.model,
+      model,
+      agentModels: storage.agent.models,
       tools,
       enabledToolIds: storage.agent.enabledTools,
       isOperatorAgent: storage.agent.id === this.registry.getDefaultAgentId(),
@@ -66,6 +72,7 @@ export class ChatRunService {
       memoryWritesEnabled: storage.agent.memory.canWrite,
       messages: userThread.messages,
       prompt: request.prompt,
+      llmCallStore: this.llmCallStore,
       onActivity: options.onActivity,
     });
     const thread = await storage.appendMessage(request.threadId, {
@@ -79,7 +86,7 @@ export class ChatRunService {
       agentName: storage.agent.name,
       threadId: request.threadId,
       threadTitle: thread.title,
-      model: request.model,
+      model,
       createdAt: new Date().toISOString(),
       prompt: request.prompt,
       assistantResponse: agentResponse.content,
@@ -97,6 +104,7 @@ export class ChatRunService {
       tools: toolContext,
       toolCalls: agentResponse.toolCalls,
       tokenUsage: agentResponse.tokenUsage,
+      llmCalls: await this.llmCallStore.listCallsForRun(runId),
       memoryWritesEnabled: storage.agent.memory.canWrite,
     });
 

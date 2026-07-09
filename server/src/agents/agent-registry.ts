@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import type {
   AgentKind,
   AgentMemorySettings,
+  AgentModelSettings,
   AgentProfile,
   CreateAgentRequest,
   UpdateAgentRequest,
@@ -125,6 +126,14 @@ export class AgentRegistry {
         ...existing.memory,
         ...request.memory,
       }),
+      models: normalizeAgentModelSettings({
+        ...existing.models,
+        ...request.models,
+        research: {
+          ...existing.models.research,
+          ...request.models?.research,
+        },
+      }),
       updatedAt: new Date().toISOString(),
     };
 
@@ -219,6 +228,7 @@ export class AgentRegistry {
       chatEnabled,
       enabledTools: [],
       memory: { canWrite: true },
+      models: {},
       soulVirtualPath,
       createdAt: now,
       updatedAt: now,
@@ -352,6 +362,7 @@ function parseAgentProfile(value: unknown): AgentProfile | null {
           ? normalizeToolIds(value.enabledTools)
           : [],
       memory: 'memory' in value ? normalizeAgentMemorySettings(value.memory) : { canWrite: true },
+      models: 'models' in value ? normalizeAgentModelSettings(value.models) : {},
       soulVirtualPath: normalizeSoulVirtualPath(value.soulVirtualPath),
       createdAt: value.createdAt,
       updatedAt: value.updatedAt,
@@ -378,6 +389,9 @@ function hasCurrentAgentProfileShape(value: unknown): boolean {
     value.memory !== null &&
     'canWrite' in value.memory &&
     typeof value.memory.canWrite === 'boolean' &&
+    'models' in value &&
+    typeof value.models === 'object' &&
+    value.models !== null &&
     'soulVirtualPath' in value &&
     value.soulVirtualPath === soulVirtualPath
   );
@@ -414,6 +428,37 @@ function normalizeAgentMemorySettings(value: unknown): AgentMemorySettings {
   return {
     canWrite: true,
   };
+}
+
+function normalizeAgentModelSettings(value: unknown): AgentModelSettings {
+  if (typeof value !== 'object' || value === null) {
+    return {};
+  }
+
+  const record = value as Record<string, unknown>;
+  const research =
+    typeof record['research'] === 'object' && record['research'] !== null
+      ? (record['research'] as Record<string, unknown>)
+      : undefined;
+
+  return {
+    chat: normalizeOptionalModelId(record['chat']),
+    research: {
+      researcher: normalizeOptionalModelId(research?.['researcher']),
+    },
+    threadSummary: normalizeOptionalModelId(record['threadSummary']),
+    memoryMaintenance: normalizeOptionalModelId(record['memoryMaintenance']),
+  };
+}
+
+function normalizeOptionalModelId(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const normalized = value.trim();
+
+  return normalized || undefined;
 }
 
 function normalizeToolIds(toolIds: readonly unknown[]): string[] {

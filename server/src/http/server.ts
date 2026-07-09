@@ -44,6 +44,8 @@ export async function startServer(): Promise<void> {
         { name: 'profile', description: 'Synced user profile and preferences.' },
         { name: 'health', description: 'Backend status.' },
         { name: 'models', description: 'Model selection.' },
+        { name: 'model-pricing', description: 'Model pricing records for estimated costs.' },
+        { name: 'observability', description: 'LLM calls and estimated cost summaries.' },
         { name: 'memories', description: 'Long-term memory records.' },
         { name: 'tools', description: 'Tool registry and per-agent grants.' },
         { name: 'agents', description: 'Agent profiles.' },

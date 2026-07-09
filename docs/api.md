@@ -82,6 +82,51 @@ Agent runs include the current profile in the backend-generated bootloader promp
 
 Returns configured OpenAI model options and the default model.
 
+### `GET /api/model-pricing`
+
+Lists model pricing records used for estimated LLM cost calculation.
+
+Optional query parameters:
+
+- `provider`
+- `model`
+- `status`: `active`, `superseded`, or `unverified`
+
+### `POST /api/model-pricing`
+
+Creates a model pricing record.
+
+Body:
+
+```json
+{
+  "provider": "openai",
+  "model": "gpt-4.1-mini",
+  "inputCostPerMillionTokens": 0.4,
+  "outputCostPerMillionTokens": 1.6,
+  "cachedInputCostPerMillionTokens": 0.1,
+  "currency": "USD",
+  "sourceUrl": "https://openai.com/api/pricing/",
+  "sourceName": "OpenAI API pricing",
+  "status": "active"
+}
+```
+
+New records default to `unverified`. Creating or activating an `active` record supersedes the previous active record for the same provider and model.
+
+### `PATCH /api/model-pricing/:pricingId`
+
+Updates a pricing record status, `validUntil`, or notes.
+
+Body:
+
+```json
+{
+  "status": "active",
+  "notes": "Verified manually from the official pricing page."
+}
+```
+
 ### `GET /api/tools`
 
 Returns registered tools and their availability.
@@ -91,6 +136,43 @@ Returns registered tools and their availability.
 - `read_web_page` is a low-level public web page reader.
 
 The protected operator agent, `scotty`, also receives controlled admin tools during chat runs for managing agents, `soul.md`, and normal tool grants. Those admin tools are injected by the backend only for the protected operator agent and are not part of the normal assignable tool catalog returned here.
+
+## Observability
+
+### `GET /api/llm-calls`
+
+Lists recorded LLM calls.
+
+Optional query parameters:
+
+- `agentId`
+- `threadId`
+- `runId`
+- `provider`
+- `model`
+- `purpose`: `chat`, `research_parent`, `research_subagent`, `research_verification`, `thread_summary`, `memory_retrieval`, `memory_maintenance`, `operator`, or `unknown`
+- `status`: `success`, `error`, or `cancelled`
+- `startedFrom` and `startedTo`: ISO timestamp or `YYYY-MM-DD`
+- `limit`
+
+### `GET /api/llm-calls/:callId`
+
+Returns one recorded LLM call, including token usage, duration, pricing snapshot, and estimated cost when available.
+
+### `GET /api/costs/summary`
+
+Summarizes estimated LLM costs from recorded calls.
+
+Optional query parameters:
+
+- `groupBy`: `day`, `agent`, `model`, or `purpose`
+- `agentId`
+- `threadId`
+- `provider`
+- `model`
+- `purpose`
+- `status`
+- `startedFrom` and `startedTo`
 
 ## Memories
 
@@ -228,6 +310,21 @@ Body:
 ```
 
 Updates agent settings. `memory.canWrite` controls whether the agent receives the `save_memory` tool and whether memory maintenance may create thread-summary memories for that agent.
+
+The `models` object stores backend-owned model settings:
+
+```json
+{
+  "models": {
+    "chat": "gpt-4.1-mini",
+    "research": {
+      "researcher": "gpt-4.1"
+    }
+  }
+}
+```
+
+`models.chat` is the normal chat model for the agent. `models.research.researcher` is used by the internal researcher subagent when the `research` capability is enabled.
 
 ### `GET /api/agents/:agentId/soul`
 
@@ -401,4 +498,5 @@ The response includes:
 - tools available in the run, including labels, providers, descriptions, and whether they were assigned or controlled
 - tool calls and tool results when returned by the Deep Agents run
 - token usage when returned by the model/runtime
+- LLM call records, including purpose, status, token usage, duration, pricing snapshot id, and estimated cost when active pricing exists
 - whether memory writes were enabled

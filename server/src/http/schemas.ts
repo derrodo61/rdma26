@@ -1,6 +1,16 @@
 import { z } from 'zod';
 
 const agentKindSchema = z.enum(['chat', 'operator', 'internal']);
+const agentModelSettingsSchema = z.object({
+  chat: z.string().trim().min(1).optional(),
+  research: z
+    .object({
+      researcher: z.string().trim().min(1).optional(),
+    })
+    .optional(),
+  threadSummary: z.string().trim().min(1).optional(),
+  memoryMaintenance: z.string().trim().min(1).optional(),
+});
 
 export const createAgentRequestSchema = z.object({
   id: z.string().trim().min(1).optional(),
@@ -22,6 +32,7 @@ export const updateAgentRequestSchema = z.object({
       canWrite: z.boolean().optional(),
     })
     .optional(),
+  models: agentModelSettingsSchema.optional(),
 });
 
 export const updateAgentSoulRequestSchema = z.object({
@@ -130,7 +141,7 @@ export const agentRunRequestSchema = z.object({
   agentId: z.string().trim().min(1),
   threadId: z.string().uuid(),
   prompt: z.string().trim().min(1),
-  model: z.string().trim().min(1),
+  model: z.string().trim().min(1).optional(),
 });
 
 export const loginRequestSchema = z.object({
@@ -152,4 +163,77 @@ export const updateUserProfileRequestSchema = z.object({
   theme: z.enum(['light', 'dark', 'system']).optional(),
   lastAgentId: z.string().trim().min(1).optional(),
   agentSettings: z.record(z.string(), agentSettingsSchema).optional(),
+});
+
+const modelPricingStatusSchema = z.enum(['active', 'superseded', 'unverified']);
+const llmCallPurposeSchema = z.enum([
+  'chat',
+  'research_parent',
+  'research_subagent',
+  'research_verification',
+  'thread_summary',
+  'memory_retrieval',
+  'memory_maintenance',
+  'operator',
+  'unknown',
+]);
+const llmCallStatusSchema = z.enum(['success', 'error', 'cancelled']);
+
+export const llmCallListQuerySchema = z.object({
+  agentId: z.string().trim().min(1).optional(),
+  threadId: z.string().uuid().optional(),
+  runId: z.string().uuid().optional(),
+  provider: z.string().trim().min(1).optional(),
+  model: z.string().trim().min(1).optional(),
+  purpose: llmCallPurposeSchema.optional(),
+  status: llmCallStatusSchema.optional(),
+  startedFrom: z.string().trim().min(1).optional(),
+  startedTo: z.string().trim().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(1000).optional(),
+});
+
+export const llmCallParamsSchema = z.object({
+  callId: z.string().uuid(),
+});
+
+export const costSummaryQuerySchema = llmCallListQuerySchema
+  .omit({
+    limit: true,
+    runId: true,
+  })
+  .extend({
+    groupBy: z.enum(['day', 'agent', 'model', 'purpose']).optional(),
+  });
+
+export const modelPricingListQuerySchema = z.object({
+  provider: z.string().trim().min(1).optional(),
+  model: z.string().trim().min(1).optional(),
+  status: modelPricingStatusSchema.optional(),
+});
+
+export const createModelPricingRequestSchema = z.object({
+  provider: z.string().trim().min(1),
+  model: z.string().trim().min(1),
+  inputCostPerMillionTokens: z.number().min(0),
+  outputCostPerMillionTokens: z.number().min(0),
+  cachedInputCostPerMillionTokens: z.number().min(0).optional(),
+  reasoningCostPerMillionTokens: z.number().min(0).optional(),
+  currency: z.string().trim().min(1).optional(),
+  sourceUrl: z.string().trim().url(),
+  sourceName: z.string().trim().min(1).optional(),
+  sourceRetrievedAt: z.string().trim().min(1).optional(),
+  validFrom: z.string().trim().min(1).optional(),
+  validUntil: z.string().trim().min(1).optional(),
+  status: modelPricingStatusSchema.optional(),
+  notes: z.string().trim().min(1).optional(),
+});
+
+export const updateModelPricingRequestSchema = z.object({
+  status: modelPricingStatusSchema.optional(),
+  validUntil: z.string().trim().min(1).optional(),
+  notes: z.string().trim().min(1).optional(),
+});
+
+export const modelPricingParamsSchema = z.object({
+  pricingId: z.string().uuid(),
 });

@@ -9,13 +9,19 @@ import type {
   AgentsResponse,
   ChatThread,
   ChatThreadSummary,
+  CostSummaryRequest,
+  CostSummaryResponse,
   CreateMemoryRequest,
+  CreateModelPricingRequest,
   CreateAgentRequest,
   CreateThreadRequest,
   DeleteAgentResponse,
   DeleteMemoryResponse,
   DeleteThreadResponse,
   HealthResponse,
+  LlmCallListRequest,
+  LlmCallListResponse,
+  LlmCallRecord,
   MemoryMaintenanceRequest,
   MemoryMaintenanceResponse,
   MemoryMaintenanceSettings,
@@ -23,6 +29,9 @@ import type {
   MemoryListResponse,
   MemoryRecord,
   ModelOption,
+  ModelPricingListRequest,
+  ModelPricingListResponse,
+  ModelPricingRecord,
   ModelsResponse,
   RunContextDetails,
   ThreadSummaryRequest,
@@ -35,6 +44,7 @@ import type {
   UpdateAgentToolsRequest,
   UpdateMemoryMaintenanceSettingsRequest,
   UpdateMemoryRequest,
+  UpdateModelPricingRequest,
   UpdateUserProfileRequest,
   UserProfile,
 } from '../../shared/agent-contracts';
@@ -47,6 +57,8 @@ import { MemoryMaintenanceSettingsStore } from './memory/memory-maintenance-sett
 import { MemoryStore } from './memory/memory-store';
 import { ThreadSummaryService } from './memory/thread-summary-service';
 import { UserProfileStore } from './profiles/user-profile-store';
+import { LlmCallStore } from './llm/llm-call-store';
+import { ModelPricingStore } from './llm/model-pricing-store';
 import { RunContextStore } from './runs/run-context-store';
 import { ThreadService } from './threads/thread-service';
 
@@ -58,6 +70,8 @@ export class AssistantRuntime {
   private readonly memoryStore: MemoryStore;
   private readonly memoryMaintenanceSettingsStore: MemoryMaintenanceSettingsStore;
   private readonly runContextStore: RunContextStore;
+  private readonly modelPricingStore: ModelPricingStore;
+  private readonly llmCallStore: LlmCallStore;
   private readonly threadSummaries: ThreadSummaryService;
   private readonly threads: ThreadService;
   private readonly chatRuns: ChatRunService;
@@ -72,12 +86,19 @@ export class AssistantRuntime {
     this.memoryStore = new MemoryStore(options.dataDir);
     this.memoryMaintenanceSettingsStore = new MemoryMaintenanceSettingsStore(options.dataDir);
     this.runContextStore = new RunContextStore(options.dataDir);
+    this.modelPricingStore = new ModelPricingStore(options.dataDir);
+    this.llmCallStore = new LlmCallStore(options.dataDir, this.modelPricingStore);
     this.models = readModels();
-    this.threadSummaries = new ThreadSummaryService(this.memoryStore, this.models);
+    this.threadSummaries = new ThreadSummaryService(
+      this.memoryStore,
+      this.llmCallStore,
+      this.models,
+    );
     this.threads = new ThreadService(
       this.registry,
       this.memoryStore,
       this.runContextStore,
+      this.llmCallStore,
       this.threadSummaries,
     );
     this.chatRuns = new ChatRunService(
@@ -85,6 +106,7 @@ export class AssistantRuntime {
       this.capabilities,
       this.memoryStore,
       this.runContextStore,
+      this.llmCallStore,
       this.userProfileStore,
       this,
     );
@@ -96,7 +118,10 @@ export class AssistantRuntime {
     await this.memoryStore.ensureReady();
     await this.memoryMaintenanceSettingsStore.ensureReady();
     await this.runContextStore.ensureReady();
+    await this.modelPricingStore.ensureReady();
+    await this.llmCallStore.ensureReady();
     await this.runContextStore.deleteOrphanedRuns();
+    await this.llmCallStore.deleteOrphanedCalls();
   }
 
   async health(): Promise<HealthResponse> {
@@ -219,6 +244,7 @@ export class AssistantRuntime {
   }
 
   async deleteAgent(agentId: string): Promise<DeleteAgentResponse> {
+    await this.llmCallStore.deleteCallsForAgent(agentId);
     const deleted = await this.registry.deleteAgent(agentId);
 
     if (!deleted) {
@@ -297,7 +323,38 @@ export class AssistantRuntime {
   }
 
   async readRunContext(runId: string): Promise<RunContextDetails> {
-    return await this.runContextStore.requireRunContext(runId);
+    return await this.withLlmCalls(await this.runContextStore.requireRunContext(runId));
+  }
+
+  async listLlmCalls(request: LlmCallListRequest = {}): Promise<LlmCallListResponse> {
+    return {
+      calls: await this.llmCallStore.listCalls(request),
+    };
+  }
+
+  async readLlmCall(callId: string): Promise<LlmCallRecord> {
+    return await this.llmCallStore.requireCall(callId);
+  }
+
+  async summarizeCosts(request: CostSummaryRequest = {}): Promise<CostSummaryResponse> {
+    return await this.llmCallStore.summarizeCosts(request);
+  }
+
+  async listModelPricing(request: ModelPricingListRequest = {}): Promise<ModelPricingListResponse> {
+    return {
+      pricing: await this.modelPricingStore.listPricing(request),
+    };
+  }
+
+  async createModelPricing(request: CreateModelPricingRequest): Promise<ModelPricingRecord> {
+    return await this.modelPricingStore.createPricing(request);
+  }
+
+  async updateModelPricing(
+    pricingId: string,
+    request: UpdateModelPricingRequest,
+  ): Promise<ModelPricingRecord> {
+    return await this.modelPricingStore.updatePricing(pricingId, request);
   }
 
   async readLatestThreadRunContext(
@@ -306,7 +363,9 @@ export class AssistantRuntime {
   ): Promise<RunContextDetails | null> {
     await this.readThread(agentId, threadId);
 
-    return await this.runContextStore.readLatestRunContextForThread(agentId, threadId);
+    const context = await this.runContextStore.readLatestRunContextForThread(agentId, threadId);
+
+    return context ? await this.withLlmCalls(context) : null;
   }
 
   async listThreadRunContexts(
@@ -315,7 +374,9 @@ export class AssistantRuntime {
   ): Promise<readonly RunContextDetails[]> {
     await this.readThread(agentId, threadId);
 
-    return await this.runContextStore.listRunContextsForThread(agentId, threadId);
+    const contexts = await this.runContextStore.listRunContextsForThread(agentId, threadId);
+
+    return await Promise.all(contexts.map(async (context) => await this.withLlmCalls(context)));
   }
 
   async readAgent(agentId: string): Promise<AgentProfile> {
@@ -381,6 +442,13 @@ export class AssistantRuntime {
 
   async runAgent(request: AgentRunRequest, options: RunAgentOptions = {}): Promise<RunAgentResult> {
     return await this.chatRuns.runAgent(request, options);
+  }
+
+  private async withLlmCalls(context: RunContextDetails): Promise<RunContextDetails> {
+    return {
+      ...context,
+      llmCalls: await this.llmCallStore.listCallsForRun(context.runId),
+    };
   }
 
   getDefaultAgentId(): string {

@@ -72,6 +72,7 @@ export const researchResponseSchema = z.object({
 export function createResearchSubagents(
   searchProvider: SearchProvider,
   userProfile: UserProfile,
+  model?: string,
 ): readonly SubAgent[] {
   return [
     {
@@ -80,6 +81,7 @@ export function createResearchSubagents(
         'Researches external facts with web search and source reading, then returns structured findings with source URLs.',
       systemPrompt: createResearcherPrompt(userProfile),
       tools: createResearcherTools(searchProvider),
+      model,
       responseFormat: toolStrategy(researchResponseSchema),
     },
   ];

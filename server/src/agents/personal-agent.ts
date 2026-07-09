@@ -1,10 +1,10 @@
-import { ChatOpenAI } from '@langchain/openai';
 import { createDeepAgent, FilesystemBackend } from 'deepagents';
 import { MemorySaver } from '@langchain/langgraph';
 import type { StructuredToolInterface } from '@langchain/core/tools';
 
 import type {
   ChatMessage,
+  AgentModelSettings,
   MemoryRecord,
   RunContextTokenUsage,
   RunContextToolCall,
@@ -20,10 +20,15 @@ import {
 import { createBootloaderPromptForTest } from './agent-prompt';
 import { extractText, extractTokenUsage, extractToolCalls } from './agent-result';
 import { createEnabledSubagents } from './agent-subagents';
+import { LlmAccountingCallbackHandler } from '../llm/llm-accounting-callback';
+import type { LlmCallStore } from '../llm/llm-call-store';
+import { createOpenAiChatModel } from '../llm/model-factory';
 
 interface PersonalAgentRequest {
+  readonly runId: string;
   readonly threadId: string;
   readonly model: string;
+  readonly agentModels: AgentModelSettings;
   readonly tools: readonly StructuredToolInterface[];
   readonly enabledToolIds: readonly string[];
   readonly isOperatorAgent: boolean;
@@ -33,6 +38,7 @@ interface PersonalAgentRequest {
   readonly memoryWritesEnabled: boolean;
   readonly messages: readonly ChatMessage[];
   readonly prompt: string;
+  readonly llmCallStore: LlmCallStore;
   readonly onActivity?: AgentActivityCallback;
 }
 
@@ -64,17 +70,26 @@ export class PersonalAgent {
       };
     }
 
+    const llmAccounting = new LlmAccountingCallbackHandler(request.llmCallStore, {
+      runId: request.runId,
+      provider: 'openai',
+      model: request.model,
+      purpose: request.isOperatorAgent ? 'operator' : 'chat',
+      agentId: this.storage.agent.id,
+      threadId: request.threadId,
+    });
     const agent = createDeepAgent({
-      model: new ChatOpenAI({
-        apiKey: process.env['OPENAI_API_KEY'],
-        model: request.model,
-      }),
+      model: createOpenAiChatModel(request.model),
       backend: new FilesystemBackend({
         rootDir: this.storage.deepAgentRootDir,
         virtualMode: true,
       }),
       tools: request.tools,
-      subagents: createEnabledSubagents(request.enabledToolIds, request.userProfile),
+      subagents: createEnabledSubagents(
+        request.enabledToolIds,
+        request.userProfile,
+        request.agentModels,
+      ),
       checkpointer: this.checkpointer,
       systemPrompt: createBootloaderPromptForTest(
         this.storage.agent,
@@ -99,6 +114,7 @@ export class PersonalAgent {
       },
       {
         version: 'v3',
+        callbacks: [llmAccounting],
         configurable: {
           thread_id: request.threadId,
         },

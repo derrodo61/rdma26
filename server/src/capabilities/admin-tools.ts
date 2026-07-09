@@ -3,6 +3,9 @@ import { z } from 'zod';
 
 import type {
   CreateMemoryRequest,
+  CostSummaryGroupBy,
+  LlmCallPurpose,
+  LlmCallStatus,
   MemoryLifetime,
   MemoryScope,
   MemoryStatus,
@@ -21,6 +24,19 @@ const memoryTypeSchema = z.enum([
 ]);
 const memoryStatusSchema = z.enum(['active', 'archived', 'superseded']);
 const memoryLifetimeSchema = z.enum(['permanent', 'active', 'temporary']);
+const llmCallPurposeSchema = z.enum([
+  'chat',
+  'research_parent',
+  'research_subagent',
+  'research_verification',
+  'thread_summary',
+  'memory_retrieval',
+  'memory_maintenance',
+  'operator',
+  'unknown',
+]);
+const llmCallStatusSchema = z.enum(['success', 'error', 'cancelled']);
+const costSummaryGroupBySchema = z.enum(['day', 'agent', 'model', 'purpose']);
 
 const adminToolDefinitions: readonly ToolDefinition[] = [
   {
@@ -132,6 +148,27 @@ const adminToolDefinitions: readonly ToolDefinition[] = [
     id: 'admin_delete_memory',
     label: 'Delete memory',
     description: 'Delete one memory after explicit confirmation.',
+    provider: 'rdma26-admin',
+    available: true,
+  },
+  {
+    id: 'admin_list_llm_calls',
+    label: 'List LLM calls',
+    description: 'List recorded LLM calls for usage and cost inspection.',
+    provider: 'rdma26-admin',
+    available: true,
+  },
+  {
+    id: 'admin_summarize_costs',
+    label: 'Summarize costs',
+    description: 'Summarize estimated LLM costs by day, agent, model, or purpose.',
+    provider: 'rdma26-admin',
+    available: true,
+  },
+  {
+    id: 'admin_list_model_pricing',
+    label: 'List pricing',
+    description: 'List configured model pricing records used for estimated costs.',
     provider: 'rdma26-admin',
     available: true,
   },
@@ -353,6 +390,106 @@ export function createAdminTools(runtime: AssistantRuntime): readonly Structured
         }),
       },
     ),
+    tool(
+      async (input: AdminListLlmCallsInput) =>
+        await runtime.listLlmCalls({
+          agentId: input.agentId,
+          threadId: input.threadId,
+          provider: input.provider,
+          model: input.model,
+          purpose: input.purpose,
+          status: input.status,
+          startedFrom: input.startedFrom,
+          startedTo: input.startedTo,
+          limit: input.limit,
+        }),
+      {
+        name: 'admin_list_llm_calls',
+        description:
+          'List recorded LLM calls. Use this to inspect model usage, purpose, token counts, errors, and estimated costs.',
+        schema: z.object({
+          agentId: z.string().trim().min(1).optional().describe('Optional agent id filter.'),
+          threadId: z.string().uuid().optional().describe('Optional thread id filter.'),
+          provider: z.string().trim().min(1).optional().describe('Optional provider filter.'),
+          model: z.string().trim().min(1).optional().describe('Optional model filter.'),
+          purpose: llmCallPurposeSchema.optional().describe('Optional call purpose filter.'),
+          status: llmCallStatusSchema.optional().describe('Optional call status filter.'),
+          startedFrom: z
+            .string()
+            .trim()
+            .min(1)
+            .optional()
+            .describe('Optional start date lower bound.'),
+          startedTo: z
+            .string()
+            .trim()
+            .min(1)
+            .optional()
+            .describe('Optional start date upper bound.'),
+          limit: z.number().int().min(1).max(100).default(20).describe('Maximum calls to list.'),
+        }),
+      },
+    ),
+    tool(
+      async (input: AdminSummarizeCostsInput) =>
+        await runtime.summarizeCosts({
+          agentId: input.agentId,
+          threadId: input.threadId,
+          provider: input.provider,
+          model: input.model,
+          purpose: input.purpose,
+          status: input.status,
+          startedFrom: input.startedFrom,
+          startedTo: input.startedTo,
+          groupBy: input.groupBy,
+        }),
+      {
+        name: 'admin_summarize_costs',
+        description:
+          'Summarize estimated LLM costs. Use this before advising about expensive models, agents, or purposes.',
+        schema: z.object({
+          agentId: z.string().trim().min(1).optional().describe('Optional agent id filter.'),
+          threadId: z.string().uuid().optional().describe('Optional thread id filter.'),
+          provider: z.string().trim().min(1).optional().describe('Optional provider filter.'),
+          model: z.string().trim().min(1).optional().describe('Optional model filter.'),
+          purpose: llmCallPurposeSchema.optional().describe('Optional call purpose filter.'),
+          status: llmCallStatusSchema.optional().describe('Optional call status filter.'),
+          startedFrom: z
+            .string()
+            .trim()
+            .min(1)
+            .optional()
+            .describe('Optional start date lower bound.'),
+          startedTo: z
+            .string()
+            .trim()
+            .min(1)
+            .optional()
+            .describe('Optional start date upper bound.'),
+          groupBy: costSummaryGroupBySchema.default('day').describe('Summary grouping.'),
+        }),
+      },
+    ),
+    tool(
+      async ({ provider, model, status }: AdminListModelPricingInput) =>
+        await runtime.listModelPricing({
+          provider,
+          model,
+          status,
+        }),
+      {
+        name: 'admin_list_model_pricing',
+        description: 'List model pricing records used to calculate estimated costs.',
+        schema: z.object({
+          provider: z.string().trim().min(1).optional().describe('Optional provider filter.'),
+          model: z.string().trim().min(1).optional().describe('Optional model filter.'),
+          status: z
+            .enum(['active', 'superseded', 'unverified'])
+            .optional()
+            .describe('Optional pricing status filter.'),
+        }),
+      },
+    ),
   ];
 }
 
@@ -378,4 +515,26 @@ interface AdminUpdateMemoryInput {
   readonly lifetime?: MemoryLifetime;
   readonly content?: string;
   readonly tags?: readonly string[];
+}
+
+interface AdminListLlmCallsInput {
+  readonly agentId?: string;
+  readonly threadId?: string;
+  readonly provider?: string;
+  readonly model?: string;
+  readonly purpose?: LlmCallPurpose;
+  readonly status?: LlmCallStatus;
+  readonly startedFrom?: string;
+  readonly startedTo?: string;
+  readonly limit?: number;
+}
+
+interface AdminSummarizeCostsInput extends Omit<AdminListLlmCallsInput, 'limit'> {
+  readonly groupBy?: CostSummaryGroupBy;
+}
+
+interface AdminListModelPricingInput {
+  readonly provider?: string;
+  readonly model?: string;
+  readonly status?: 'active' | 'superseded' | 'unverified';
 }

@@ -1,4 +1,5 @@
 import type { RunContextTokenUsage, RunContextToolCall } from '../../../shared/agent-contracts';
+import { extractUsageFromMessage } from '../llm/llm-usage';
 
 export function extractText(result: unknown): string {
   const messages = readProperty<unknown[]>(result, 'messages');
@@ -118,46 +119,7 @@ function stringifyToolResult(content: unknown): string {
 }
 
 function readUsageFromMessage(message: unknown): RunContextTokenUsage | undefined {
-  const usageMetadata = readProperty<unknown>(message, 'usage_metadata');
-  const responseMetadata = readProperty<unknown>(message, 'response_metadata');
-  const tokenUsage = readProperty<unknown>(responseMetadata, 'tokenUsage');
-  const openAiTokenUsage = readProperty<unknown>(responseMetadata, 'token_usage');
-  const source = usageMetadata ?? tokenUsage ?? openAiTokenUsage;
-
-  if (!source) {
-    return undefined;
-  }
-
-  const inputTokens =
-    readNumber(source, 'input_tokens') ??
-    readNumber(source, 'promptTokens') ??
-    readNumber(source, 'prompt_tokens');
-  const outputTokens =
-    readNumber(source, 'output_tokens') ??
-    readNumber(source, 'completionTokens') ??
-    readNumber(source, 'completion_tokens');
-  const totalTokens =
-    readNumber(source, 'total_tokens') ??
-    readNumber(source, 'totalTokens') ??
-    (inputTokens !== undefined && outputTokens !== undefined
-      ? inputTokens + outputTokens
-      : undefined);
-
-  if (inputTokens === undefined && outputTokens === undefined && totalTokens === undefined) {
-    return undefined;
-  }
-
-  return {
-    inputTokens,
-    outputTokens,
-    totalTokens,
-  };
-}
-
-function readNumber(value: unknown, key: string): number | undefined {
-  const candidate = readProperty<unknown>(value, key);
-
-  return typeof candidate === 'number' ? candidate : undefined;
+  return extractUsageFromMessage(message);
 }
 
 function readProperty<T>(value: unknown, key: string): T | undefined {
