@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Decided that LLM context inspection should store structured context references by default, with exact full prompt capture available only through an explicit local debug setting and purge support.
 - Decided that LLM cost reporting should be labeled as estimated cost based on recorded usage and auditable pricing snapshots, not exact provider billing.
 - Decided that pricing updates should use unverified proposals and explicit user approval before changing active cost calculations.
+- Decided that LLM call records should be retained indefinitely by default, with manual cleanup controls and separate full-prompt payload purging.
 
 ## [2026-07-08]
 

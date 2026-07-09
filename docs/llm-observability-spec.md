@@ -237,6 +237,24 @@ Planned tables:
 
 This should live in `.assistant-data/rdma26.sqlite` with the existing memory, thread, message, and run-context records.
 
+## Retention And Cleanup
+
+LLM call records should be kept indefinitely by default.
+
+This is a local-first personal app, so long-term usage history is valuable for debugging, cost analysis, model comparison, and optimization. Records should not expire automatically in the first implementation.
+
+The user must have manual cleanup controls through UI, CLI, and API. Cleanup should support:
+
+- deleting LLM call records older than a chosen date
+- deleting records for a specific agent
+- deleting records for a specific thread
+- deleting failed-call records if desired
+- purging full prompt payloads independently from usage records
+
+Full prompt payloads are more sensitive than usage records. If debug prompt capture is enabled, prompt payloads should be purgeable without deleting the corresponding usage, token, timing, and cost metadata.
+
+Deleting a thread or agent should delete associated LLM call records and prompt payloads to avoid orphaned accounting data. Aggregated cost summaries can be recalculated from remaining detailed records unless a future implementation adds durable aggregate snapshots.
+
 ## Pricing Updates
 
 The first version should support manual pricing records through API and CLI.
@@ -541,15 +559,6 @@ This gives:
 - Later, let it propose pricing updates based on official pricing pages.
 
 ## Open Questions
-
-### How long should LLM call records be kept?
-
-Options:
-
-- keep forever
-- keep detailed records forever because the app is local-first
-- keep aggregates forever but expire detailed context after a time
-- allow manual cleanup only
 
 ### Should failed calls count toward estimated cost?
 
