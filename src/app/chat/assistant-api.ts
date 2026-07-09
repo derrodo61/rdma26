@@ -284,40 +284,76 @@ export class AssistantApi {
   }
 
   async runAgent(request: AgentRunRequest, onEvent: (event: AgentRunEvent) => void): Promise<void> {
-    const response = await fetch('/api/agent-runs', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(request),
-    });
+    const controller = new AbortController();
+    const idleTimeoutMs = 180_000;
+    let timedOut = false;
+    let finished = false;
+    let timeoutId = globalThis.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, idleTimeoutMs);
+    const resetTimeout = () => {
+      globalThis.clearTimeout(timeoutId);
+      timeoutId = globalThis.setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, idleTimeoutMs);
+    };
 
-    if (!response.ok || !response.body) {
-      throw new Error(`Agent request failed with HTTP ${response.status}.`);
-    }
+    try {
+      const response = await fetch('/api/agent-runs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      });
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-
-      if (done) {
-        break;
+      if (!response.ok || !response.body) {
+        throw new Error(`Agent request failed with HTTP ${response.status}.`);
       }
 
-      buffer += decoder.decode(value, { stream: true });
-      const parts = buffer.split('\n\n');
-      buffer = parts.pop() ?? '';
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
 
-      for (const part of parts) {
-        const event = parseServerSentEvent(part);
+      while (true) {
+        const { done, value } = await reader.read();
 
-        if (event) {
-          onEvent(event);
+        if (done) {
+          break;
+        }
+
+        resetTimeout();
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop() ?? '';
+
+        for (const part of parts) {
+          const event = parseServerSentEvent(part);
+
+          if (event) {
+            if (event.type === 'run-finished' || event.type === 'error') {
+              finished = true;
+            }
+
+            onEvent(event);
+          }
         }
       }
+
+      if (!finished) {
+        throw new Error('Agent stream ended before the run finished.');
+      }
+    } catch (error) {
+      if (timedOut) {
+        throw new Error('Agent request timed out while waiting for activity.', { cause: error });
+      }
+
+      throw error;
+    } finally {
+      globalThis.clearTimeout(timeoutId);
     }
   }
 }

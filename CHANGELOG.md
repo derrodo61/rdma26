@@ -33,6 +33,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added a cost dashboard for filtering LLM calls, summarizing estimated costs, inspecting recent calls, and managing pricing records.
 - Added the protected internal Cost Analyst agent with API, CLI, and UI access for advisory LLM usage and cost optimization.
 
+### Fixed
+
+- Added client-side safeguards so stalled or prematurely closed agent run streams stop the chat composer and show an error instead of leaving the UI in a permanent thinking state.
+
 ## [2026-07-08]
 
 ### Added
