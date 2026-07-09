@@ -325,6 +325,8 @@ Cost displays should include or link to:
 
 Exact billing reconciliation is out of scope for the first implementation. The system should prefer honest partial estimates over pretending to know exact provider bills.
 
+Failed LLM calls should still be logged with `status: 'error'`. If provider usage metadata is available for a failed call, estimated cost should be calculated normally from that usage. If usage metadata is unavailable, estimated cost remains empty or unknown. The first implementation does not need provider-specific failure billing rules.
+
 ## UI Surfaces
 
 ### Run Context Page
@@ -559,10 +561,6 @@ This gives:
 - Later, let it propose pricing updates based on official pricing pages.
 
 ## Open Questions
-
-### Should failed calls count toward estimated cost?
-
-Some providers may bill failed or partial calls differently. We need a provider-aware policy.
 
 ### Should cost be visible in normal chat?
 
