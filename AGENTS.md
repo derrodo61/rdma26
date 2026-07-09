@@ -47,6 +47,7 @@ This repository is a focused Angular test app for evaluating the LangChain Deep 
 - Prefer the documented TypeScript APIs and examples over inferred Python equivalents.
 - Use the browser-safe Deep Agents entrypoint for Angular browser code when the SDK documentation requires it.
 - Keep Node-only SDK behavior, filesystem access, model credentials, and privileged tools outside the Angular browser bundle.
+- Create all backend LLM instances through the central accounting-aware model factory/registry once it exists. When adding a new agent, subagent, capability, tool workflow, summary job, or maintenance job that needs an LLM, do not instantiate provider models directly in feature code. This pattern is required so parent-agent and subagent requests can be measured consistently for token usage, cost, timing, and context inspection.
 - Wrap SDK calls in a small typed adapter or Angular service so UI components do not depend directly on SDK internals.
 - Model agent state, run state, streamed output, tool events, and errors with explicit TypeScript types.
 - Validate tool input and output schemas at the boundary where application code calls the agent.
