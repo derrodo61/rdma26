@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import { mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
-const currentSchemaVersion = 3;
+const currentSchemaVersion = 4;
 
 export class LocalDatabase {
   private database: Database.Database | null = null;
@@ -134,6 +134,22 @@ function applySchema(database: Database.Database): void {
       updated_at text not null
     );
 
+    create table if not exists pricing_sources (
+      id text primary key,
+      provider text not null,
+      name text not null,
+      url text not null,
+      trust_level text not null,
+      active integer not null,
+      notes text,
+      last_checked_at text,
+      last_success_at text,
+      last_error text,
+      created_at text not null,
+      updated_at text not null,
+      unique(provider, url)
+    );
+
     create index if not exists idx_memory_agent_scope_type_status_updated
       on memory_records(agent_id, scope, type, status, updated_at);
 
@@ -172,6 +188,12 @@ function applySchema(database: Database.Database): void {
 
     create index if not exists idx_model_pricing_updated
       on model_pricing(updated_at);
+
+    create index if not exists idx_pricing_sources_provider_active
+      on pricing_sources(provider, active);
+
+    create index if not exists idx_pricing_sources_updated
+      on pricing_sources(updated_at);
   `);
 
   ensureColumn(database, 'llm_calls', 'pricing_snapshot_id', 'text');

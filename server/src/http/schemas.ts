@@ -53,6 +53,11 @@ const memoryTypeSchema = z.enum([
 ]);
 const memoryStatusSchema = z.enum(['active', 'archived', 'superseded']);
 const memoryLifetimeSchema = z.enum(['permanent', 'active', 'temporary']);
+const pricingSourceTrustLevelSchema = z.enum(['official', 'third_party', 'user_added']);
+const booleanQuerySchema = z.union([
+  z.boolean(),
+  z.enum(['true', 'false']).transform((value) => value === 'true'),
+]);
 const memorySourceSchema = z.object({
   agentId: z.string().trim().min(1).optional(),
   threadId: z.string().uuid().optional(),
@@ -242,4 +247,32 @@ export const updateModelPricingRequestSchema = z.object({
 
 export const modelPricingParamsSchema = z.object({
   pricingId: z.string().uuid(),
+});
+
+export const pricingSourceListQuerySchema = z.object({
+  provider: z.string().trim().min(1).optional(),
+  trustLevel: pricingSourceTrustLevelSchema.optional(),
+  active: booleanQuerySchema.optional(),
+});
+
+export const createPricingSourceRequestSchema = z.object({
+  provider: z.string().trim().min(1),
+  name: z.string().trim().min(1),
+  url: z.string().trim().url(),
+  trustLevel: pricingSourceTrustLevelSchema.optional(),
+  active: z.boolean().optional(),
+  notes: z.string().trim().min(1).optional(),
+});
+
+export const updatePricingSourceRequestSchema = z.object({
+  provider: z.string().trim().min(1).optional(),
+  name: z.string().trim().min(1).optional(),
+  url: z.string().trim().url().optional(),
+  trustLevel: pricingSourceTrustLevelSchema.optional(),
+  active: z.boolean().optional(),
+  notes: z.string().trim().min(1).optional(),
+});
+
+export const pricingSourceParamsSchema = z.object({
+  sourceId: z.string().uuid(),
 });

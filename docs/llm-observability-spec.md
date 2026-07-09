@@ -259,10 +259,35 @@ Deleting a thread or agent should delete associated LLM call records and prompt 
 
 The first version should support manual pricing records through API and CLI.
 
+Pricing source pages should be stored separately from price records. The source registry is application data and should live in SQLite so it can be listed, checked, edited, deactivated, or deleted through UI/API/CLI and protected operator tools.
+
+The initial source registry includes:
+
+```text
+Provider: openai
+Name: OpenAI API pricing
+URL: https://developers.openai.com/api/docs/pricing
+Trust level: official
+```
+
+Pricing source records should store:
+
+- provider
+- name
+- URL
+- trust level: `official`, `third_party`, or `user_added`
+- active flag
+- notes
+- last checked timestamp
+- last successful check timestamp
+- last error
+- created and updated timestamps
+
 Later, a specialized cost/optimization agent can help maintain pricing by:
 
-- finding official pricing pages
-- saving source URLs
+- reading configured official pricing pages first
+- finding new official pricing pages when configured sources no longer work
+- saving source URLs in the source registry
 - reading pricing pages periodically
 - extracting candidate prices
 - creating unverified pricing proposals

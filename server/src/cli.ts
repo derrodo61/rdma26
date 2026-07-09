@@ -11,6 +11,7 @@ import type {
   MemoryStatus,
   MemoryType,
   ModelPricingStatus,
+  PricingSourceTrustLevel,
   ThemePreference,
   TimeStylePreference,
 } from '../../shared/agent-contracts';
@@ -370,6 +371,45 @@ async function main(): Promise<void> {
         }),
       );
       return;
+    case 'pricing-sources:list':
+      printJson(
+        await runtime.listPricingSources({
+          provider: options['provider'],
+          trustLevel: parsePricingSourceTrustLevel(options['trust-level']),
+          active: parseOptionalBooleanOption(options['active'], 'active'),
+        }),
+      );
+      return;
+    case 'pricing-sources:add':
+      printJson(
+        await runtime.createPricingSource({
+          provider: requiredOption(options, 'provider'),
+          name: requiredOption(options, 'name'),
+          url: requiredOption(options, 'url'),
+          trustLevel: parsePricingSourceTrustLevel(options['trust-level']) ?? 'user_added',
+          active: parseOptionalBooleanOption(options['active'], 'active'),
+          notes: options['notes'],
+        }),
+      );
+      return;
+    case 'pricing-sources:update':
+      printJson(
+        await runtime.updatePricingSource(requiredOption(options, 'source'), {
+          provider: options['provider'],
+          name: options['name'],
+          url: options['url'],
+          trustLevel: parsePricingSourceTrustLevel(options['trust-level']),
+          active: parseOptionalBooleanOption(options['active'], 'active'),
+          notes: options['notes'],
+        }),
+      );
+      return;
+    case 'pricing-sources:delete':
+      printJson(await runtime.deletePricingSource(requiredOption(options, 'source')));
+      return;
+    case 'pricing-sources:check':
+      printJson(await runtime.checkPricingSource(requiredOption(options, 'source')));
+      return;
     case 'help':
     case '--help':
     case '-h':
@@ -612,6 +652,20 @@ function parseModelPricingStatus(value: string | undefined): ModelPricingStatus 
   throw new Error('--status must be active, superseded, or unverified.');
 }
 
+function parsePricingSourceTrustLevel(
+  value: string | undefined,
+): PricingSourceTrustLevel | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  if (value === 'official' || value === 'third_party' || value === 'user_added') {
+    return value;
+  }
+
+  throw new Error('--trust-level must be official, third_party, or user_added.');
+}
+
 function parseLlmCallPurpose(value: string | undefined): LlmCallPurpose | undefined {
   if (!value) {
     return undefined;
@@ -750,9 +804,14 @@ Usage:
   rdma26 llm-calls:show --call <call-id>
   rdma26 costs:summary --started-from 2026-07-01 --group-by model
   rdma26 pricing:list --provider openai --model gpt-4.1-mini
-  rdma26 pricing:create --provider openai --model gpt-4.1-mini --input 0.40 --output 1.60 --source-url "https://openai.com/api/pricing/" --status active
+  rdma26 pricing:create --provider openai --model gpt-4.1-mini --input 0.40 --output 1.60 --source-url "https://developers.openai.com/api/docs/pricing" --status active
   rdma26 pricing:activate --pricing <pricing-id>
   rdma26 pricing:supersede --pricing <pricing-id>
+  rdma26 pricing-sources:list --provider openai --active true
+  rdma26 pricing-sources:add --provider openai --name "OpenAI API pricing" --url "https://developers.openai.com/api/docs/pricing" --trust-level official
+  rdma26 pricing-sources:update --source <source-id> --active false
+  rdma26 pricing-sources:delete --source <source-id>
+  rdma26 pricing-sources:check --source <source-id>
 
 Options:
   --agent   Agent id. Defaults to ASSISTANT_AGENT_ID or scotty.

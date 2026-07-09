@@ -5,6 +5,7 @@ import type {
   CostSummaryGroupBy,
   CreateMemoryRequest,
   CreateModelPricingRequest,
+  CreatePricingSourceRequest,
   LlmCallPurpose,
   LlmCallStatus,
   MemoryLifetime,
@@ -12,7 +13,9 @@ import type {
   MemoryStatus,
   MemoryType,
   ModelPricingStatus,
+  PricingSourceTrustLevel,
   ToolDefinition,
+  UpdatePricingSourceRequest,
 } from '../../../shared/agent-contracts';
 import type { AssistantRuntime } from '../runtime';
 
@@ -40,6 +43,7 @@ const llmCallPurposeSchema = z.enum([
 const llmCallStatusSchema = z.enum(['success', 'error', 'cancelled']);
 const costSummaryGroupBySchema = z.enum(['day', 'agent', 'model', 'purpose']);
 const modelPricingStatusSchema = z.enum(['active', 'superseded', 'unverified']);
+const pricingSourceTrustLevelSchema = z.enum(['official', 'third_party', 'user_added']);
 
 const adminToolDefinitions: readonly ToolDefinition[] = [
   {
@@ -186,6 +190,41 @@ const adminToolDefinitions: readonly ToolDefinition[] = [
     id: 'admin_update_model_pricing',
     label: 'Update pricing',
     description: 'Activate, supersede, or annotate a model pricing record after approval.',
+    provider: 'rdma26-admin',
+    available: true,
+  },
+  {
+    id: 'admin_list_pricing_sources',
+    label: 'List pricing sources',
+    description: 'List configured provider pricing source pages.',
+    provider: 'rdma26-admin',
+    available: true,
+  },
+  {
+    id: 'admin_create_pricing_source',
+    label: 'Create pricing source',
+    description: 'Add a provider pricing source page.',
+    provider: 'rdma26-admin',
+    available: true,
+  },
+  {
+    id: 'admin_update_pricing_source',
+    label: 'Update pricing source',
+    description: 'Update or deactivate a provider pricing source page.',
+    provider: 'rdma26-admin',
+    available: true,
+  },
+  {
+    id: 'admin_delete_pricing_source',
+    label: 'Delete pricing source',
+    description: 'Delete a provider pricing source page after confirmation.',
+    provider: 'rdma26-admin',
+    available: true,
+  },
+  {
+    id: 'admin_check_pricing_source',
+    label: 'Check pricing source',
+    description: 'Check whether a provider pricing source page is reachable.',
     provider: 'rdma26-admin',
     available: true,
   },
@@ -508,15 +547,95 @@ export function createAdminTools(runtime: AssistantRuntime): readonly Structured
       },
     ),
     tool(
-      async (input: AdminCreateModelPricingInput) =>
-        await runtime.createModelPricing({
+      async ({ provider, trustLevel, active }: AdminListPricingSourcesInput) =>
+        await runtime.listPricingSources({
+          provider,
+          trustLevel,
+          active,
+        }),
+      {
+        name: 'admin_list_pricing_sources',
+        description:
+          'List configured provider pricing source pages. Use this before researching provider model prices.',
+        schema: z.object({
+          provider: z.string().trim().min(1).optional().describe('Optional provider filter.'),
+          trustLevel: pricingSourceTrustLevelSchema
+            .optional()
+            .describe('Optional trust-level filter.'),
+          active: z.boolean().optional().describe('Optional active-state filter.'),
+        }),
+      },
+    ),
+    tool(async (input: CreatePricingSourceRequest) => await runtime.createPricingSource(input), {
+      name: 'admin_create_pricing_source',
+      description: 'Add a provider pricing source page to the persistent source registry.',
+      schema: z.object({
+        provider: z.string().trim().min(1).describe('Provider id, such as openai.'),
+        name: z.string().trim().min(1).describe('Human-readable source name.'),
+        url: z.string().url().describe('Source URL.'),
+        trustLevel: pricingSourceTrustLevelSchema
+          .default('user_added')
+          .describe('Trust level for the source.'),
+        active: z.boolean().default(true).describe('Whether this source should be used.'),
+        notes: z.string().trim().min(1).optional().describe('Optional source note.'),
+      }),
+    }),
+    tool(
+      async ({ sourceId, ...input }: AdminUpdatePricingSourceInput) =>
+        await runtime.updatePricingSource(sourceId, input),
+      {
+        name: 'admin_update_pricing_source',
+        description: 'Update, activate, or deactivate a provider pricing source page.',
+        schema: z.object({
+          sourceId: z.string().uuid().describe('Pricing source id.'),
+          provider: z.string().trim().min(1).optional().describe('Optional provider id.'),
+          name: z.string().trim().min(1).optional().describe('Optional source name.'),
+          url: z.string().url().optional().describe('Optional source URL.'),
+          trustLevel: pricingSourceTrustLevelSchema
+            .optional()
+            .describe('Optional source trust level.'),
+          active: z.boolean().optional().describe('Optional active-state update.'),
+          notes: z.string().trim().min(1).optional().describe('Optional source note.'),
+        }),
+      },
+    ),
+    tool(
+      async ({ sourceId, confirm }: AdminDeletePricingSourceInput) => {
+        if (!confirm) {
+          throw new Error('Deleting a pricing source requires confirm=true.');
+        }
+
+        return await runtime.deletePricingSource(sourceId);
+      },
+      {
+        name: 'admin_delete_pricing_source',
+        description: 'Delete a provider pricing source page after explicit confirmation.',
+        schema: z.object({
+          sourceId: z.string().uuid().describe('Pricing source id.'),
+          confirm: z.literal(true).describe('Must be true after explicit user approval.'),
+        }),
+      },
+    ),
+    tool(async ({ sourceId }: { sourceId: string }) => await runtime.checkPricingSource(sourceId), {
+      name: 'admin_check_pricing_source',
+      description: 'Check whether a provider pricing source page is reachable.',
+      schema: z.object({
+        sourceId: z.string().uuid().describe('Pricing source id.'),
+      }),
+    }),
+    tool(
+      async (input: AdminCreateModelPricingInput) => {
+        await ensurePricingSourceAllowed(runtime, input.provider, input.sourceUrl);
+
+        return await runtime.createModelPricing({
           ...input,
           status: 'unverified',
-        }),
+        });
+      },
       {
         name: 'admin_create_model_pricing',
         description:
-          'Create an unverified model pricing proposal after researching a trustworthy source. Prefer official provider pricing pages. This does not activate the price.',
+          'Create an unverified model pricing proposal after researching a trustworthy source. First list configured pricing sources and use active official sources when available. This does not activate the price.',
         schema: z.object({
           provider: z.string().trim().min(1).describe('Provider id, such as openai.'),
           model: z.string().trim().min(1).describe('Exact model id.'),
@@ -596,6 +715,42 @@ export function createAdminTools(runtime: AssistantRuntime): readonly Structured
   ];
 }
 
+async function ensurePricingSourceAllowed(
+  runtime: AssistantRuntime,
+  provider: string,
+  sourceUrl: string,
+): Promise<void> {
+  const sources = await runtime.listPricingSources({
+    provider,
+    trustLevel: 'official',
+    active: true,
+  });
+
+  if (!sources.sources.length) {
+    return;
+  }
+
+  const normalizedSourceUrl = normalizeUrl(sourceUrl);
+  const matchesConfiguredSource = sources.sources.some(
+    (source) => normalizeUrl(source.url) === normalizedSourceUrl,
+  );
+
+  if (!matchesConfiguredSource) {
+    const allowedUrls = sources.sources.map((source) => source.url).join(', ');
+    throw new Error(
+      `Pricing proposals for ${provider} must cite an active official configured pricing source. Allowed sources: ${allowedUrls}`,
+    );
+  }
+}
+
+function normalizeUrl(value: string): string {
+  const url = new URL(value);
+  url.hash = '';
+  url.search = '';
+
+  return url.toString().replace(/\/$/, '');
+}
+
 interface AdminListMemoriesInput {
   readonly agentId?: string;
   readonly scope?: MemoryScope;
@@ -642,6 +797,12 @@ interface AdminListModelPricingInput {
   readonly status?: ModelPricingStatus;
 }
 
+interface AdminListPricingSourcesInput {
+  readonly provider?: string;
+  readonly trustLevel?: PricingSourceTrustLevel;
+  readonly active?: boolean;
+}
+
 interface AdminCreateModelPricingInput extends Omit<
   CreateModelPricingRequest,
   'status' | 'currency'
@@ -655,4 +816,13 @@ interface AdminUpdateModelPricingInput {
   readonly validUntil?: string;
   readonly notes?: string;
   readonly confirm: true;
+}
+
+interface AdminDeletePricingSourceInput {
+  readonly sourceId: string;
+  readonly confirm: true;
+}
+
+interface AdminUpdatePricingSourceInput extends UpdatePricingSourceRequest {
+  readonly sourceId: string;
 }

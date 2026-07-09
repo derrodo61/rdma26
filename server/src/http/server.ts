@@ -45,6 +45,7 @@ export async function startServer(): Promise<void> {
         { name: 'health', description: 'Backend status.' },
         { name: 'models', description: 'Model selection.' },
         { name: 'model-pricing', description: 'Model pricing records for estimated costs.' },
+        { name: 'pricing-sources', description: 'Provider pricing source pages.' },
         { name: 'observability', description: 'LLM calls and estimated cost summaries.' },
         { name: 'memories', description: 'Long-term memory records.' },
         { name: 'tools', description: 'Tool registry and per-agent grants.' },

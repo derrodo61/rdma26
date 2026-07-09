@@ -114,7 +114,7 @@ Useful filters:
 ### Create a model pricing record
 
 ```bash
-rdma26 pricing:create --provider openai --model gpt-4.1-mini --input 0.40 --output 1.60 --source-url "https://openai.com/api/pricing/" --status active
+rdma26 pricing:create --provider openai --model gpt-4.1-mini --input 0.40 --output 1.60 --source-url "https://developers.openai.com/api/docs/pricing" --status active
 ```
 
 New records default to `unverified`. Use `--status active` only after checking the source.
@@ -138,6 +138,36 @@ rdma26 pricing:supersede --pricing <pricing-id>
 ```
 
 Activating a pricing record supersedes the previous active record for the same provider and model.
+
+### List pricing source pages
+
+```bash
+rdma26 pricing-sources:list --provider openai --active true
+```
+
+Useful filters:
+
+- `--provider openai`
+- `--trust-level official|third_party|user_added`
+- `--active true|false`
+
+### Add or update a pricing source page
+
+```bash
+rdma26 pricing-sources:add --provider openai --name "OpenAI API pricing" --url "https://developers.openai.com/api/docs/pricing" --trust-level official
+rdma26 pricing-sources:update --source <source-id> --active false
+```
+
+The default database seed includes the official OpenAI pricing page.
+
+### Check or delete a pricing source page
+
+```bash
+rdma26 pricing-sources:check --source <source-id>
+rdma26 pricing-sources:delete --source <source-id>
+```
+
+Checking a source updates its last checked, last success, and last error fields.
 
 ## Observability
 

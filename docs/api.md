@@ -106,7 +106,7 @@ Body:
   "outputCostPerMillionTokens": 1.6,
   "cachedInputCostPerMillionTokens": 0.1,
   "currency": "USD",
-  "sourceUrl": "https://openai.com/api/pricing/",
+  "sourceUrl": "https://developers.openai.com/api/docs/pricing",
   "sourceName": "OpenAI API pricing",
   "status": "active"
 }
@@ -126,6 +126,51 @@ Body:
   "notes": "Verified manually from the official pricing page."
 }
 ```
+
+### `GET /api/pricing-sources`
+
+Lists provider pricing source pages that humans, CLI workflows, and protected agents can use when researching prices.
+
+Optional query parameters:
+
+- `provider`
+- `trustLevel`: `official`, `third_party`, or `user_added`
+- `active`: `true` or `false`
+
+The default database seed includes the official OpenAI pricing source:
+
+```text
+https://developers.openai.com/api/docs/pricing
+```
+
+### `POST /api/pricing-sources`
+
+Creates a provider pricing source page.
+
+Body:
+
+```json
+{
+  "provider": "openai",
+  "name": "OpenAI API pricing",
+  "url": "https://developers.openai.com/api/docs/pricing",
+  "trustLevel": "official",
+  "active": true,
+  "notes": "Official OpenAI API pricing page."
+}
+```
+
+### `PATCH /api/pricing-sources/:sourceId`
+
+Updates a provider pricing source page. Supported fields are `provider`, `name`, `url`, `trustLevel`, `active`, and `notes`.
+
+### `DELETE /api/pricing-sources/:sourceId`
+
+Deletes a provider pricing source page.
+
+### `POST /api/pricing-sources/:sourceId/check`
+
+Checks whether a pricing source URL is reachable and updates `lastCheckedAt`, `lastSuccessAt`, and `lastError`.
 
 ### `GET /api/tools`
 

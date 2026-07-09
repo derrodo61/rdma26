@@ -33,6 +33,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added a cost dashboard for filtering LLM calls, summarizing estimated costs, inspecting recent calls, and managing pricing records.
 - Added the protected internal Cost Analyst agent with API, CLI, and UI access for advisory LLM usage and cost optimization.
 - Added protected Cost Analyst pricing tools so it can research provider prices and store unverified pricing proposals, with activation still requiring explicit approval.
+- Added a SQLite-backed pricing source registry with API, CLI, default official OpenAI pricing source, reachability checks, and Cost Analyst source-inspection tools.
 
 ### Fixed
 

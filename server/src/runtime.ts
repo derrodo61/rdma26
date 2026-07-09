@@ -13,10 +13,12 @@ import type {
   CostSummaryResponse,
   CreateMemoryRequest,
   CreateModelPricingRequest,
+  CreatePricingSourceRequest,
   CreateAgentRequest,
   CreateThreadRequest,
   DeleteAgentResponse,
   DeleteMemoryResponse,
+  DeletePricingSourceResponse,
   DeleteThreadResponse,
   HealthResponse,
   LlmCallListRequest,
@@ -35,6 +37,9 @@ import type {
   ModelsResponse,
   OptimizerRunRequest,
   OptimizerRunResponse,
+  PricingSourceListRequest,
+  PricingSourceListResponse,
+  PricingSourceRecord,
   RunContextDetails,
   ThreadSummaryRequest,
   ThreadSummaryResponse,
@@ -47,6 +52,7 @@ import type {
   UpdateMemoryMaintenanceSettingsRequest,
   UpdateMemoryRequest,
   UpdateModelPricingRequest,
+  UpdatePricingSourceRequest,
   UpdateUserProfileRequest,
   UserProfile,
 } from '../../shared/agent-contracts';
@@ -67,6 +73,7 @@ import { ThreadSummaryService } from './memory/thread-summary-service';
 import { UserProfileStore } from './profiles/user-profile-store';
 import { LlmCallStore } from './llm/llm-call-store';
 import { ModelPricingStore } from './llm/model-pricing-store';
+import { PricingSourceStore } from './llm/pricing-source-store';
 import { RunContextStore } from './runs/run-context-store';
 import { ThreadService } from './threads/thread-service';
 
@@ -79,6 +86,7 @@ export class AssistantRuntime {
   private readonly memoryMaintenanceSettingsStore: MemoryMaintenanceSettingsStore;
   private readonly runContextStore: RunContextStore;
   private readonly modelPricingStore: ModelPricingStore;
+  private readonly pricingSourceStore: PricingSourceStore;
   private readonly llmCallStore: LlmCallStore;
   private readonly threadSummaries: ThreadSummaryService;
   private readonly threads: ThreadService;
@@ -95,6 +103,7 @@ export class AssistantRuntime {
     this.memoryMaintenanceSettingsStore = new MemoryMaintenanceSettingsStore(options.dataDir);
     this.runContextStore = new RunContextStore(options.dataDir);
     this.modelPricingStore = new ModelPricingStore(options.dataDir);
+    this.pricingSourceStore = new PricingSourceStore(options.dataDir);
     this.llmCallStore = new LlmCallStore(options.dataDir, this.modelPricingStore);
     this.models = readModels();
     this.threadSummaries = new ThreadSummaryService(
@@ -147,6 +156,8 @@ export class AssistantRuntime {
     await this.memoryMaintenanceSettingsStore.ensureReady();
     await this.runContextStore.ensureReady();
     await this.modelPricingStore.ensureReady();
+    await this.pricingSourceStore.ensureReady();
+    await this.pricingSourceStore.ensureDefaultSources();
     await this.llmCallStore.ensureReady();
     await this.runContextStore.deleteOrphanedRuns();
     await this.llmCallStore.deleteOrphanedCalls();
@@ -385,6 +396,33 @@ export class AssistantRuntime {
     return await this.modelPricingStore.updatePricing(pricingId, request);
   }
 
+  async listPricingSources(
+    request: PricingSourceListRequest = {},
+  ): Promise<PricingSourceListResponse> {
+    return {
+      sources: await this.pricingSourceStore.listSources(request),
+    };
+  }
+
+  async createPricingSource(request: CreatePricingSourceRequest): Promise<PricingSourceRecord> {
+    return await this.pricingSourceStore.createSource(request);
+  }
+
+  async updatePricingSource(
+    sourceId: string,
+    request: UpdatePricingSourceRequest,
+  ): Promise<PricingSourceRecord> {
+    return await this.pricingSourceStore.updateSource(sourceId, request);
+  }
+
+  async deletePricingSource(sourceId: string): Promise<DeletePricingSourceResponse> {
+    return await this.pricingSourceStore.deleteSource(sourceId);
+  }
+
+  async checkPricingSource(sourceId: string): Promise<PricingSourceRecord> {
+    return await this.pricingSourceStore.checkSource(sourceId);
+  }
+
   async readLatestThreadRunContext(
     agentId: string,
     threadId: string,
@@ -514,7 +552,20 @@ export class AssistantRuntime {
   ): Promise<void> {
     const soulContent = await storage.readSoul();
 
+    if (
+      soulContent.includes('## Pricing maintenance') &&
+      soulContent.includes('## Pricing source registry')
+    ) {
+      return;
+    }
+
     if (soulContent.includes('## Pricing maintenance')) {
+      await storage.writeSoul(`${soulContent.trim()}
+
+## Pricing source registry
+
+- First inspect configured pricing sources. Prefer active official provider sources and include source URL, source name, and retrieval date.
+`);
       return;
     }
 
@@ -523,7 +574,7 @@ export class AssistantRuntime {
 ## Pricing maintenance
 
 - Use research when the user asks you to find current provider prices.
-- Prefer official provider pricing pages and include source URL, source name, and retrieval date.
+- First inspect configured pricing sources. Prefer active official provider sources and include source URL, source name, and retrieval date.
 - You may create unverified model pricing records when the user asks you to store researched prices.
 - Do not activate, supersede, or replace active pricing unless the user explicitly approves that specific change.
 `);

@@ -415,6 +415,7 @@ export interface RunContextTokenUsage {
 
 export type LlmCallStatus = 'success' | 'error' | 'cancelled';
 export type ModelPricingStatus = 'active' | 'superseded' | 'unverified';
+export type PricingSourceTrustLevel = 'official' | 'third_party' | 'user_added';
 
 export type LlmCallPurpose =
   | 'chat'
@@ -554,6 +555,54 @@ export interface UpdateModelPricingRequest {
   readonly status?: ModelPricingStatus;
   readonly validUntil?: string;
   readonly notes?: string;
+}
+
+export interface PricingSourceRecord {
+  readonly id: string;
+  readonly provider: string;
+  readonly name: string;
+  readonly url: string;
+  readonly trustLevel: PricingSourceTrustLevel;
+  readonly active: boolean;
+  readonly notes?: string;
+  readonly lastCheckedAt?: string;
+  readonly lastSuccessAt?: string;
+  readonly lastError?: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface PricingSourceListRequest {
+  readonly provider?: string;
+  readonly trustLevel?: PricingSourceTrustLevel;
+  readonly active?: boolean;
+}
+
+export interface PricingSourceListResponse {
+  readonly sources: readonly PricingSourceRecord[];
+}
+
+export interface CreatePricingSourceRequest {
+  readonly provider: string;
+  readonly name: string;
+  readonly url: string;
+  readonly trustLevel?: PricingSourceTrustLevel;
+  readonly active?: boolean;
+  readonly notes?: string;
+}
+
+export interface UpdatePricingSourceRequest {
+  readonly provider?: string;
+  readonly name?: string;
+  readonly url?: string;
+  readonly trustLevel?: PricingSourceTrustLevel;
+  readonly active?: boolean;
+  readonly notes?: string;
+}
+
+export interface DeletePricingSourceResponse {
+  readonly deleted: true;
+  readonly sourceId: string;
 }
 
 export interface RunContextDetails {
