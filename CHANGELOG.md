@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - Added an LLM observability and cost-control specification covering call accounting, pricing records, cost estimates, model configuration, dashboards, and a future optimization agent.
+- Decided that all backend LLM calls should go through one accounting-aware model factory so parent-agent and subagent requests can be measured consistently.
 
 ## [2026-07-08]
 

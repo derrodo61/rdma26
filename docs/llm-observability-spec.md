@@ -325,12 +325,45 @@ It should not:
 - delete accounting data
 - send usage data to external services unless the user explicitly permits it
 
+## Model Call Interception
+
+All backend LLM instances should be created through one central accounting-aware model factory or model registry.
+
+Backend code should not instantiate provider models directly in feature modules. For example, direct `new ChatOpenAI(...)` usage should be limited to the factory. Chat runs, researcher subagents, summaries, memory maintenance, and future operator workflows should all receive model instances from the same factory.
+
+Conceptually:
+
+```ts
+const model = modelRegistry.createModel({
+  provider: 'openai',
+  model: 'gpt-5.4-mini',
+  purpose: 'research_subagent',
+  runId,
+  agentId,
+  parentCallId,
+});
+```
+
+The factory should return a wrapped model that records every invocation.
+
+This is the project rule:
+
+- every LLM call should pass through the accounting-aware model factory
+- the factory assigns provider, model, purpose, run id, agent id, and parent/child relationship
+- the wrapper records timestamps, status, token usage, duration, errors, and pricing snapshot when available
+- parent agent calls and researcher subagent calls must both use the same accounting path
+- direct provider model construction outside the factory should be treated as a bug
+
+Implementation still needs to verify the exact LangChain and Deep Agents TypeScript hooks for token usage and subagent calls, but the design decision is settled: logging happens at model creation/invocation time through one shared factory path.
+
 ## Implementation Phases
 
 ### Phase 1: Raw LLM Call Logging
 
 - Add SQLite tables for LLM call records.
-- Wrap all backend model calls with a small accounting service.
+- Add a central accounting-aware model factory or model registry.
+- Move direct provider model construction behind that factory.
+- Wrap all backend model calls with a small accounting service at model invocation time.
 - Store provider, model, purpose, run id, agent id, thread id, timestamps, status, and token usage when available.
 - Link subagent calls to the parent run.
 - Show LLM calls in the run-context page.
@@ -361,10 +394,6 @@ It should not:
 - Later, let it propose pricing updates based on official pricing pages.
 
 ## Open Questions
-
-### Which model calls can we reliably intercept?
-
-We need to inspect the current Deep Agents and LangChain TypeScript call paths and decide where to wrap or observe model calls. The goal is to record all parent-agent and researcher-subagent LLM calls, not only the final chat answer.
 
 ### Where should model settings live?
 
