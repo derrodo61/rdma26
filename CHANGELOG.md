@@ -6,7 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-No notable changes yet.
+### Added
+
+- Added an LLM observability and cost-control specification covering call accounting, pricing records, cost estimates, model configuration, dashboards, and a future optimization agent.
 
 ## [2026-07-08]
 
