@@ -42,19 +42,23 @@ export class ChatRunService {
       throw new Error(`Thread ${request.threadId} does not exist for agent ${request.agentId}.`);
     }
 
+    const memoryReadsEnabled = storage.agent.memory.canRead;
+    const memoryWritesEnabled = storage.agent.memory.canWrite;
     const tools = [
       ...this.capabilities.createRunnableTools(storage.agent.enabledTools),
-      ...(storage.agent.memory.canWrite ? createMemoryTools(this.runtime, storage.agent.id) : []),
+      ...(memoryWritesEnabled ? createMemoryTools(this.runtime, storage.agent.id) : []),
       ...this.adminToolsFor(storage.agent.id),
     ];
     const toolContext = this.runContextToolsFor(
       storage.agent.id,
       storage.agent.enabledTools,
-      storage.agent.memory.canWrite,
+      memoryWritesEnabled,
     );
     const userProfile = await this.userProfileStore.readProfile();
     const soulContent = await storage.readSoul();
-    const memories = await this.memoryStore.searchForRun(storage.agent.id, request.prompt);
+    const memories = memoryReadsEnabled
+      ? await this.memoryStore.searchForRun(storage.agent.id, request.prompt)
+      : [];
     const userThread = await storage.appendMessage(request.threadId, {
       role: 'user',
       content: request.prompt,
@@ -70,7 +74,7 @@ export class ChatRunService {
       userProfile,
       soulContent,
       memories: memories.map((memory) => memory.memory),
-      memoryWritesEnabled: storage.agent.memory.canWrite,
+      memoryWritesEnabled,
       messages: userThread.messages,
       prompt: request.prompt,
       llmCallStore: this.llmCallStore,
@@ -106,7 +110,8 @@ export class ChatRunService {
       toolCalls: agentResponse.toolCalls,
       tokenUsage: agentResponse.tokenUsage,
       llmCalls: await this.llmCallStore.listCallsForRun(runId),
-      memoryWritesEnabled: storage.agent.memory.canWrite,
+      memoryReadsEnabled,
+      memoryWritesEnabled,
     });
 
     return {

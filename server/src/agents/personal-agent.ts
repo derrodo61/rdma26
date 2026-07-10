@@ -84,6 +84,7 @@ export class PersonalAgent {
         rootDir: this.storage.deepAgentRootDir,
         virtualMode: true,
       }),
+      skills: ['/skills/'],
       tools: request.tools,
       subagents: createEnabledSubagents(
         request.enabledToolIds,

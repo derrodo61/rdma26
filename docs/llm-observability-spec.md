@@ -283,6 +283,10 @@ Pricing source records should store:
 - last error
 - created and updated timestamps
 
+For configured official pricing sources, Cost Analyst should prefer a skill-guided analysis workflow over general web research. The `pricing-source-analysis` Deep Agents skill instructs Cost Analyst to list configured sources, extract an active official source page with `extract_web_content`, list saved pricing records, compare them with the page content, and clearly separate price mismatches from missing local records or metadata/source issues. When a provider page lists multiple dimensions, such as short-context pricing, long-context pricing, cached input, or cache writes, the comparison must name those dimensions explicitly instead of flattening everything into one generic price verdict.
+
+The generic web content extractor should support focused extraction modes, including `tables` with query filtering for pricing comparisons. Extraction and comparison of price values should be performed by the model under the skill instructions, not by provider-specific hardcoded parsing unless a future source proves impossible to use reliably.
+
 Later, a specialized cost/optimization agent can help maintain pricing by:
 
 - reading configured official pricing pages first

@@ -69,8 +69,8 @@ const adminToolDefinitions: readonly ToolDefinition[] = [
   },
   {
     id: 'admin_set_agent_memory_writes',
-    label: 'Set memory writes',
-    description: 'Enable or disable memory writes for an agent.',
+    label: 'Set memory settings',
+    description: 'Enable or disable long-term memory reads and writes for an agent.',
     provider: 'rdma26-admin',
     available: true,
   },
@@ -228,6 +228,13 @@ const adminToolDefinitions: readonly ToolDefinition[] = [
     provider: 'rdma26-admin',
     available: true,
   },
+  {
+    id: 'admin_read_pricing_source_page',
+    label: 'Read pricing source',
+    description: 'Read a configured provider pricing source page as readable text.',
+    provider: 'rdma26-admin',
+    available: true,
+  },
 ];
 
 export function listAdminToolDefinitions(): readonly ToolDefinition[] {
@@ -274,18 +281,37 @@ export function createAdminTools(runtime: AssistantRuntime): readonly Structured
       },
     ),
     tool(
-      async ({ agentId, canWrite }: { agentId: string; canWrite: boolean }) =>
-        await runtime.updateAgent(agentId, {
+      async ({
+        agentId,
+        canRead,
+        canWrite,
+      }: {
+        agentId: string;
+        canRead?: boolean;
+        canWrite?: boolean;
+      }) => {
+        if (canRead === undefined && canWrite === undefined) {
+          throw new Error('Set canRead, canWrite, or both.');
+        }
+
+        return await runtime.updateAgent(agentId, {
           memory: {
+            canRead,
             canWrite,
           },
-        }),
+        });
+      },
       {
         name: 'admin_set_agent_memory_writes',
-        description: 'Enable or disable memory writes for an agent.',
+        description:
+          'Enable or disable long-term memory reads and writes for an agent. Set canRead to control whether saved memories are injected into chat runs. Set canWrite to control whether the agent may save memories.',
         schema: z.object({
           agentId: z.string().trim().min(1).describe('Agent id to update.'),
-          canWrite: z.boolean().describe('Whether the agent may write memories.'),
+          canRead: z
+            .boolean()
+            .optional()
+            .describe('Whether saved memories may be retrieved for chat runs.'),
+          canWrite: z.boolean().optional().describe('Whether the agent may write memories.'),
         }),
       },
     ),
@@ -623,6 +649,24 @@ export function createAdminTools(runtime: AssistantRuntime): readonly Structured
         sourceId: z.string().uuid().describe('Pricing source id.'),
       }),
     }),
+    tool(
+      async ({ sourceId, query }: { sourceId: string; query?: string }) =>
+        await runtime.readPricingSourcePage(sourceId, query),
+      {
+        name: 'admin_read_pricing_source_page',
+        description:
+          'Read a configured provider pricing source page as readable text. Use this before general web research when a pricing source URL is already configured.',
+        schema: z.object({
+          sourceId: z.string().uuid().describe('Pricing source id.'),
+          query: z
+            .string()
+            .trim()
+            .min(1)
+            .optional()
+            .describe('Optional extraction hint for the page reader.'),
+        }),
+      },
+    ),
     tool(
       async (input: AdminCreateModelPricingInput) => {
         await ensurePricingSourceAllowed(runtime, input.provider, input.sourceUrl);

@@ -49,15 +49,24 @@ async function main(): Promise<void> {
         }),
       );
       return;
-    case 'agents:memory:set':
+    case 'agents:memory:set': {
+      const canRead = parseOptionalBooleanOption(options['can-read'], 'can-read');
+      const canWrite = parseOptionalBooleanOption(options['can-write'], 'can-write');
+
+      if (canRead === undefined && canWrite === undefined) {
+        throw new Error('Provide --can-read, --can-write, or both.');
+      }
+
       printJson(
         await runtime.updateAgent(agentId(options), {
           memory: {
-            canWrite: parseBooleanOption(requiredOption(options, 'can-write'), 'can-write'),
+            canRead,
+            canWrite,
           },
         }),
       );
       return;
+    }
     case 'agents:model:set':
       printJson(
         await runtime.updateAgent(agentId(options), {
@@ -770,7 +779,7 @@ Usage:
   rdma26 agents:list
   rdma26 agents:create --id research --name "Research assistant"
   rdma26 agents:update --agent research --name "Researcher"
-  rdma26 agents:memory:set --agent research --can-write true
+  rdma26 agents:memory:set --agent research --can-read true --can-write true
   rdma26 agents:model:set --agent research --model gpt-4.1-mini
   rdma26 agents:research-model:set --agent research --model gpt-4.1-mini
   rdma26 agents:soul:read --agent research

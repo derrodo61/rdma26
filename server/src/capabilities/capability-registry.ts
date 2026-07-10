@@ -5,11 +5,13 @@ import type { ToolDefinition } from '../../../shared/agent-contracts';
 import type { SearchProvider, SearchTopic } from '../research/search-provider';
 import { withSearchQualityHints } from '../research/search-quality';
 import { TavilySearchProvider } from '../research/tavily-search-provider';
+import { extractWebContent } from '../research/web-content-extractor';
 import { readWebPage } from '../research/web-page-reader';
 
 export const researchCapabilityId = 'research';
 const internetSearchToolId = 'internet_search';
 const readWebPageToolId = 'read_web_page';
+const extractWebContentToolId = 'extract_web_content';
 
 interface CapabilityRegistration {
   readonly id: string;
@@ -52,6 +54,16 @@ export class CapabilityRegistry {
       isAvailable: () => true,
       unavailableReason: 'Web page reading is not available.',
       create: () => createReadWebPageTool(),
+    },
+    {
+      id: extractWebContentToolId,
+      label: 'Extract web content',
+      description:
+        'Extract cleaned HTML, Markdown, links, lists, and structured tables from a public web page.',
+      provider: 'web',
+      isAvailable: () => true,
+      unavailableReason: 'Web content extraction is not available.',
+      create: () => createExtractWebContentTool(),
     },
   ];
 
@@ -110,6 +122,81 @@ export class CapabilityRegistry {
       return registration;
     });
   }
+}
+
+function createExtractWebContentTool(): StructuredToolInterface {
+  return tool(
+    async ({
+      url,
+      mode = 'overview',
+      query,
+      maxCharacters = 24_000,
+      maxHtmlCharacters,
+      maxTables = 20,
+      maxRowsPerTable = 80,
+      maxLists = 30,
+      maxItemsPerList = 80,
+    }: {
+      url: string;
+      mode?:
+        'overview' | 'markdown' | 'article' | 'headings' | 'links' | 'lists' | 'tables' | 'full';
+      query?: string;
+      maxCharacters?: number;
+      maxHtmlCharacters?: number;
+      maxTables?: number;
+      maxRowsPerTable?: number;
+      maxLists?: number;
+      maxItemsPerList?: number;
+    }) =>
+      extractWebContent(url, {
+        mode,
+        query,
+        maxCharacters,
+        maxHtmlCharacters: maxHtmlCharacters ?? (mode === 'full' ? 24_000 : 0),
+        maxTables,
+        maxRowsPerTable,
+        maxLists,
+        maxItemsPerList,
+      }),
+    {
+      name: extractWebContentToolId,
+      description:
+        'Fetch a public HTTP/HTTPS page and return focused page structure. Use mode="tables" with a query for pricing/comparison pages, mode="headings" for headlines, mode="markdown" or "article" for prose, and mode="full" only for debugging. Rejects localhost and private-network URLs.',
+      schema: z.object({
+        url: z.string().url().describe('The public HTTP or HTTPS URL to extract.'),
+        mode: z
+          .enum(['overview', 'markdown', 'article', 'headings', 'links', 'lists', 'tables', 'full'])
+          .optional()
+          .default('overview')
+          .describe(
+            'Which representation to return. Prefer tables/headings/links/lists for focused tasks; use full only when explicitly needed.',
+          ),
+        query: z
+          .string()
+          .optional()
+          .describe('Optional terms used to filter rows, headings, links, or list items.'),
+        maxCharacters: z
+          .number()
+          .min(2_000)
+          .max(60_000)
+          .optional()
+          .default(24_000)
+          .describe('Maximum Markdown and readable text characters to return.'),
+        maxHtmlCharacters: z
+          .number()
+          .min(0)
+          .max(60_000)
+          .optional()
+          .describe(
+            'Maximum cleaned HTML characters to return. Defaults to 0 except in full mode.',
+          ),
+        maxTables: z.number().min(0).max(50).optional().default(20),
+        maxRowsPerTable: z.number().min(1).max(300).optional().default(80),
+        maxLists: z.number().min(0).max(100).optional().default(30),
+        maxItemsPerList: z.number().min(1).max(300).optional().default(80),
+      }),
+    },
+  );
 }
 
 function createReadWebPageTool(): StructuredToolInterface {

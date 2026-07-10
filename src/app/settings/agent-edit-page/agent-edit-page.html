@@ -106,6 +106,24 @@
               <input
                 type="checkbox"
                 class="mt-1 h-4 w-4 accent-accent"
+                [checked]="canReadMemory()"
+                (change)="updateCanReadMemory($any($event.target).checked)"
+              />
+              <span>
+                <span class="block text-text">Use long-term memory</span>
+                <span class="mt-1 block font-normal">
+                  Retrieves relevant saved memories and thread summaries for this agent during chat
+                  runs.
+                </span>
+              </span>
+            </label>
+
+            <label
+              class="flex cursor-pointer items-start gap-3 border border-border p-3 text-sm font-medium text-text-muted lg:col-span-2"
+            >
+              <input
+                type="checkbox"
+                class="mt-1 h-4 w-4 accent-accent"
                 [checked]="canWriteMemory()"
                 (change)="updateCanWriteMemory($any($event.target).checked)"
               />

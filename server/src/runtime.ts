@@ -74,6 +74,7 @@ import { UserProfileStore } from './profiles/user-profile-store';
 import { LlmCallStore } from './llm/llm-call-store';
 import { ModelPricingStore } from './llm/model-pricing-store';
 import { PricingSourceStore } from './llm/pricing-source-store';
+import { readWebPage } from './research/web-page-reader';
 import { RunContextStore } from './runs/run-context-store';
 import { ThreadService } from './threads/thread-service';
 
@@ -135,7 +136,7 @@ export class AssistantRuntime {
       id: costAnalystAgentId,
       name: costAnalystAgentName,
       kind: 'internal',
-      chatEnabled: false,
+      chatEnabled: true,
     });
     const costAnalystTools = new Set([
       ...costAnalyst.enabledTools,
@@ -145,6 +146,21 @@ export class AssistantRuntime {
     if (costAnalystTools.size !== costAnalyst.enabledTools.length) {
       await this.registry.updateAgentTools(costAnalystAgentId, {
         enabledTools: Array.from(costAnalystTools),
+      });
+    }
+
+    if (!costAnalyst.chatEnabled) {
+      await this.registry.updateAgent(costAnalystAgentId, {
+        chatEnabled: true,
+      });
+    }
+
+    if (costAnalyst.memory.canRead || costAnalyst.memory.canWrite) {
+      await this.registry.updateAgent(costAnalystAgentId, {
+        memory: {
+          canRead: false,
+          canWrite: false,
+        },
       });
     }
 
@@ -423,6 +439,18 @@ export class AssistantRuntime {
     return await this.pricingSourceStore.checkSource(sourceId);
   }
 
+  async readPricingSourcePage(sourceId: string, query?: string) {
+    const source = await this.pricingSourceStore.requireSource(sourceId);
+
+    return {
+      source,
+      page: await readWebPage(source.url, {
+        query,
+        maxCharacters: 30_000,
+      }),
+    };
+  }
+
   async readLatestThreadRunContext(
     agentId: string,
     threadId: string,
@@ -551,30 +579,38 @@ export class AssistantRuntime {
     storage: Awaited<ReturnType<AgentRegistry['storageFor']>>,
   ): Promise<void> {
     const soulContent = await storage.readSoul();
+    const cleanedSoulContent = removeLegacyCostAnalystPricingGuidance(soulContent);
+    const currentGuidance = `## Pricing source analysis
+
+- First inspect configured pricing sources. Prefer active official provider sources and include source URL, source name, and retrieval date.
+- When a pricing source URL is already configured, use the pricing-source-analysis skill and read the configured source page before using general research.
+- Use research only when no configured source exists, a configured source cannot be read, or the user asks you to find a new source.`;
 
     if (
-      soulContent.includes('## Pricing maintenance') &&
-      soulContent.includes('## Pricing source registry')
+      cleanedSoulContent.includes('## Pricing maintenance') &&
+      cleanedSoulContent.includes(currentGuidance)
     ) {
+      if (cleanedSoulContent !== soulContent) {
+        await storage.writeSoul(cleanedSoulContent);
+      }
       return;
     }
 
-    if (soulContent.includes('## Pricing maintenance')) {
-      await storage.writeSoul(`${soulContent.trim()}
+    if (cleanedSoulContent.includes('## Pricing maintenance')) {
+      await storage.writeSoul(`${cleanedSoulContent.trim()}
 
-## Pricing source registry
-
-- First inspect configured pricing sources. Prefer active official provider sources and include source URL, source name, and retrieval date.
+${currentGuidance}
 `);
       return;
     }
 
-    await storage.writeSoul(`${soulContent.trim()}
+    await storage.writeSoul(`${cleanedSoulContent.trim()}
 
 ## Pricing maintenance
 
-- Use research when the user asks you to find current provider prices.
 - First inspect configured pricing sources. Prefer active official provider sources and include source URL, source name, and retrieval date.
+- When a pricing source URL is already configured, use the pricing-source-analysis skill and read the configured source page before using general research.
+- Use research only when no configured source exists, a configured source cannot be read, or the user asks you to find a new source.
 - You may create unverified model pricing records when the user asks you to store researched prices.
 - Do not activate, supersede, or replace active pricing unless the user explicitly approves that specific change.
 `);
@@ -589,6 +625,28 @@ export class AssistantRuntime {
 
 async function readFileUpdatedAt(path: string): Promise<string> {
   return (await stat(path)).mtime.toISOString();
+}
+
+function removeLegacyCostAnalystPricingGuidance(content: string): string {
+  return content
+    .replace(
+      /\n## Pricing source registry\n\n- First inspect configured pricing sources\. Prefer active official provider sources and include source URL, source name, and retrieval date\.\n/g,
+      '\n',
+    )
+    .replace(
+      /\n## Pricing source extraction\n\n- When a pricing source URL is already configured, use structured pricing-source extraction and comparison tools before using general research\.\n- Use research only when no configured source exists, a configured source cannot be read, or the user asks you to find a new source\.\n/g,
+      '\n',
+    )
+    .replace(
+      /\n## Pricing source analysis\n\n- First inspect configured pricing sources\. Prefer active official provider sources and include source URL, source name, and retrieval date\.\n- When a pricing source URL is already configured, use the pricing-source-analysis skill and read the configured source page before using general research\.\n- Use research only when no configured source exists, a configured source cannot be read, or the user asks you to find a new source\.\n/g,
+      '\n',
+    )
+    .replace(
+      '- Use research when the user asks you to find current provider prices.\n- Prefer official provider pricing pages and include source URL, source name, and retrieval date.\n',
+      '- First inspect configured pricing sources. Prefer active official provider sources and include source URL, source name, and retrieval date.\n',
+    )
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 interface AssistantRuntimeOptions {

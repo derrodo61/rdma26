@@ -478,10 +478,22 @@ Each agent profile has:
 ```json
 {
   "memory": {
+    "canRead": true,
     "canWrite": true
   }
 }
 ```
+
+When `canRead` is `true`:
+
+- saved long-term memories and thread-summary memories can be retrieved for chat runs
+- matching memories are included in the run context inspector
+
+When `canRead` is `false`:
+
+- no saved long-term memories are retrieved for chat runs
+- the agent still sees the current thread messages
+- operator/admin memory tools may still be available to protected agents
 
 When `canWrite` is `true`:
 
@@ -497,6 +509,7 @@ When `canWrite` is `false`:
 Set this through:
 
 ```bash
+rdma26 agents:memory:set --agent research --can-read false
 rdma26 agents:memory:set --agent research --can-write false
 ```
 
@@ -671,7 +684,7 @@ rdma26 memories:delete --memory <memory-id>
 rdma26 memories:maintenance --agent scotty --limit 25
 rdma26 memories:maintenance:settings
 rdma26 memories:maintenance:configure --enabled true --interval-minutes 1440
-rdma26 agents:memory:set --agent scotty --can-write true
+rdma26 agents:memory:set --agent scotty --can-read true --can-write true
 rdma26 threads:summary --agent scotty --thread <thread-id>
 rdma26 threads:summaries --agent scotty --limit 25
 rdma26 runs:context --run <run-id>

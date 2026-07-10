@@ -197,6 +197,7 @@ function testRunContext(overrides: Partial<RunContextDetails> = {}): RunContextD
     memories: [],
     messages: [],
     tools: [],
+    memoryReadsEnabled: true,
     memoryWritesEnabled: true,
     ...overrides,
   };

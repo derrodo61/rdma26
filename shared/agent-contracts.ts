@@ -69,6 +69,7 @@ export interface AgentProfile {
 }
 
 export interface AgentMemorySettings {
+  readonly canRead: boolean;
   readonly canWrite: boolean;
 }
 
@@ -625,5 +626,6 @@ export interface RunContextDetails {
   readonly toolCalls?: readonly RunContextToolCall[];
   readonly tokenUsage?: RunContextTokenUsage;
   readonly llmCalls?: readonly LlmCallRecord[];
+  readonly memoryReadsEnabled: boolean;
   readonly memoryWritesEnabled: boolean;
 }

@@ -29,6 +29,7 @@ export const updateAgentRequestSchema = z.object({
   chatEnabled: z.boolean().optional(),
   memory: z
     .object({
+      canRead: z.boolean().optional(),
       canWrite: z.boolean().optional(),
     })
     .optional(),
@@ -54,10 +55,7 @@ const memoryTypeSchema = z.enum([
 const memoryStatusSchema = z.enum(['active', 'archived', 'superseded']);
 const memoryLifetimeSchema = z.enum(['permanent', 'active', 'temporary']);
 const pricingSourceTrustLevelSchema = z.enum(['official', 'third_party', 'user_added']);
-const booleanQuerySchema = z.union([
-  z.boolean(),
-  z.enum(['true', 'false']).transform((value) => value === 'true'),
-]);
+const booleanQuerySchema = z.union([z.boolean(), z.enum(['true', 'false'])]);
 const memorySourceSchema = z.object({
   agentId: z.string().trim().min(1).optional(),
   threadId: z.string().uuid().optional(),

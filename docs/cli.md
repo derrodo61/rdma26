@@ -36,13 +36,15 @@ rdma26 agents:create --id research --name "Research assistant"
 rdma26 agents:update --agent research --name "Researcher"
 ```
 
-### Set agent memory write permission
+### Set agent memory permissions
 
 ```bash
+rdma26 agents:memory:set --agent research --can-read false
 rdma26 agents:memory:set --agent research --can-write false
+rdma26 agents:memory:set --agent research --can-read true --can-write true
 ```
 
-When memory writes are disabled, the agent does not receive `save_memory` and memory maintenance skips that agent.
+When memory reads are disabled, saved long-term memories and thread-summary memories are not injected into chat runs. When memory writes are disabled, the agent does not receive `save_memory` and memory maintenance skips that agent.
 
 ### Set agent model settings
 
@@ -168,6 +170,8 @@ rdma26 pricing-sources:delete --source <source-id>
 ```
 
 Checking a source updates its last checked, last success, and last error fields.
+
+Cost Analyst can use configured pricing sources through its controlled tools and `pricing-source-analysis` Deep Agents skill.
 
 ## Observability
 
@@ -330,7 +334,7 @@ rdma26 agents:tools:grant --agent ronaldo --tool research
 rdma26 agents:tools:revoke --agent ronaldo --tool research
 ```
 
-`research` is the recommended Deep Agents researcher subagent capability for normal agents. `internet_search` and `read_web_page` are lower-level primitives for specialized or debugging workflows.
+`research` is the recommended Deep Agents researcher subagent capability for normal agents. `internet_search`, `read_web_page`, and `extract_web_content` are lower-level primitives for specialized or debugging workflows. `extract_web_content` preserves page structure through focused modes such as `tables`, `headings`, `links`, `lists`, `markdown`, and `full`.
 
 ## Threads
 

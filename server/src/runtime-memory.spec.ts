@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -8,6 +8,72 @@ import { LocalDatabase } from './storage/local-database';
 import { AssistantRuntime } from './runtime';
 
 describe('AssistantRuntime memory behavior', () => {
+  it('enables normal chat for the protected Cost Analyst agent', async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-runtime-memory-'));
+
+    try {
+      const runtime = new AssistantRuntime({
+        dataDir,
+        defaultAgentId: 'scotty',
+        defaultAgentName: 'Scotty',
+      });
+      await runtime.ensureReady();
+
+      const response = await runtime.agentsResponse();
+      const costAnalyst = response.agents.find((agent) => agent.id === 'cost-analyst');
+
+      expect(costAnalyst).toMatchObject({
+        id: 'cost-analyst',
+        kind: 'internal',
+        chatEnabled: true,
+        memory: {
+          canRead: false,
+          canWrite: false,
+        },
+      });
+    } finally {
+      await rm(dataDir, { recursive: true, force: true });
+    }
+  });
+
+  it('writes the Cost Analyst pricing-source-analysis skill for Deep Agents', async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-runtime-memory-'));
+
+    try {
+      const runtime = new AssistantRuntime({
+        dataDir,
+        defaultAgentId: 'scotty',
+        defaultAgentName: 'Scotty',
+      });
+      await runtime.ensureReady();
+
+      const skillPath = join(
+        dataDir,
+        'agents',
+        'cost-analyst',
+        'deepagent',
+        'skills',
+        'pricing-source-analysis',
+        'SKILL.md',
+      );
+      const skill = await readFile(skillPath, 'utf8');
+
+      expect(skill).toContain('name: pricing-source-analysis');
+      expect(skill).toContain('extract_web_content');
+      expect(skill).toContain('admin_read_pricing_source_page');
+      expect(skill).toContain('Do not start with general research');
+      expect(skill).toContain('Use the narrowest useful mode');
+      expect(skill).toContain('mode: "tables"');
+      expect(skill).toContain('short-context cached input');
+      expect(skill).toContain('long-context cached input');
+      expect(skill).toContain('Never say a cached-input price is absent');
+      expect(skill).toContain('Do not confuse long-context cached input');
+      expect(skill).toContain('$6.25` is the short-context cache-write price');
+    } finally {
+      await rm(dataDir, { recursive: true, force: true });
+    }
+  });
+
   it('respects per-agent memory write permissions and persists run context', async () => {
     const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-runtime-memory-'));
     const previousApiKey = process.env['OPENAI_API_KEY'];
@@ -41,6 +107,7 @@ describe('AssistantRuntime memory behavior', () => {
       const context = await runtime.readRunContext(result.runId);
 
       expect(memories.memories).toHaveLength(0);
+      expect(context.memoryReadsEnabled).toBe(true);
       expect(context.memoryWritesEnabled).toBe(false);
       expect(context.tools.map((tool) => tool.id)).not.toContain('save_memory');
       expect(context.tools).toContainEqual({
@@ -52,8 +119,8 @@ describe('AssistantRuntime memory behavior', () => {
       });
       expect(context.tools).toContainEqual({
         id: 'admin_set_agent_memory_writes',
-        label: 'Set memory writes',
-        description: 'Enable or disable memory writes for an agent.',
+        label: 'Set memory settings',
+        description: 'Enable or disable long-term memory reads and writes for an agent.',
         provider: 'rdma26-admin',
         controlled: true,
       });
@@ -61,6 +128,56 @@ describe('AssistantRuntime memory behavior', () => {
       expect(context.prompt).toBe('Remember that I prefer short answers.');
       expect(context.assistantResponse).toBeTruthy();
       expect(context.messages.at(-1)?.content).toBe('Remember that I prefer short answers.');
+    } finally {
+      if (previousApiKey === undefined) {
+        delete process.env['OPENAI_API_KEY'];
+      } else {
+        process.env['OPENAI_API_KEY'] = previousApiKey;
+      }
+      await rm(dataDir, { recursive: true, force: true });
+    }
+  });
+
+  it('skips retrieved long-term memories when memory reads are disabled', async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-runtime-memory-'));
+    const previousApiKey = process.env['OPENAI_API_KEY'];
+    delete process.env['OPENAI_API_KEY'];
+
+    try {
+      const runtime = new AssistantRuntime({
+        dataDir,
+        defaultAgentId: 'scotty',
+        defaultAgentName: 'Scotty',
+      });
+      await runtime.ensureReady();
+      await runtime.createMemory({
+        scope: 'agent',
+        agentId: 'scotty',
+        type: 'preference',
+        content: 'The user prefers pricing answers in concise bullet points.',
+        tags: ['format'],
+      });
+      await runtime.updateAgent('scotty', {
+        memory: {
+          canRead: false,
+          canWrite: true,
+        },
+      });
+      const thread = await runtime.createThread('scotty', {
+        title: 'Memory reads disabled',
+      });
+      const result = await runtime.runAgent({
+        agentId: 'scotty',
+        threadId: thread.id,
+        model: 'gpt-4.1-mini',
+        prompt: 'How should you format pricing answers?',
+      });
+      const context = await runtime.readRunContext(result.runId);
+
+      expect(context.memoryReadsEnabled).toBe(false);
+      expect(context.memoryWritesEnabled).toBe(true);
+      expect(context.memories).toHaveLength(0);
+      expect(context.tools.map((tool) => tool.id)).toContain('save_memory');
     } finally {
       if (previousApiKey === undefined) {
         delete process.env['OPENAI_API_KEY'];

@@ -34,6 +34,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added the protected internal Cost Analyst agent with API, CLI, and UI access for advisory LLM usage and cost optimization.
 - Added protected Cost Analyst pricing tools so it can research provider prices and store unverified pricing proposals, with activation still requiring explicit approval.
 - Added a SQLite-backed pricing source registry with API, CLI, default official OpenAI pricing source, reachability checks, and Cost Analyst source-inspection tools.
+- Enabled the protected Cost Analyst agent in the normal chat selector so it can use the full streaming chat experience.
+- Added a Deep Agents `pricing-source-analysis` skill and a generic pricing-source page reader so Cost Analyst can inspect configured official pricing pages before falling back to general research.
+- Added a generic `extract_web_content` capability for cleaned HTML, Markdown, links, lists, and structured tables, and taught Cost Analyst to prefer it for official pricing-source comparison.
+- Added focused `extract_web_content` modes and query filtering so agents can request compact table, heading, link, list, article, Markdown, or full extraction instead of full-page output by default.
+- Added separate per-agent long-term memory read and write permissions through API, CLI, and the agent edit UI, and disabled automatic memory retrieval/writes for the protected Cost Analyst agent.
 
 ### Fixed
 

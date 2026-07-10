@@ -97,8 +97,9 @@ You are Cost Analyst, an internal rdma26 LLM usage and cost optimization agent.
 
 ## Pricing maintenance
 
-- Use research when the user asks you to find current provider prices.
 - First inspect configured pricing sources. Prefer active official provider sources and include source URL, source name, and retrieval date.
+- When a pricing source URL is already configured, use the pricing-source-analysis skill and read the configured source page before using general research.
+- Use research only when no configured source exists, a configured source cannot be read, or the user asks you to find a new source.
 - You may create unverified model pricing records when the user asks you to store researched prices.
 - Do not activate, supersede, or replace active pricing unless the user explicitly approves that specific change.
 
@@ -139,6 +140,7 @@ export function createAssistantStorage(dataDir: string, agent: AgentProfile): As
     async ensureReady() {
       await mkdir(configurationDir, { recursive: true });
       await mkdir(deepAgentRootDir, { recursive: true });
+      await writeBuiltinSkills(deepAgentRootDir, agent);
       await database.ensureReady();
       await importThreadJsonFiles(database, threadsDir, agent.id);
       await writeIfMissing(soulPath, createDefaultSoul(agent));
@@ -250,6 +252,114 @@ async function writeIfMissing(path: string, content: string): Promise<void> {
     await writeFile(path, content, 'utf8');
   }
 }
+
+async function writeBuiltinSkills(rootDir: string, agent: AgentProfile): Promise<void> {
+  const skillsDir = join(rootDir, 'skills');
+  await mkdir(skillsDir, { recursive: true });
+
+  if (agent.id !== 'cost-analyst') {
+    return;
+  }
+
+  const skillDir = join(skillsDir, 'pricing-source-analysis');
+  await mkdir(skillDir, { recursive: true });
+  await writeFile(join(skillDir, 'SKILL.md'), pricingSourceAnalysisSkill, 'utf8');
+}
+
+const pricingSourceAnalysisSkill = `---
+name: pricing-source-analysis
+description: "Use this skill for LLM and model pricing source tasks: checking saved model prices, comparing them with configured official pricing pages, updating pricing records, or explaining pricing-source problems."
+---
+
+# pricing-source-analysis
+
+Use this skill when the user asks whether saved model prices are correct, asks you to compare saved prices with an official pricing page, asks about pricing sources, or asks you to update pricing records.
+
+## Workflow
+
+1. List configured pricing sources with \`admin_list_pricing_sources\`.
+2. Prefer active sources with \`trustLevel: "official"\`. If the provider is known, filter by provider.
+3. If a suitable configured source exists, extract it with \`extract_web_content\` using the source URL. Use the narrowest useful mode:
+   - \`mode: "tables"\` with a \`query\` for pricing table comparisons.
+   - \`mode: "headings"\`, \`"links"\`, or \`"lists"\` for those specific tasks.
+   - \`mode: "full"\` only for debugging or when the user explicitly needs full page structure.
+   Prefer structured rows over flat readable text. Do not start with general research.
+4. List saved model pricing with \`admin_list_model_pricing\`. Filter by provider when possible.
+5. Compare the saved records against the extracted source content. Use \`admin_read_pricing_source_page\` only as fallback context if structured extraction is incomplete.
+6. Use general research only when there is no configured source, the configured source cannot be extracted/read, or the user asks you to find a new source.
+
+## Price dimensions
+
+Before giving a verdict, identify which dimensions the official source uses.
+
+For OpenAI flagship model pricing, the official page may list multiple columns for each model:
+
+- short-context input
+- short-context cached input
+- short-context cache writes
+- short-context output
+- long-context input
+- long-context cached input
+- long-context cache writes
+- long-context output
+
+If an official pricing source provides structured tables, use the table headers and row records first. Use positional mapping only when the page extraction produces a compact row without reliable headers.
+
+If the OpenAI flagship table is extracted as one compact row, map the values by position after the model id:
+
+1. short-context input
+2. short-context cached input
+3. short-context cache writes
+4. short-context output
+5. long-context input
+6. long-context cached input
+7. long-context cache writes
+8. long-context output
+
+Do not confuse long-context cached input with short-context cache writes. For example, in a row like \`gpt-5.6-sol $5.00 $0.50 $6.25 $30.00 $10.00 $1.00 $12.50 $45.00\`, \`$6.25\` is the short-context cache-write price, \`$1.00\` is the long-context cached-input price, and \`$12.50\` is the long-context cache-write price.
+
+The local model pricing records currently store a simpler flat shape:
+
+- input cost
+- cached-input cost
+- output cost
+- optional reasoning cost
+
+When the official source has more dimensions than the local record shape, do not simply say "correct" or "wrong". Say exactly which local fields match which official fields, and which official dimensions are not represented locally.
+
+## Comparison rules
+
+- Focus on saved pricing records by default.
+- Do not call saved prices wrong just because the official source contains additional models that are not saved locally.
+- Separate these cases clearly:
+  - saved input/output prices match official short-context input/output prices
+  - saved input/output prices match another clearly named official tier
+  - input/output price mismatch
+  - cached-input price missing or incomplete
+  - cache-write price exists in the official source but is not represented locally
+  - long-context pricing exists in the official source but is not represented locally
+  - saved record uses a non-official or outdated source URL
+  - official model exists but no local saved record exists
+  - source page could not be read or was incomplete
+- Treat cost values as prices per 1 million tokens unless the source explicitly says otherwise.
+- Preserve provider model ids exactly.
+- If the source page has several tiers, compare the standard/default API tier unless the user asks for a different tier.
+- If the source page has short-context and long-context prices, compare saved flat input/output values to short-context input/output by default, and state that explicitly.
+- Never say a cached-input price is absent until you have checked both the short-context and long-context cached-input columns for that model.
+- Never report cache-write prices until you have checked the cache-write columns separately from cached-input columns.
+
+## Answer format
+
+For "are our saved prices correct?" questions, answer with:
+
+1. A short verdict.
+2. A compact table with columns: model, saved input/output, official short input/output, official long input/output if present, cached-input/cache-write status, metadata/source status.
+3. A note explaining which official dimensions are not represented by the local pricing schema.
+4. Missing local records only as a separate note.
+5. Suggested next actions.
+
+Ask before activating, superseding, deleting, or replacing pricing records.
+`;
 
 async function readThreadFile(path: string): Promise<StoredThreadFile> {
   const raw = JSON.parse(await readFile(path, 'utf8')) as unknown;

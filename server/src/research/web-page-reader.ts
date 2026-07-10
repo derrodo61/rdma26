@@ -32,6 +32,21 @@ interface ReadBodyResult {
   readonly truncated: boolean;
 }
 
+export interface WebPageFetchOptions {
+  readonly timeoutMs?: number;
+  readonly maxBytes?: number;
+  readonly maxRedirects?: number;
+}
+
+export interface WebPageFetchResult {
+  readonly url: string;
+  readonly finalUrl: string;
+  readonly contentType?: string;
+  readonly body: string;
+  readonly truncated: boolean;
+  readonly fetchedAt: string;
+}
+
 interface TavilyExtractResultLike {
   readonly url?: string;
   readonly raw_content?: string;
@@ -105,48 +120,26 @@ async function readWebPageLocally(
   >,
   extractionWarning?: string,
 ): Promise<WebPageReadResult> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
+  const fetched = await fetchWebPageBody(url, options);
+  const readable = extractReadableText(fetched.body, fetched.contentType);
+  const clipped = clipText(readable.text, options.maxCharacters);
+  const warning =
+    extractionWarning ??
+    (clipped.text
+      ? undefined
+      : 'No readable page text could be extracted. The page may be JavaScript-rendered or block extraction.');
 
-  try {
-    const response = await fetchWithSafeRedirects(url, options.maxRedirects, controller.signal);
-    const contentType = response.headers.get('content-type') ?? undefined;
-
-    if (!isReadableContentType(contentType)) {
-      throw new Error(
-        `Unsupported content type${contentType ? `: ${contentType}` : ''}. Only readable text and HTML pages are supported.`,
-      );
-    }
-
-    const contentLength = response.headers.get('content-length');
-
-    if (contentLength && Number(contentLength) > options.maxBytes) {
-      throw new Error(`Page is too large to read safely. Limit is ${options.maxBytes} bytes.`);
-    }
-
-    const body = await readResponseBody(response, options.maxBytes);
-    const readable = extractReadableText(body.text, contentType);
-    const clipped = clipText(readable.text, options.maxCharacters);
-    const warning =
-      extractionWarning ??
-      (clipped.text
-        ? undefined
-        : 'No readable page text could be extracted. The page may be JavaScript-rendered or block extraction.');
-
-    return {
-      url,
-      finalUrl: response.url,
-      title: readable.title,
-      contentType,
-      text: clipped.text,
-      truncated: body.truncated || clipped.truncated,
-      fetchedAt: new Date().toISOString(),
-      extractionProvider: 'local_fetch',
-      extractionWarning: warning,
-    };
-  } finally {
-    clearTimeout(timeout);
-  }
+  return {
+    url,
+    finalUrl: fetched.finalUrl,
+    title: readable.title,
+    contentType: fetched.contentType,
+    text: clipped.text,
+    truncated: fetched.truncated || clipped.truncated,
+    fetchedAt: fetched.fetchedAt,
+    extractionProvider: 'local_fetch',
+    extractionWarning: warning,
+  };
 }
 
 async function tryReadWithTavilyExtract(
@@ -217,6 +210,52 @@ async function readWebPageLocallySafely(
       'local_fetch',
       `${extractionWarning} Local fallback also failed. ${readErrorMessage(error)}`,
     );
+  }
+}
+
+export async function fetchWebPageBody(
+  url: string,
+  options: WebPageFetchOptions = {},
+): Promise<WebPageFetchResult> {
+  const parsedUrl = await assertAllowedWebUrl(url);
+  const timeoutMs = options.timeoutMs ?? defaultTimeoutMs;
+  const maxBytes = options.maxBytes ?? defaultMaxBytes;
+  const maxRedirects = options.maxRedirects ?? defaultMaxRedirects;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetchWithSafeRedirects(
+      parsedUrl.toString(),
+      maxRedirects,
+      controller.signal,
+    );
+    const contentType = response.headers.get('content-type') ?? undefined;
+
+    if (!isReadableContentType(contentType)) {
+      throw new Error(
+        `Unsupported content type${contentType ? `: ${contentType}` : ''}. Only readable text and HTML pages are supported.`,
+      );
+    }
+
+    const contentLength = response.headers.get('content-length');
+
+    if (contentLength && Number(contentLength) > maxBytes) {
+      throw new Error(`Page is too large to read safely. Limit is ${maxBytes} bytes.`);
+    }
+
+    const body = await readResponseBody(response, maxBytes);
+
+    return {
+      url: parsedUrl.toString(),
+      finalUrl: response.url,
+      contentType,
+      body: body.text,
+      truncated: body.truncated,
+      fetchedAt: new Date().toISOString(),
+    };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -314,7 +353,7 @@ function isTavilyExtractResponseLike(value: unknown): value is TavilyExtractResp
   );
 }
 
-async function assertAllowedWebUrl(url: string): Promise<URL> {
+export async function assertAllowedWebUrl(url: string): Promise<URL> {
   const parsed = parseWebUrl(url);
   const hostname = parsed.hostname.toLowerCase();
 

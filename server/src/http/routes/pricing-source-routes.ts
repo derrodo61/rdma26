@@ -30,7 +30,10 @@ export const registerPricingSourceRoutes: RouteRegistrar = (server, { runtime })
         });
       }
 
-      return await runtime.listPricingSources(query.data satisfies PricingSourceListRequest);
+      return await runtime.listPricingSources({
+        ...query.data,
+        active: parseBooleanQueryValue(query.data.active),
+      } satisfies PricingSourceListRequest);
     },
   );
 
@@ -143,3 +146,13 @@ export const registerPricingSourceRoutes: RouteRegistrar = (server, { runtime })
     },
   );
 };
+
+function parseBooleanQueryValue(
+  value: boolean | 'true' | 'false' | undefined,
+): boolean | undefined {
+  if (value === undefined || typeof value === 'boolean') {
+    return value;
+  }
+
+  return value === 'true';
+}

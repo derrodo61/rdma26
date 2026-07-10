@@ -218,6 +218,7 @@ function runContextDetails(overrides: Partial<RunContextDetails> = {}): RunConte
     memories: [],
     messages: [],
     tools: [],
+    memoryReadsEnabled: true,
     memoryWritesEnabled: true,
     ...overrides,
   };

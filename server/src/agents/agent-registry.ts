@@ -123,10 +123,13 @@ export class AgentRegistry {
       kind: request.kind === undefined ? existing.kind : normalizeAgentKind(request.kind),
       chatEnabled:
         request.chatEnabled === undefined ? existing.chatEnabled : Boolean(request.chatEnabled),
-      memory: normalizeAgentMemorySettings({
-        ...existing.memory,
-        ...request.memory,
-      }),
+      memory: normalizeAgentMemorySettings(
+        {
+          ...existing.memory,
+          ...request.memory,
+        },
+        existing.id,
+      ),
       models: normalizeAgentModelSettings({
         ...existing.models,
         ...request.models,
@@ -232,7 +235,7 @@ export class AgentRegistry {
       kind,
       chatEnabled,
       enabledTools: [],
-      memory: { canWrite: true },
+      memory: defaultAgentMemorySettings(id),
       models: {},
       soulVirtualPath,
       createdAt: now,
@@ -366,7 +369,10 @@ function parseAgentProfile(value: unknown): AgentProfile | null {
         'enabledTools' in value && Array.isArray(value.enabledTools)
           ? normalizeToolIds(value.enabledTools)
           : [],
-      memory: 'memory' in value ? normalizeAgentMemorySettings(value.memory) : { canWrite: true },
+      memory:
+        'memory' in value
+          ? normalizeAgentMemorySettings(value.memory, value.id)
+          : defaultAgentMemorySettings(value.id),
       models: 'models' in value ? normalizeAgentModelSettings(value.models) : {},
       soulVirtualPath: normalizeSoulVirtualPath(value.soulVirtualPath),
       createdAt: value.createdAt,
@@ -392,6 +398,8 @@ function hasCurrentAgentProfileShape(value: unknown): boolean {
     'memory' in value &&
     typeof value.memory === 'object' &&
     value.memory !== null &&
+    'canRead' in value.memory &&
+    typeof value.memory.canRead === 'boolean' &&
     'canWrite' in value.memory &&
     typeof value.memory.canWrite === 'boolean' &&
     'models' in value &&
@@ -418,19 +426,33 @@ function normalizeSoulVirtualPath(value: string): string {
   return value === soulVirtualPath ? value : soulVirtualPath;
 }
 
-function normalizeAgentMemorySettings(value: unknown): AgentMemorySettings {
-  if (
-    typeof value === 'object' &&
-    value !== null &&
-    'canWrite' in value &&
-    typeof value.canWrite === 'boolean'
-  ) {
+function normalizeAgentMemorySettings(value: unknown, agentId?: string): AgentMemorySettings {
+  const defaults = defaultAgentMemorySettings(agentId);
+
+  if (typeof value !== 'object' || value === null) {
+    return defaults;
+  }
+
+  return {
+    canRead:
+      'canRead' in value && typeof value.canRead === 'boolean' ? value.canRead : defaults.canRead,
+    canWrite:
+      'canWrite' in value && typeof value.canWrite === 'boolean'
+        ? value.canWrite
+        : defaults.canWrite,
+  };
+}
+
+function defaultAgentMemorySettings(agentId?: string): AgentMemorySettings {
+  if (agentId === costAnalystAgentId) {
     return {
-      canWrite: value.canWrite,
+      canRead: false,
+      canWrite: false,
     };
   }
 
   return {
+    canRead: true,
     canWrite: true,
   };
 }
