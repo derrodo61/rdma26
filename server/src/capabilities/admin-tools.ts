@@ -231,7 +231,8 @@ const adminToolDefinitions: readonly ToolDefinition[] = [
   {
     id: 'admin_read_pricing_source_page',
     label: 'Read pricing source',
-    description: 'Read a configured provider pricing source page as readable text.',
+    description:
+      'Fallback reader for a configured provider pricing source page when structured extraction is incomplete.',
     provider: 'rdma26-admin',
     available: true,
   },
@@ -655,7 +656,7 @@ export function createAdminTools(runtime: AssistantRuntime): readonly Structured
       {
         name: 'admin_read_pricing_source_page',
         description:
-          'Read a configured provider pricing source page as readable text. Use this before general web research when a pricing source URL is already configured.',
+          'Fallback reader for a configured provider pricing source page. Use read_web_page_structure first for pricing comparisons; use this only when structured extraction is incomplete, truncated, or missing needed rows.',
         schema: z.object({
           sourceId: z.string().uuid().describe('Pricing source id.'),
           query: z

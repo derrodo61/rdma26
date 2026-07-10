@@ -181,7 +181,7 @@ Returns registered tools and their availability.
 - `research` is the recommended Deep Agents researcher subagent capability. It is available when `TAVILY_API_KEY` and `OPENAI_API_KEY` are configured.
 - `internet_search` is a low-level Tavily search primitive and is available when `TAVILY_API_KEY` is configured.
 - `read_web_page` is a low-level public web page reader.
-- `extract_web_content` is a generic public web page extractor with focused modes: `overview`, `markdown`, `article`, `headings`, `links`, `lists`, `tables`, and `full`. Use a narrow mode and optional `query` when page structure matters.
+- `read_web_page_structure` fetches a known public web page and returns structured content with focused modes: `overview`, `markdown`, `article`, `headings`, `links`, `lists`, `tables`, and `full`. Use a narrow mode and optional `query` when page structure matters.
 
 Protected system agents such as `scotty` and the internal `cost-analyst` also receive controlled admin tools during chat runs for managing agents, `soul.md`, normal tool grants, memory, and observability data. Those admin tools are injected by the backend only for protected system agents and are not part of the normal assignable tool catalog returned here.
 
@@ -432,7 +432,7 @@ Body:
 Replaces the agent's enabled tool list.
 
 Use `research` for normal agents that need current external information. Use
-`internet_search`, `read_web_page`, and `extract_web_content` only when you
+`internet_search`, `read_web_page`, and `read_web_page_structure` only when you
 explicitly want the lower-level primitives.
 
 ### `POST /api/agents/:agentId/tools/:toolId`

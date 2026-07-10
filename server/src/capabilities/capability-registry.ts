@@ -11,7 +11,8 @@ import { readWebPage } from '../research/web-page-reader';
 export const researchCapabilityId = 'research';
 const internetSearchToolId = 'internet_search';
 const readWebPageToolId = 'read_web_page';
-const extractWebContentToolId = 'extract_web_content';
+const readWebPageStructureToolId = 'read_web_page_structure';
+const legacyExtractWebContentToolId = 'extract_web_content';
 
 interface CapabilityRegistration {
   readonly id: string;
@@ -56,10 +57,10 @@ export class CapabilityRegistry {
       create: () => createReadWebPageTool(),
     },
     {
-      id: extractWebContentToolId,
-      label: 'Extract web content',
+      id: readWebPageStructureToolId,
+      label: 'Read web page structure',
       description:
-        'Extract cleaned HTML, Markdown, links, lists, and structured tables from a public web page.',
+        'Fetch a public web page and return structured content such as tables, headings, links, lists, Markdown, or article text.',
       provider: 'web',
       isAvailable: () => true,
       unavailableReason: 'Web content extraction is not available.',
@@ -83,14 +84,15 @@ export class CapabilityRegistry {
   }
 
   validateCapabilityIds(capabilityIds: readonly string[]): readonly string[] {
+    const normalizedCapabilityIds = normalizeCapabilityIds(capabilityIds);
     const knownToolIds = new Set(this.registrations.map((registration) => registration.id));
-    const unknownToolIds = capabilityIds.filter((toolId) => !knownToolIds.has(toolId));
+    const unknownToolIds = normalizedCapabilityIds.filter((toolId) => !knownToolIds.has(toolId));
 
     if (unknownToolIds.length) {
       throw new Error(`Unknown tool id: ${unknownToolIds.join(', ')}.`);
     }
 
-    return normalizeCapabilityIds(capabilityIds);
+    return normalizedCapabilityIds;
   }
 
   createRunnableTools(capabilityIds: readonly string[]): readonly StructuredToolInterface[] {
@@ -159,9 +161,9 @@ function createExtractWebContentTool(): StructuredToolInterface {
         maxItemsPerList,
       }),
     {
-      name: extractWebContentToolId,
+      name: readWebPageStructureToolId,
       description:
-        'Fetch a public HTTP/HTTPS page and return focused page structure. Use mode="tables" with a query for pricing/comparison pages, mode="headings" for headlines, mode="markdown" or "article" for prose, and mode="full" only for debugging. Rejects localhost and private-network URLs.',
+        'Fetch a known public HTTP/HTTPS URL and return focused page structure. Use this when you already know the target URL and need structured content. Do not use it to discover sources; use research or search first when the source URL is unknown. Use mode="tables" with a query for pricing/comparison pages, mode="headings" for headlines, mode="markdown" or "article" for prose, and mode="full" only for debugging. Rejects localhost and private-network URLs.',
       schema: z.object({
         url: z.string().url().describe('The public HTTP or HTTPS URL to extract.'),
         mode: z
@@ -294,6 +296,14 @@ function readTavilySearchProvider(): TavilySearchProvider {
 
 function normalizeCapabilityIds(capabilityIds: readonly string[]): readonly string[] {
   return [
-    ...new Set(capabilityIds.map((capabilityId) => capabilityId.trim()).filter(Boolean)),
+    ...new Set(
+      capabilityIds
+        .map((capabilityId) => normalizeCapabilityId(capabilityId.trim()))
+        .filter(Boolean),
+    ),
   ].sort();
+}
+
+function normalizeCapabilityId(capabilityId: string): string {
+  return capabilityId === legacyExtractWebContentToolId ? readWebPageStructureToolId : capabilityId;
 }

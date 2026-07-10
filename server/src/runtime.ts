@@ -583,7 +583,8 @@ export class AssistantRuntime {
     const currentGuidance = `## Pricing source analysis
 
 - First inspect configured pricing sources. Prefer active official provider sources and include source URL, source name, and retrieval date.
-- When a pricing source URL is already configured, use the pricing-source-analysis skill and read the configured source page before using general research.
+- When a pricing source URL is already configured, use the pricing-source-analysis skill and extract the configured source page with structured extraction before using fallback page reading or general research.
+- Prefer read_web_page_structure with the narrowest useful mode. For price comparisons, use mode "tables" and a focused query.
 - Use research only when no configured source exists, a configured source cannot be read, or the user asks you to find a new source.`;
 
     if (
@@ -609,7 +610,8 @@ ${currentGuidance}
 ## Pricing maintenance
 
 - First inspect configured pricing sources. Prefer active official provider sources and include source URL, source name, and retrieval date.
-- When a pricing source URL is already configured, use the pricing-source-analysis skill and read the configured source page before using general research.
+- When a pricing source URL is already configured, use the pricing-source-analysis skill and extract the configured source page with structured extraction before using fallback page reading or general research.
+- Prefer read_web_page_structure with the narrowest useful mode. For price comparisons, use mode "tables" and a focused query.
 - Use research only when no configured source exists, a configured source cannot be read, or the user asks you to find a new source.
 - You may create unverified model pricing records when the user asks you to store researched prices.
 - Do not activate, supersede, or replace active pricing unless the user explicitly approves that specific change.
@@ -638,7 +640,7 @@ function removeLegacyCostAnalystPricingGuidance(content: string): string {
       '\n',
     )
     .replace(
-      /\n## Pricing source analysis\n\n- First inspect configured pricing sources\. Prefer active official provider sources and include source URL, source name, and retrieval date\.\n- When a pricing source URL is already configured, use the pricing-source-analysis skill and read the configured source page before using general research\.\n- Use research only when no configured source exists, a configured source cannot be read, or the user asks you to find a new source\.\n/g,
+      /\n## Pricing source analysis\n\n- First inspect configured pricing sources\. Prefer active official provider sources and include source URL, source name, and retrieval date\.\n- When a pricing source URL is already configured, use the pricing-source-analysis skill and (?:read the configured source page before using general research|extract the configured source page with structured extraction before using fallback page reading or general research)\.\n(?:- Prefer read_web_page_structure with the narrowest useful mode\. For price comparisons, use mode "tables" and a focused query\.\n)?- Use research only when no configured source exists, a configured source cannot be read, or the user asks you to find a new source\.\n/g,
       '\n',
     )
     .replace(

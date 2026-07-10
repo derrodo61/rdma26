@@ -278,17 +278,17 @@ capability is the recommended default for normal agents, but primitive tools
 remain available for explicit assignment.
 
 Normal agents should not receive primitive web tools by default. If the user grants
-`internet_search`, `read_web_page`, or `extract_web_content` to an agent, that is
+`internet_search`, `read_web_page`, or `read_web_page_structure` to an agent, that is
 a deliberate power-user, debugging, or specialized-agent choice.
 
 Tool descriptions in the UI and CLI should make this distinction clear:
 
 - `research`: recommended Deep Agents researcher subagent capability
 - `internet_search`: low-level primitive search tool
-- `read_web_page`: low-level primitive page extraction tool
-- `extract_web_content`: low-level structured page extraction tool with focused
+- `read_web_page`: low-level primitive page reader
+- `read_web_page_structure`: low-level primitive page reader that returns structure with focused
   modes for headings, links, lists, tables, Markdown, article content, or full
-  debug extraction
+  debug output
 
 ### `internet_search`
 
@@ -302,9 +302,9 @@ Primitive tool. Reads a public source page.
 
 Keep it available for direct inspection and for the research agent.
 
-### `extract_web_content`
+### `read_web_page_structure`
 
-Primitive tool. Extracts a public source page through focused modes such as
+Primitive tool. Reads a known public source page and returns structure through focused modes such as
 `overview`, `headings`, `links`, `lists`, `tables`, `markdown`, `article`, and
 `full`.
 

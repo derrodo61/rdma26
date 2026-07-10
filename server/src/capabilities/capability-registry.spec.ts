@@ -10,16 +10,27 @@ describe('CapabilityRegistry', () => {
     expect(registry.createRunnableTools([researchCapabilityId])).toEqual([]);
   });
 
-  it('lists the generic web content extractor as an assignable tool', () => {
+  it('lists the page-structure reader as an assignable tool', () => {
     const registry = new CapabilityRegistry();
 
     expect(registry.listDefinitions()).toContainEqual(
       expect.objectContaining({
-        id: 'extract_web_content',
-        label: 'Extract web content',
+        id: 'read_web_page_structure',
+        label: 'Read web page structure',
         provider: 'web',
         available: true,
       }),
     );
+  });
+
+  it('normalizes the legacy extract_web_content id to read_web_page_structure', () => {
+    const registry = new CapabilityRegistry();
+
+    expect(registry.validateCapabilityIds(['extract_web_content'])).toEqual([
+      'read_web_page_structure',
+    ]);
+    expect(registry.createRunnableTools(['extract_web_content']).map((tool) => tool.name)).toEqual([
+      'read_web_page_structure',
+    ]);
   });
 });

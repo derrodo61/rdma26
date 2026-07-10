@@ -59,9 +59,10 @@ describe('AssistantRuntime memory behavior', () => {
       const skill = await readFile(skillPath, 'utf8');
 
       expect(skill).toContain('name: pricing-source-analysis');
-      expect(skill).toContain('extract_web_content');
+      expect(skill).toContain('read_web_page_structure');
       expect(skill).toContain('admin_read_pricing_source_page');
-      expect(skill).toContain('Do not start with general research');
+      expect(skill).toContain('you must call `read_web_page_structure`');
+      expect(skill).toContain('Do not start with `admin_read_pricing_source_page`');
       expect(skill).toContain('Use the narrowest useful mode');
       expect(skill).toContain('mode: "tables"');
       expect(skill).toContain('short-context cached input');
