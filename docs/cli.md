@@ -336,8 +336,6 @@ rdma26 agents:tools:revoke --agent ronaldo --tool research
 
 `research` is the recommended Deep Agents researcher subagent capability for normal agents. `internet_search`, `read_web_page`, and `read_web_page_structure` are lower-level primitives for specialized or debugging workflows. `read_web_page_structure` preserves page structure through focused modes such as `tables`, `headings`, `links`, `lists`, `markdown`, and `full`.
 
-Older `extract_web_content` tool grants are migrated to `read_web_page_structure`.
-
 ## Threads
 
 ### List threads

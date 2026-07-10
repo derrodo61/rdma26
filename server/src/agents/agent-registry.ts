@@ -490,13 +490,9 @@ function normalizeOptionalModelId(value: unknown): string | undefined {
 
 function normalizeToolIds(toolIds: readonly unknown[]): string[] {
   return [...new Set(toolIds.filter((toolId): toolId is string => typeof toolId === 'string'))]
-    .map((toolId) => normalizeToolId(toolId.trim()))
+    .map((toolId) => toolId.trim())
     .filter(Boolean)
     .sort();
-}
-
-function normalizeToolId(toolId: string): string {
-  return toolId === 'extract_web_content' ? 'read_web_page_structure' : toolId;
 }
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {

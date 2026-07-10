@@ -12,7 +12,6 @@ export const researchCapabilityId = 'research';
 const internetSearchToolId = 'internet_search';
 const readWebPageToolId = 'read_web_page';
 const readWebPageStructureToolId = 'read_web_page_structure';
-const legacyExtractWebContentToolId = 'extract_web_content';
 
 interface CapabilityRegistration {
   readonly id: string;
@@ -296,14 +295,6 @@ function readTavilySearchProvider(): TavilySearchProvider {
 
 function normalizeCapabilityIds(capabilityIds: readonly string[]): readonly string[] {
   return [
-    ...new Set(
-      capabilityIds
-        .map((capabilityId) => normalizeCapabilityId(capabilityId.trim()))
-        .filter(Boolean),
-    ),
+    ...new Set(capabilityIds.map((capabilityId) => capabilityId.trim()).filter(Boolean)),
   ].sort();
-}
-
-function normalizeCapabilityId(capabilityId: string): string {
-  return capabilityId === legacyExtractWebContentToolId ? readWebPageStructureToolId : capabilityId;
 }
