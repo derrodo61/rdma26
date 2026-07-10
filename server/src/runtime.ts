@@ -41,6 +41,7 @@ import type {
   PricingSourceListResponse,
   PricingSourceRecord,
   RunContextDetails,
+  SyncOpenAiModelPricingResult,
   ThreadSummaryRequest,
   ThreadSummaryResponse,
   ThreadSummariesRequest,
@@ -73,6 +74,7 @@ import { ThreadSummaryService } from './memory/thread-summary-service';
 import { UserProfileStore } from './profiles/user-profile-store';
 import { LlmCallStore } from './llm/llm-call-store';
 import { ModelPricingStore } from './llm/model-pricing-store';
+import { syncOpenAiModelPricingFromSource } from './llm/openai-pricing-sync';
 import { PricingSourceStore } from './llm/pricing-source-store';
 import { readWebPage } from './research/web-page-reader';
 import { RunContextStore } from './runs/run-context-store';
@@ -451,6 +453,18 @@ export class AssistantRuntime {
     };
   }
 
+  async syncOpenAiModelPricing(sourceId?: string): Promise<SyncOpenAiModelPricingResult> {
+    const source = sourceId
+      ? await this.pricingSourceStore.requireSource(sourceId)
+      : await this.findActiveOfficialOpenAiPricingSource();
+    const savedPricing = await this.modelPricingStore.listPricing({
+      provider: 'openai',
+      status: 'active',
+    });
+
+    return await syncOpenAiModelPricingFromSource(source, savedPricing);
+  }
+
   async readLatestThreadRunContext(
     agentId: string,
     threadId: string,
@@ -583,8 +597,8 @@ export class AssistantRuntime {
     const currentGuidance = `## Pricing source analysis
 
 - First inspect configured pricing sources. Prefer active official provider sources and include source URL, source name, and retrieval date.
-- When a pricing source URL is already configured, use the pricing-source-analysis skill and extract the configured source page with structured extraction before using fallback page reading or general research.
-- Prefer read_web_page_structure with the narrowest useful mode. For price comparisons, use mode "tables" and a focused query.
+- For OpenAI model-price comparison, use the pricing-source-analysis skill and call admin_sync_openai_model_pricing first. It fetches the official OpenAI pricing page, extracts model prices, and compares them with saved active OpenAI pricing records without changing data.
+- Use read_web_page_structure only when the dedicated OpenAI pricing sync cannot answer the question, when the user asks for page-structure debugging, or when the provider is not OpenAI.
 - Use research only when no configured source exists, a configured source cannot be read, or the user asks you to find a new source.`;
 
     if (
@@ -610,8 +624,8 @@ ${currentGuidance}
 ## Pricing maintenance
 
 - First inspect configured pricing sources. Prefer active official provider sources and include source URL, source name, and retrieval date.
-- When a pricing source URL is already configured, use the pricing-source-analysis skill and extract the configured source page with structured extraction before using fallback page reading or general research.
-- Prefer read_web_page_structure with the narrowest useful mode. For price comparisons, use mode "tables" and a focused query.
+- For OpenAI model-price comparison, use the pricing-source-analysis skill and call admin_sync_openai_model_pricing first. It fetches the official OpenAI pricing page, extracts model prices, and compares them with saved active OpenAI pricing records without changing data.
+- Use read_web_page_structure only when the dedicated OpenAI pricing sync cannot answer the question, when the user asks for page-structure debugging, or when the provider is not OpenAI.
 - Use research only when no configured source exists, a configured source cannot be read, or the user asks you to find a new source.
 - You may create unverified model pricing records when the user asks you to store researched prices.
 - Do not activate, supersede, or replace active pricing unless the user explicitly approves that specific change.
@@ -622,6 +636,25 @@ ${currentGuidance}
     return isSystemOperatorAgent(agentId, this.getDefaultAgentId())
       ? listAdminToolDefinitions()
       : [];
+  }
+
+  private async findActiveOfficialOpenAiPricingSource(): Promise<PricingSourceRecord> {
+    const sources = await this.pricingSourceStore.listSources({
+      provider: 'openai',
+      trustLevel: 'official',
+      active: true,
+    });
+    const pricingPage = sources.find((source) => source.url.includes('/api/docs/pricing'));
+
+    if (pricingPage) {
+      return pricingPage;
+    }
+
+    if (sources[0]) {
+      return sources[0];
+    }
+
+    throw new Error('No active official OpenAI pricing source is configured.');
   }
 }
 

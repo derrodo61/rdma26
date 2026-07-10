@@ -236,6 +236,14 @@ const adminToolDefinitions: readonly ToolDefinition[] = [
     provider: 'rdma26-admin',
     available: true,
   },
+  {
+    id: 'admin_sync_openai_model_pricing',
+    label: 'Sync OpenAI pricing',
+    description:
+      'Fetch the official OpenAI pricing page, extract model prices, and compare them with active saved OpenAI pricing records without changing data.',
+    provider: 'rdma26-admin',
+    available: true,
+  },
 ];
 
 export function listAdminToolDefinitions(): readonly ToolDefinition[] {
@@ -656,7 +664,7 @@ export function createAdminTools(runtime: AssistantRuntime): readonly Structured
       {
         name: 'admin_read_pricing_source_page',
         description:
-          'Fallback reader for a configured provider pricing source page. Use read_web_page_structure first for pricing comparisons; use this only when structured extraction is incomplete, truncated, or missing needed rows.',
+          'Fallback reader for a configured provider pricing source page. For OpenAI model-price comparison, use admin_sync_openai_model_pricing first. Use this only when dedicated sync and structured extraction are incomplete, truncated, or missing needed rows.',
         schema: z.object({
           sourceId: z.string().uuid().describe('Pricing source id.'),
           query: z
@@ -665,6 +673,23 @@ export function createAdminTools(runtime: AssistantRuntime): readonly Structured
             .min(1)
             .optional()
             .describe('Optional extraction hint for the page reader.'),
+        }),
+      },
+    ),
+    tool(
+      async ({ sourceId }: { sourceId?: string }) => await runtime.syncOpenAiModelPricing(sourceId),
+      {
+        name: 'admin_sync_openai_model_pricing',
+        description:
+          'Fetch the official OpenAI pricing page, extract model prices deterministically, and compare them with active saved OpenAI pricing records. This does not create, activate, supersede, or delete pricing records.',
+        schema: z.object({
+          sourceId: z
+            .string()
+            .uuid()
+            .optional()
+            .describe(
+              'Optional pricing source id. If omitted, the active official OpenAI pricing source is used.',
+            ),
         }),
       },
     ),

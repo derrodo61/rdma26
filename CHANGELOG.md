@@ -40,6 +40,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added focused `read_web_page_structure` modes and query filtering so agents can request compact table, heading, link, list, article, Markdown, or full extraction instead of full-page output by default.
 - Added separate per-agent long-term memory read and write permissions through API, CLI, and the agent edit UI, and disabled automatic memory retrieval/writes for the protected Cost Analyst agent.
 - Tightened Cost Analyst pricing-source guidance so configured official pages use `read_web_page_structure` first and the pricing-source page reader only as fallback.
+- Added a dedicated `admin_sync_openai_model_pricing` Cost Analyst tool that fetches the official OpenAI pricing page, extracts model prices deterministically, and compares them with active saved OpenAI pricing records without changing data.
 
 ### Fixed
 

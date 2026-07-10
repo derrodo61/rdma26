@@ -606,6 +606,56 @@ export interface DeletePricingSourceResponse {
   readonly sourceId: string;
 }
 
+export type OpenAiPricingComparisonStatus = 'match' | 'different' | 'missing_official';
+
+export interface SyncOpenAiModelPricingResult {
+  readonly source: {
+    readonly id: string;
+    readonly name: string;
+    readonly url: string;
+    readonly retrievedAt: string;
+  };
+  readonly officialModelCount: number;
+  readonly savedActiveModelCount: number;
+  readonly matched: readonly OpenAiPricingComparison[];
+  readonly different: readonly OpenAiPricingComparison[];
+  readonly missingOfficial: readonly OpenAiPricingComparison[];
+  readonly missingLocalModels: readonly string[];
+  readonly notes: readonly string[];
+}
+
+export interface OpenAiPricingComparison {
+  readonly model: string;
+  readonly status: OpenAiPricingComparisonStatus;
+  readonly saved: OpenAiSavedPricingSnapshot;
+  readonly official?: OpenAiOfficialPricingRecord;
+  readonly differences: readonly string[];
+  readonly metadataWarnings: readonly string[];
+}
+
+export interface OpenAiSavedPricingSnapshot {
+  readonly pricingId: string;
+  readonly inputCostPerMillionTokens: number;
+  readonly cachedInputCostPerMillionTokens?: number;
+  readonly outputCostPerMillionTokens: number;
+  readonly sourceUrl: string;
+  readonly sourceName?: string;
+}
+
+export interface OpenAiOfficialPricingRecord {
+  readonly model: string;
+  readonly sourceLabel: string;
+  readonly shortContext: OpenAiPricingTier;
+  readonly longContext?: OpenAiPricingTier;
+}
+
+export interface OpenAiPricingTier {
+  readonly inputCostPerMillionTokens?: number;
+  readonly cachedInputCostPerMillionTokens?: number;
+  readonly cacheWriteCostPerMillionTokens?: number;
+  readonly outputCostPerMillionTokens?: number;
+}
+
 export interface RunContextDetails {
   readonly runId: string;
   readonly agentId: string;

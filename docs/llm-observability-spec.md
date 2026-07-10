@@ -283,9 +283,11 @@ Pricing source records should store:
 - last error
 - created and updated timestamps
 
-For configured official pricing sources, Cost Analyst should prefer a skill-guided analysis workflow over general web research. The `pricing-source-analysis` Deep Agents skill instructs Cost Analyst to list configured sources, extract an active official source page with `read_web_page_structure`, list saved pricing records, compare them with the page content, and clearly separate price mismatches from missing local records or metadata/source issues. When a provider page lists multiple dimensions, such as short-context pricing, long-context pricing, cached input, or cache writes, the comparison must name those dimensions explicitly instead of flattening everything into one generic price verdict.
+For configured official pricing sources, Cost Analyst should prefer source-specific deterministic ingestion when the provider and page shape are known. OpenAI model-price comparison uses `admin_sync_openai_model_pricing`, which fetches the configured official OpenAI pricing page, extracts the model pricing table, compares saved active OpenAI pricing records against official standard short-context input/output prices, and returns a compact diff without changing saved records.
 
-The generic `read_web_page_structure` tool should fetch a known source URL and support focused extraction modes, including `tables` with query filtering for pricing comparisons. Extraction and comparison of price values should be performed by the model under the skill instructions, not by provider-specific hardcoded parsing unless a future source proves impossible to use reliably.
+The generic `read_web_page_structure` tool still fetches a known source URL and supports focused extraction modes, including `tables`, `headings`, `links`, `lists`, `markdown`, and `full`. It is useful for known-page inspection, non-OpenAI providers, debugging source structure, and fallback work. It should not be forced to become a hidden one-use-case OpenAI pricing parser.
+
+When a provider page lists multiple dimensions, such as short-context pricing, long-context pricing, cached input, or cache writes, the comparison must name those dimensions explicitly instead of flattening everything into one generic price verdict. The current local pricing schema stores flat input, cached-input, output, and optional reasoning costs, so cache-write and long-context prices are reported as metadata unless the schema is extended.
 
 Later, a specialized cost/optimization agent can help maintain pricing by:
 

@@ -172,7 +172,7 @@ Deletes a provider pricing source page.
 
 Checks whether a pricing source URL is reachable and updates `lastCheckedAt`, `lastSuccessAt`, and `lastError`.
 
-Cost Analyst can use configured pricing sources through controlled tools and its `pricing-source-analysis` Deep Agents skill before falling back to general web research.
+Cost Analyst can use configured pricing sources through controlled tools and its `pricing-source-analysis` Deep Agents skill before falling back to general web research. For OpenAI model-price comparison, it has a dedicated `admin_sync_openai_model_pricing` controlled tool that fetches the official OpenAI pricing page, extracts the model pricing table deterministically, and returns a compact comparison without changing saved pricing records.
 
 ### `GET /api/tools`
 
@@ -224,7 +224,7 @@ Optional query parameters:
 
 ### `POST /api/optimizer-runs`
 
-Creates a hidden internal Cost Analyst thread and asks the protected optimization agent to inspect local LLM usage, pricing, run context, and model settings. The Cost Analyst has the `research` capability and can create unverified pricing proposals from provider sources, but active pricing changes still require explicit approval.
+Creates a hidden internal Cost Analyst thread and asks the protected optimization agent to inspect local LLM usage, pricing, run context, and model settings. The Cost Analyst has the `research` capability, a dedicated OpenAI pricing sync/compare tool, and controlled pricing tools for unverified pricing proposals from provider sources. Active pricing changes still require explicit approval.
 
 Body:
 
