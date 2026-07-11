@@ -44,10 +44,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added direct OpenAI pricing sync through `rdma26 pricing:sync-openai` and `POST /api/model-pricing/openai/sync` so saved OpenAI price checks can run without an agent loop or LLM call.
 - Added Usage and Pricing tabs to the cost dashboard, OpenAI pricing refresh controls, and full pricing record CRUD through the UI, API, and CLI.
 - Simplified model pricing to one active/inactive record per provider and model. Creating or updating prices activates the record, while deactivation is an explicit UI, API, or CLI action.
+- Redesigned the Pricing tab around a compact source toolbar and full-width pricing table, with create and edit forms moved into a focused modal dialog.
 
 ### Fixed
 
 - Added client-side safeguards so stalled or prematurely closed agent run streams stop the chat composer and show an error instead of leaving the UI in a permanent thinking state.
+- Persist the latest successful pricing-source retrieval time and display it after checking official prices.
 
 ## [2026-07-08]
 

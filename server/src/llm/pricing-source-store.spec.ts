@@ -65,4 +65,27 @@ describe('PricingSourceStore', () => {
       await rm(dataDir, { recursive: true, force: true });
     }
   });
+
+  it('persists successful source retrieval timestamps', async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-pricing-sources-'));
+    const store = new PricingSourceStore(dataDir);
+
+    try {
+      await store.ensureDefaultSources();
+      const [source] = await store.listSources({ provider: 'openai' });
+      const checkedAt = '2026-07-11T08:00:00.000Z';
+
+      if (!source) {
+        throw new Error('Expected the default OpenAI pricing source.');
+      }
+
+      await expect(store.recordSourceCheck(source.id, checkedAt)).resolves.toMatchObject({
+        lastCheckedAt: checkedAt,
+        lastSuccessAt: checkedAt,
+        lastError: undefined,
+      });
+    } finally {
+      await rm(dataDir, { recursive: true, force: true });
+    }
+  });
 });

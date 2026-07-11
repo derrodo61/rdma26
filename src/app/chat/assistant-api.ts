@@ -36,6 +36,7 @@ import type {
   ModelPricingRecord,
   OptimizerRunRequest,
   OptimizerRunResponse,
+  PricingSourceListResponse,
   RunContextDetails,
   ThreadSummaryRequest,
   ThreadSummaryResponse,
@@ -109,6 +110,14 @@ export class AssistantApi {
 
   async createModelPricing(request: CreateModelPricingRequest): Promise<ModelPricingRecord> {
     return await firstValueFrom(this.http.post<ModelPricingRecord>('/api/model-pricing', request));
+  }
+
+  async pricingSources(provider?: string): Promise<PricingSourceListResponse> {
+    return await firstValueFrom(
+      this.http.get<PricingSourceListResponse>('/api/pricing-sources', {
+        params: toHttpParams({ provider }),
+      }),
+    );
   }
 
   async updateModelPricing(

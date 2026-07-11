@@ -184,6 +184,16 @@ export class PricingSourceStore {
     return await this.requireSource(sourceId);
   }
 
+  async recordSourceCheck(
+    sourceId: string,
+    checkedAt: string,
+    error?: string,
+  ): Promise<PricingSourceRecord> {
+    await this.requireSource(sourceId);
+    await this.recordCheck(sourceId, checkedAt, error ? undefined : checkedAt, error);
+    return await this.requireSource(sourceId);
+  }
+
   async requireSource(sourceId: string): Promise<PricingSourceRecord> {
     const source = await this.readSource(sourceId);
 

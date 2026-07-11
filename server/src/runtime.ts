@@ -471,7 +471,18 @@ export class AssistantRuntime {
       status: 'active',
     });
 
-    return await syncOpenAiModelPricingFromSource(source, savedPricing);
+    try {
+      const result = await syncOpenAiModelPricingFromSource(source, savedPricing);
+      await this.pricingSourceStore.recordSourceCheck(source.id, result.source.retrievedAt);
+      return result;
+    } catch (error) {
+      await this.pricingSourceStore.recordSourceCheck(
+        source.id,
+        new Date().toISOString(),
+        getErrorMessage(error),
+      );
+      throw error;
+    }
   }
 
   async readLatestThreadRunContext(
@@ -701,6 +712,10 @@ interface AssistantRuntimeOptions {
   readonly dataDir: string;
   readonly defaultAgentId: string;
   readonly defaultAgentName: string;
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'OpenAI pricing source check failed.';
 }
 
 function readRuntimeOptionsFromEnv(): AssistantRuntimeOptions {

@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 
@@ -11,6 +11,7 @@ import type {
   LlmCallRecord,
   ModelPricingRecord,
   OptimizerRunResponse,
+  PricingSourceRecord,
   SyncOpenAiModelPricingResult,
 } from '../../../../shared/agent-contracts';
 import { AssistantApi } from '../../chat/assistant-api';
@@ -24,12 +25,15 @@ import { AppSelect, type SelectOption } from '../../shared/app-select/app-select
 })
 export class CostSettingsPage {
   private readonly api = inject(AssistantApi);
+  private readonly pricingDialog =
+    viewChild.required<ElementRef<HTMLDialogElement>>('pricingDialog');
 
   protected readonly selectedTab = signal<'usage' | 'pricing'>('usage');
   protected readonly agents = signal<readonly AgentProfile[]>([]);
   protected readonly summaryRows = signal<readonly CostSummaryRow[]>([]);
   protected readonly llmCalls = signal<readonly LlmCallRecord[]>([]);
   protected readonly pricing = signal<readonly ModelPricingRecord[]>([]);
+  protected readonly pricingSources = signal<readonly PricingSourceRecord[]>([]);
   protected readonly selectedAgentId = signal('');
   protected readonly selectedGroupBy = signal<CostSummaryGroupBy>('day');
   protected readonly selectedPurpose = signal<LlmCallPurpose | ''>('');
@@ -114,6 +118,17 @@ export class CostSettingsPage {
   );
   protected readonly canAskOptimizer = computed(
     () => Boolean(this.optimizerPrompt().trim()) && !this.isSaving(),
+  );
+  protected readonly openAiPricingSource = computed(() =>
+    this.pricingSources().find(
+      (source) => source.provider === 'openai' && source.trustLevel === 'official' && source.active,
+    ),
+  );
+  protected readonly latestOpenAiSourceRetrieval = computed(
+    () =>
+      this.pricingSyncResult()?.source.retrievedAt ??
+      this.openAiPricingSource()?.lastSuccessAt ??
+      this.openAiPricingSource()?.lastCheckedAt,
   );
 
   constructor() {
@@ -249,9 +264,15 @@ export class CostSettingsPage {
         this.savedMessage.set('Pricing record created.');
       }
 
+      this.pricingDialog().nativeElement.close();
       this.resetPricingDraft();
       await this.loadPricing();
     });
+  }
+
+  protected addPricing(): void {
+    this.resetPricingDraft();
+    this.pricingDialog().nativeElement.showModal();
   }
 
   protected editPricing(record: ModelPricingRecord): void {
@@ -267,9 +288,15 @@ export class CostSettingsPage {
     this.draftSourceUrl.set(record.sourceUrl);
     this.draftSourceName.set(record.sourceName ?? '');
     this.selectedTab.set('pricing');
+    this.pricingDialog().nativeElement.showModal();
   }
 
   protected cancelPricingEdit(): void {
+    this.pricingDialog().nativeElement.close();
+    this.resetPricingDraft();
+  }
+
+  protected pricingDialogClosed(): void {
     this.resetPricingDraft();
   }
 
@@ -330,6 +357,47 @@ export class CostSettingsPage {
     return this.agents().find((agent) => agent.id === agentId)?.name ?? agentId;
   }
 
+  protected formatDateTime(value: string | undefined): string {
+    if (!value) {
+      return 'Not checked yet';
+    }
+
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+      ? value
+      : new Intl.DateTimeFormat(undefined, {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        }).format(date);
+  }
+
+  protected formatRelativeDate(value: string): string {
+    const timestamp = Date.parse(value);
+
+    if (!Number.isFinite(timestamp)) {
+      return value;
+    }
+
+    const elapsedSeconds = Math.round((timestamp - Date.now()) / 1000);
+    const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+
+    if (Math.abs(elapsedSeconds) < 60) {
+      return formatter.format(elapsedSeconds, 'second');
+    }
+
+    const elapsedMinutes = Math.round(elapsedSeconds / 60);
+    if (Math.abs(elapsedMinutes) < 60) {
+      return formatter.format(elapsedMinutes, 'minute');
+    }
+
+    const elapsedHours = Math.round(elapsedMinutes / 60);
+    if (Math.abs(elapsedHours) < 24) {
+      return formatter.format(elapsedHours, 'hour');
+    }
+
+    return formatter.format(Math.round(elapsedHours / 24), 'day');
+  }
+
   private async load(): Promise<void> {
     await this.handleAsync(async () => {
       const [agentsResponse] = await Promise.all([this.api.agents()]);
@@ -366,8 +434,12 @@ export class CostSettingsPage {
   }
 
   private async loadPricing(): Promise<void> {
-    const response = await this.api.modelPricing();
-    this.pricing.set(response.pricing);
+    const [pricingResponse, sourceResponse] = await Promise.all([
+      this.api.modelPricing(),
+      this.api.pricingSources('openai'),
+    ]);
+    this.pricing.set(pricingResponse.pricing);
+    this.pricingSources.set(sourceResponse.sources);
   }
 
   private resetPricingDraft(): void {

@@ -1,3 +1,11 @@
 .cost-grid {
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
 }
+
+.pricing-dialog::backdrop {
+  background: rgb(0 0 0 / 65%);
+}
+
+.pricing-dialog {
+  margin: auto;
+}
