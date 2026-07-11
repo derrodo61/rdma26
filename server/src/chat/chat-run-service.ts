@@ -3,9 +3,7 @@ import type { StructuredToolInterface } from '@langchain/core/tools';
 import type {
   AgentRunRequest,
   ChatThread,
-  MemoryRecord,
   RunContextDetails,
-  RunContextMemory,
   RunContextTool,
 } from '../../../shared/agent-contracts';
 import type { AgentRegistry } from '../agents/agent-registry';
@@ -14,20 +12,23 @@ import { isSystemOperatorAgent } from '../agents/system-agents';
 import { createAdminTools, listAdminToolDefinitions } from '../capabilities/admin-tools';
 import type { CapabilityRegistry } from '../capabilities/capability-registry';
 import { createMemoryTools } from '../capabilities/memory-tools';
-import type { MemoryStore } from '../memory/memory-store';
+import { createConversationTools } from '../capabilities/conversation-tools';
+import type { FileMemoryStore } from '../memory/file-memory-store';
 import type { UserProfileStore } from '../profiles/user-profile-store';
 import type { LlmCallStore } from '../llm/llm-call-store';
 import type { RunContextStore } from '../runs/run-context-store';
 import type { AssistantRuntime } from '../runtime';
+import type { ThreadCheckpointer } from '../threads/thread-checkpointer';
 
 export class ChatRunService {
   constructor(
     private readonly registry: AgentRegistry,
     private readonly capabilities: CapabilityRegistry,
-    private readonly memoryStore: MemoryStore,
+    private readonly fileMemoryStore: FileMemoryStore,
     private readonly runContextStore: RunContextStore,
     private readonly llmCallStore: LlmCallStore,
     private readonly userProfileStore: UserProfileStore,
+    private readonly threadCheckpointer: ThreadCheckpointer,
     private readonly runtime: AssistantRuntime,
   ) {}
 
@@ -50,23 +51,30 @@ export class ChatRunService {
     const memoryWritesEnabled = storage.agent.memory.canWrite;
     const tools = [
       ...this.capabilities.createRunnableTools(storage.agent.enabledTools),
+      ...(memoryReadsEnabled
+        ? createConversationTools(this.runtime, storage.agent.id, request.threadId)
+        : []),
       ...(memoryWritesEnabled ? createMemoryTools(this.runtime, storage.agent.id) : []),
       ...this.adminToolsFor(storage.agent.id),
     ];
     const toolContext = this.runContextToolsFor(
       storage.agent.id,
       storage.agent.enabledTools,
+      memoryReadsEnabled,
       memoryWritesEnabled,
     );
     const soulContent = await storage.readSoul();
-    const memories = memoryReadsEnabled
-      ? await this.memoryStore.searchForRun(storage.agent.id, request.prompt)
+    const pinnedMemories = memoryReadsEnabled
+      ? await this.fileMemoryStore.pinnedEntriesForAgent(storage.agent.id)
       : [];
+    const memoryPaths = pinnedMemories.map((memory) => this.fileMemoryStore.virtualPath(memory));
     const userThread = await storage.appendMessage(request.threadId, {
       role: 'user',
       content: request.prompt,
     });
-    const agentResponse = await new PersonalAgent(storage).run({
+    const hasCheckpoint = await this.threadCheckpointer.hasThread(request.threadId);
+    const inputMessages = hasCheckpoint ? userThread.messages.slice(-1) : userThread.messages;
+    const agentResponse = await new PersonalAgent(storage, this.threadCheckpointer.get()).run({
       runId,
       threadId: request.threadId,
       model,
@@ -76,9 +84,10 @@ export class ChatRunService {
       isOperatorAgent: isSystemOperatorAgent(storage.agent.id, this.registry.getDefaultAgentId()),
       userProfile,
       soulContent,
-      memories: memories.map((memory) => memory.memory),
+      memoryPaths,
+      memoryDirectories: this.fileMemoryStore.memoryDirectoriesForAgent(storage.agent.id),
       memoryWritesEnabled,
-      messages: userThread.messages,
+      messages: inputMessages,
       prompt: request.prompt,
       llmCallStore: this.llmCallStore,
       onActivity: options.onActivity,
@@ -102,7 +111,17 @@ export class ChatRunService {
       soulVirtualPath: storage.agent.soulVirtualPath,
       soulContent,
       userProfile,
-      memories: memories.map((memory) => toRunContextMemory(memory)),
+      memories: pinnedMemories.map((memory) => ({
+        memoryId: memory.id,
+        scope: memory.scope,
+        agentId: memory.agentId,
+        pinned: true,
+        tags: memory.tags,
+        source: memory.source,
+        virtualPath: this.fileMemoryStore.virtualPath(memory),
+        access: 'startup' as const,
+        content: memory.content,
+      })),
       messages: userThread.messages.map((message) => ({
         id: message.id,
         role: message.role,
@@ -140,6 +159,7 @@ export class ChatRunService {
   private runContextToolsFor(
     agentId: string,
     enabledToolIds: readonly string[],
+    canReadMemory: boolean,
     canWriteMemory: boolean,
   ): readonly RunContextTool[] {
     const enabledToolIdSet = new Set(enabledToolIds);
@@ -164,6 +184,24 @@ export class ChatRunService {
           },
         ]
       : [];
+    const conversationTools = canReadMemory
+      ? [
+          {
+            id: 'search_past_conversations',
+            label: 'Search past conversations',
+            description: "Search this agent's earlier threads.",
+            provider: 'rdma26-threads',
+            controlled: true,
+          },
+          {
+            id: 'read_past_conversation',
+            label: 'Read past conversation',
+            description: 'Read bounded messages from an earlier thread.',
+            provider: 'rdma26-threads',
+            controlled: true,
+          },
+        ]
+      : [];
     const adminTools = this.controlledToolsFor(agentId).map((tool) => ({
       id: tool.id,
       label: tool.label,
@@ -172,7 +210,7 @@ export class ChatRunService {
       controlled: true,
     }));
 
-    return [...assignableTools, ...memoryTools, ...adminTools];
+    return [...assignableTools, ...conversationTools, ...memoryTools, ...adminTools];
   }
 }
 
@@ -186,24 +224,4 @@ export interface RunAgentResult {
 export interface RunAgentOptions {
   readonly runId?: string;
   readonly onActivity?: (activity: { readonly label: string; readonly detail?: string }) => void;
-}
-
-function toRunContextMemory(memory: {
-  readonly memory: MemoryRecord;
-  readonly source: {
-    readonly score: number;
-  };
-}): RunContextMemory {
-  return {
-    memoryId: memory.memory.id,
-    scope: memory.memory.scope,
-    agentId: memory.memory.agentId,
-    type: memory.memory.type,
-    status: memory.memory.status,
-    lifetime: memory.memory.lifetime,
-    tags: memory.memory.tags,
-    source: memory.memory.source,
-    score: memory.source.score,
-    content: memory.memory.content,
-  };
 }

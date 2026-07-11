@@ -25,11 +25,9 @@ import type {
   LlmCallListRequest,
   LlmCallListResponse,
   LlmCallRecord,
-  MemoryMaintenanceRequest,
-  MemoryMaintenanceResponse,
-  MemoryMaintenanceSettings,
   MemoryListRequest,
   MemoryListResponse,
+  MemoryPinnedBudgetsResponse,
   MemoryRecord,
   ModelOption,
   ModelPricingListRequest,
@@ -43,15 +41,10 @@ import type {
   PricingSourceRecord,
   RunContextDetails,
   SyncOpenAiModelPricingResult,
-  ThreadSummaryRequest,
-  ThreadSummaryResponse,
-  ThreadSummariesRequest,
-  ThreadSummariesResponse,
   ToolsResponse,
   UpdateAgentRequest,
   UpdateAgentSoulRequest,
   UpdateAgentToolsRequest,
-  UpdateMemoryMaintenanceSettingsRequest,
   UpdateMemoryRequest,
   UpdateModelPricingRequest,
   UpdatePricingSourceRequest,
@@ -69,9 +62,7 @@ import {
 import { listAdminToolDefinitions } from './capabilities/admin-tools';
 import { CapabilityRegistry } from './capabilities/capability-registry';
 import { ChatRunService, type RunAgentOptions, type RunAgentResult } from './chat/chat-run-service';
-import { MemoryMaintenanceSettingsStore } from './memory/memory-maintenance-settings-store';
-import { MemoryStore } from './memory/memory-store';
-import { ThreadSummaryService } from './memory/thread-summary-service';
+import { FileMemoryStore } from './memory/file-memory-store';
 import { UserProfileStore } from './profiles/user-profile-store';
 import { LlmCallStore } from './llm/llm-call-store';
 import { ModelPricingStore } from './llm/model-pricing-store';
@@ -80,19 +71,19 @@ import { PricingSourceStore } from './llm/pricing-source-store';
 import { readWebPage } from './research/web-page-reader';
 import { RunContextStore } from './runs/run-context-store';
 import { ThreadService } from './threads/thread-service';
+import { ThreadCheckpointer } from './threads/thread-checkpointer';
 
 export class AssistantRuntime {
   private readonly registry: AgentRegistry;
   private readonly models: readonly ModelOption[];
   private readonly capabilities = new CapabilityRegistry();
   private readonly userProfileStore: UserProfileStore;
-  private readonly memoryStore: MemoryStore;
-  private readonly memoryMaintenanceSettingsStore: MemoryMaintenanceSettingsStore;
+  private readonly fileMemoryStore: FileMemoryStore;
   private readonly runContextStore: RunContextStore;
   private readonly modelPricingStore: ModelPricingStore;
   private readonly pricingSourceStore: PricingSourceStore;
   private readonly llmCallStore: LlmCallStore;
-  private readonly threadSummaries: ThreadSummaryService;
+  private readonly threadCheckpointer: ThreadCheckpointer;
   private readonly threads: ThreadService;
   private readonly chatRuns: ChatRunService;
 
@@ -103,32 +94,27 @@ export class AssistantRuntime {
       options.defaultAgentName,
     );
     this.userProfileStore = new UserProfileStore(options.dataDir);
-    this.memoryStore = new MemoryStore(options.dataDir);
-    this.memoryMaintenanceSettingsStore = new MemoryMaintenanceSettingsStore(options.dataDir);
+    this.fileMemoryStore = new FileMemoryStore(options.dataDir);
     this.runContextStore = new RunContextStore(options.dataDir);
     this.modelPricingStore = new ModelPricingStore(options.dataDir);
     this.pricingSourceStore = new PricingSourceStore(options.dataDir);
     this.llmCallStore = new LlmCallStore(options.dataDir, this.modelPricingStore);
+    this.threadCheckpointer = new ThreadCheckpointer(options.dataDir);
     this.models = readModels();
-    this.threadSummaries = new ThreadSummaryService(
-      this.memoryStore,
-      this.llmCallStore,
-      this.models,
-    );
     this.threads = new ThreadService(
       this.registry,
-      this.memoryStore,
       this.runContextStore,
       this.llmCallStore,
-      this.threadSummaries,
+      this.threadCheckpointer,
     );
     this.chatRuns = new ChatRunService(
       this.registry,
       this.capabilities,
-      this.memoryStore,
+      this.fileMemoryStore,
       this.runContextStore,
       this.llmCallStore,
       this.userProfileStore,
+      this.threadCheckpointer,
       this,
     );
   }
@@ -171,13 +157,13 @@ export class AssistantRuntime {
     await costAnalystStorage.ensureReady();
     await this.ensureCostAnalystSoulSupportsPricingMaintenance(costAnalystStorage);
     await this.userProfileStore.ensureReady();
-    await this.memoryStore.ensureReady();
-    await this.memoryMaintenanceSettingsStore.ensureReady();
+    await this.fileMemoryStore.ensureReady();
     await this.runContextStore.ensureReady();
     await this.modelPricingStore.ensureReady();
     await this.pricingSourceStore.ensureReady();
     await this.pricingSourceStore.ensureDefaultSources();
     await this.llmCallStore.ensureReady();
+    await this.threadCheckpointer.ensureReady();
     await this.runContextStore.deleteOrphanedRuns();
     await this.llmCallStore.deleteOrphanedCalls();
   }
@@ -321,12 +307,20 @@ export class AssistantRuntime {
     }
 
     return {
-      memories: await this.memoryStore.listMemories(request),
+      memories: await this.fileMemoryStore.listEntries(request),
     };
   }
 
   async readMemory(memoryId: string): Promise<MemoryRecord> {
-    return await this.memoryStore.requireMemory(memoryId);
+    return await this.fileMemoryStore.requireEntry(memoryId);
+  }
+
+  async readMemoryPinnedBudgets(agentId: string): Promise<MemoryPinnedBudgetsResponse> {
+    await this.readAgent(agentId);
+    return {
+      agentId,
+      budgets: await this.fileMemoryStore.pinnedBudgetsForAgent(agentId),
+    };
   }
 
   async createMemory(request: CreateMemoryRequest): Promise<MemoryRecord> {
@@ -334,15 +328,15 @@ export class AssistantRuntime {
       await this.readAgent(request.agentId);
     }
 
-    return await this.memoryStore.createMemory(request);
+    return await this.fileMemoryStore.createEntry(request);
   }
 
   async updateMemory(memoryId: string, request: UpdateMemoryRequest): Promise<MemoryRecord> {
-    return await this.memoryStore.updateMemory(memoryId, request);
+    return await this.fileMemoryStore.updateEntry(memoryId, request);
   }
 
   async deleteMemory(memoryId: string): Promise<DeleteMemoryResponse> {
-    const deleted = await this.memoryStore.deleteMemory(memoryId);
+    const deleted = await this.fileMemoryStore.deleteEntry(memoryId);
 
     if (!deleted) {
       throw new Error(`Memory ${memoryId} does not exist.`);
@@ -352,32 +346,6 @@ export class AssistantRuntime {
       deleted: true,
       memoryId,
     };
-  }
-
-  async readMemoryMaintenanceSettings(): Promise<MemoryMaintenanceSettings> {
-    return await this.memoryMaintenanceSettingsStore.readSettings();
-  }
-
-  async updateMemoryMaintenanceSettings(
-    request: UpdateMemoryMaintenanceSettingsRequest,
-  ): Promise<MemoryMaintenanceSettings> {
-    if (request.agentId) {
-      await this.readAgent(request.agentId);
-    }
-
-    return await this.memoryMaintenanceSettingsStore.updateSettings(request);
-  }
-
-  async recordMemoryMaintenanceStarted(startedAt: string): Promise<MemoryMaintenanceSettings> {
-    return await this.memoryMaintenanceSettingsStore.recordRunStarted(startedAt);
-  }
-
-  async recordMemoryMaintenanceFinished(finishedAt: string): Promise<MemoryMaintenanceSettings> {
-    return await this.memoryMaintenanceSettingsStore.recordRunFinished(finishedAt);
-  }
-
-  async recordMemoryMaintenanceFailed(errorMessage: string): Promise<MemoryMaintenanceSettings> {
-    return await this.memoryMaintenanceSettingsStore.recordRunFailed(errorMessage);
   }
 
   async readRunContext(runId: string): Promise<RunContextDetails> {
@@ -579,43 +547,31 @@ export class AssistantRuntime {
     return await this.threads.readThread(agentId, threadId);
   }
 
-  async deleteThread(agentId: string, threadId: string): Promise<DeleteThreadResponse> {
-    return await this.threads.deleteThread(agentId, threadId);
+  async searchPastConversations(
+    agentId: string,
+    query: string,
+    limit?: number,
+    excludeThreadId?: string,
+  ) {
+    return await this.threads.searchPastConversations(agentId, query, limit, excludeThreadId);
   }
 
-  async consolidateThreadSummary(
+  async readPastConversation(
     agentId: string,
     threadId: string,
-    request: ThreadSummaryRequest = {},
-  ): Promise<ThreadSummaryResponse> {
-    return await this.threadSummaries.consolidateThreadSummary(
-      await this.readThread(agentId, threadId),
-      request,
-    );
-  }
-
-  async consolidateAgentThreadSummaries(
-    agentId: string,
-    request: ThreadSummariesRequest = {},
-  ): Promise<ThreadSummariesResponse> {
-    return await this.threadSummaries.consolidateAgentThreadSummaries(
+    messageLimit?: number,
+    currentThreadId?: string,
+  ) {
+    return await this.threads.readPastConversation(
       agentId,
-      request,
-      async (selectedAgentId) => await this.listThreads(selectedAgentId),
-      async (selectedAgentId, threadId) => await this.readThread(selectedAgentId, threadId),
+      threadId,
+      messageLimit,
+      currentThreadId,
     );
   }
 
-  async runMemoryMaintenance(
-    request: MemoryMaintenanceRequest = {},
-  ): Promise<MemoryMaintenanceResponse> {
-    return await this.threadSummaries.runMemoryMaintenance(
-      request,
-      async () => await this.listAgents(),
-      async (agentId) => await this.readAgent(agentId),
-      async (agentId) => await this.listThreads(agentId),
-      async (agentId, threadId) => await this.readThread(agentId, threadId),
-    );
+  async deleteThread(agentId: string, threadId: string): Promise<DeleteThreadResponse> {
+    return await this.threads.deleteThread(agentId, threadId);
   }
 
   async runAgent(request: AgentRunRequest, options: RunAgentOptions = {}): Promise<RunAgentResult> {
@@ -651,6 +607,10 @@ export class AssistantRuntime {
 
   getDefaultAgentId(): string {
     return this.registry.getDefaultAgentId();
+  }
+
+  close(): void {
+    this.threadCheckpointer.close();
   }
 
   private async storageFor(agentId: string) {

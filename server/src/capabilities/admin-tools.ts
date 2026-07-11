@@ -8,10 +8,7 @@ import type {
   CreatePricingSourceRequest,
   LlmCallPurpose,
   LlmCallStatus,
-  MemoryLifetime,
   MemoryScope,
-  MemoryStatus,
-  MemoryType,
   PricingSourceTrustLevel,
   ToolDefinition,
   UpdateModelPricingRequest,
@@ -20,15 +17,6 @@ import type {
 import type { AssistantRuntime } from '../runtime';
 
 const memoryScopeSchema = z.enum(['agent', 'agent_user', 'user']);
-const memoryTypeSchema = z.enum([
-  'fact',
-  'preference',
-  'conversation_summary',
-  'open_task',
-  'tracked_topic',
-]);
-const memoryStatusSchema = z.enum(['active', 'archived', 'superseded']);
-const memoryLifetimeSchema = z.enum(['permanent', 'active', 'temporary']);
 const llmCallPurposeSchema = z.enum([
   'chat',
   'research_parent',
@@ -139,14 +127,7 @@ const adminToolDefinitions: readonly ToolDefinition[] = [
   {
     id: 'admin_update_memory',
     label: 'Update memory',
-    description: 'Update memory content, type, lifetime, status, or tags.',
-    provider: 'rdma26-admin',
-    available: true,
-  },
-  {
-    id: 'admin_archive_memory',
-    label: 'Archive memory',
-    description: 'Archive one memory without deleting it.',
+    description: 'Update memory content, pinned state, or tags.',
     provider: 'rdma26-admin',
     available: true,
   },
@@ -312,7 +293,7 @@ export function createAdminTools(runtime: AssistantRuntime): readonly Structured
       {
         name: 'admin_set_agent_memory_writes',
         description:
-          'Enable or disable long-term memory reads and writes for an agent. Set canRead to control whether saved memories are injected into chat runs. Set canWrite to control whether the agent may save memories.',
+          'Enable or disable long-term memory reads and writes for an agent. Set canRead to control pinned startup memory, on-demand memory files, and past-conversation tools. Set canWrite to control whether the agent may save memories.',
         schema: z.object({
           agentId: z.string().trim().min(1).describe('Agent id to update.'),
           canRead: z
@@ -380,12 +361,11 @@ export function createAdminTools(runtime: AssistantRuntime): readonly Structured
       },
     ),
     tool(
-      async ({ agentId, scope, type, status, query, limit }: AdminListMemoriesInput) =>
+      async ({ agentId, scope, pinned, query, limit }: AdminListMemoriesInput) =>
         await runtime.listMemories({
           agentId,
           scope,
-          type,
-          status,
+          pinned,
           query,
           limit,
         }),
@@ -396,8 +376,7 @@ export function createAdminTools(runtime: AssistantRuntime): readonly Structured
         schema: z.object({
           agentId: z.string().trim().min(1).optional().describe('Optional agent id filter.'),
           scope: memoryScopeSchema.optional().describe('Optional memory scope filter.'),
-          type: memoryTypeSchema.optional().describe('Optional memory type filter.'),
-          status: memoryStatusSchema.optional().describe('Optional memory status filter.'),
+          pinned: z.boolean().optional().describe('Optional pinned-state filter.'),
           query: z.string().trim().min(1).optional().describe('Optional text search query.'),
           limit: z.number().int().min(1).max(100).optional().describe('Maximum memories to list.'),
         }),
@@ -422,43 +401,30 @@ export function createAdminTools(runtime: AssistantRuntime): readonly Structured
           .min(1)
           .optional()
           .describe('Required for agent and agent_user scopes. Omit for user scope.'),
-        type: memoryTypeSchema.describe('Memory type.'),
-        lifetime: memoryLifetimeSchema.default('active').describe('Memory lifetime.'),
+        pinned: z
+          .boolean()
+          .default(false)
+          .describe('Pin only after an explicit user request to always apply this memory.'),
         content: z.string().trim().min(1).describe('Concise memory content.'),
         tags: z.array(z.string().trim().min(1)).default([]).describe('Optional memory tags.'),
       }),
     }),
     tool(
-      async ({ memoryId, type, status, lifetime, content, tags }: AdminUpdateMemoryInput) =>
+      async ({ memoryId, pinned, content, tags }: AdminUpdateMemoryInput) =>
         await runtime.updateMemory(memoryId, {
-          type,
-          status,
-          lifetime,
+          pinned,
           content,
           tags,
         }),
       {
         name: 'admin_update_memory',
         description:
-          'Update one memory. Use this to correct, supersede, or refine memory content and metadata.',
+          'Update one memory. Use this to correct or refine memory content and metadata.',
         schema: z.object({
           memoryId: z.string().uuid().describe('Memory id to update.'),
-          type: memoryTypeSchema.optional().describe('New memory type.'),
-          status: memoryStatusSchema.optional().describe('New memory status.'),
-          lifetime: memoryLifetimeSchema.optional().describe('New memory lifetime.'),
+          pinned: z.boolean().optional().describe('New pinned state.'),
           content: z.string().trim().min(1).optional().describe('New memory content.'),
           tags: z.array(z.string().trim().min(1)).optional().describe('Replacement tags.'),
-        }),
-      },
-    ),
-    tool(
-      async ({ memoryId }: { memoryId: string }) =>
-        await runtime.updateMemory(memoryId, { status: 'archived' }),
-      {
-        name: 'admin_archive_memory',
-        description: 'Archive one memory without deleting it.',
-        schema: z.object({
-          memoryId: z.string().uuid().describe('Memory id to archive.'),
         }),
       },
     ),
@@ -822,23 +788,18 @@ function normalizeUrl(value: string): string {
 interface AdminListMemoriesInput {
   readonly agentId?: string;
   readonly scope?: MemoryScope;
-  readonly type?: MemoryType;
-  readonly status?: MemoryStatus;
+  readonly pinned?: boolean;
   readonly query?: string;
   readonly limit?: number;
 }
 
 interface AdminCreateMemoryInput extends CreateMemoryRequest {
   readonly scope: MemoryScope;
-  readonly type: MemoryType;
-  readonly lifetime: MemoryLifetime;
 }
 
 interface AdminUpdateMemoryInput {
   readonly memoryId: string;
-  readonly type?: MemoryType;
-  readonly status?: MemoryStatus;
-  readonly lifetime?: MemoryLifetime;
+  readonly pinned?: boolean;
   readonly content?: string;
   readonly tags?: readonly string[];
 }

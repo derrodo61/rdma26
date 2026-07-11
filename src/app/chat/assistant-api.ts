@@ -24,11 +24,9 @@ import type {
   HealthResponse,
   LlmCallListRequest,
   LlmCallListResponse,
-  MemoryMaintenanceRequest,
-  MemoryMaintenanceResponse,
-  MemoryMaintenanceSettings,
   MemoryListRequest,
   MemoryListResponse,
+  MemoryPinnedBudgetsResponse,
   MemoryRecord,
   ModelsResponse,
   ModelPricingListRequest,
@@ -38,13 +36,8 @@ import type {
   OptimizerRunResponse,
   PricingSourceListResponse,
   RunContextDetails,
-  ThreadSummaryRequest,
-  ThreadSummaryResponse,
-  ThreadSummariesRequest,
-  ThreadSummariesResponse,
   ToolsResponse,
   SyncOpenAiModelPricingResult,
-  UpdateMemoryMaintenanceSettingsRequest,
   UpdateAgentRequest,
   UpdateMemoryRequest,
   UpdateAgentSoulRequest,
@@ -165,6 +158,14 @@ export class AssistantApi {
     );
   }
 
+  async memoryPinnedBudgets(agentId: string): Promise<MemoryPinnedBudgetsResponse> {
+    return await firstValueFrom(
+      this.http.get<MemoryPinnedBudgetsResponse>('/api/memories/pinned-budgets', {
+        params: { agentId },
+      }),
+    );
+  }
+
   async createMemory(request: CreateMemoryRequest): Promise<MemoryRecord> {
     return await firstValueFrom(this.http.post<MemoryRecord>('/api/memories', request));
   }
@@ -178,28 +179,6 @@ export class AssistantApi {
   async deleteMemory(memoryId: string): Promise<DeleteMemoryResponse> {
     return await firstValueFrom(
       this.http.delete<DeleteMemoryResponse>(`/api/memories/${memoryId}`),
-    );
-  }
-
-  async runMemoryMaintenance(
-    request: MemoryMaintenanceRequest = {},
-  ): Promise<MemoryMaintenanceResponse> {
-    return await firstValueFrom(
-      this.http.post<MemoryMaintenanceResponse>('/api/memories/maintenance', request),
-    );
-  }
-
-  async memoryMaintenanceSettings(): Promise<MemoryMaintenanceSettings> {
-    return await firstValueFrom(
-      this.http.get<MemoryMaintenanceSettings>('/api/memories/maintenance/settings'),
-    );
-  }
-
-  async updateMemoryMaintenanceSettings(
-    request: UpdateMemoryMaintenanceSettingsRequest,
-  ): Promise<MemoryMaintenanceSettings> {
-    return await firstValueFrom(
-      this.http.patch<MemoryMaintenanceSettings>('/api/memories/maintenance/settings', request),
     );
   }
 
@@ -293,28 +272,6 @@ export class AssistantApi {
   async deleteThread(agentId: string, threadId: string): Promise<DeleteThreadResponse> {
     return await firstValueFrom(
       this.http.delete<DeleteThreadResponse>(`/api/agents/${agentId}/threads/${threadId}`),
-    );
-  }
-
-  async consolidateThreadSummary(
-    agentId: string,
-    threadId: string,
-    request: ThreadSummaryRequest = {},
-  ): Promise<ThreadSummaryResponse> {
-    return await firstValueFrom(
-      this.http.post<ThreadSummaryResponse>(
-        `/api/agents/${agentId}/threads/${threadId}/summary`,
-        request,
-      ),
-    );
-  }
-
-  async consolidateAgentThreadSummaries(
-    agentId: string,
-    request: ThreadSummariesRequest = {},
-  ): Promise<ThreadSummariesResponse> {
-    return await firstValueFrom(
-      this.http.post<ThreadSummariesResponse>(`/api/agents/${agentId}/threads/summaries`, request),
     );
   }
 

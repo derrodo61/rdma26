@@ -130,6 +130,10 @@ The follow-up research result was also much more detailed than the parent needed
 - Apply a meaningful relevance threshold and a smaller result limit.
 - Avoid seeding current research with a stale candidate answer retrieved from an earlier conversation.
 
+Status: superseded on 2026-07-11 by the Deep Agents memory architecture in [memory-spec.md](./memory-spec.md). The custom summary, lexical scoring, semantic scoring, and embedding-cache approach was removed instead of optimized further.
+
+This implementation is now superseded by the replacement architecture in `docs/memory-spec.md`. The new direction uses bounded Deep Agents memory files, on-demand file reads, and separate checkpointed thread search instead of custom prompt-time scoring and conversation-summary memory records.
+
 ### 2. Research activity visibility
 
 - Record every researcher search query and page read in chronological order.

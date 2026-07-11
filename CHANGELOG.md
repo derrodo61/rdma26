@@ -6,9 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Added persistent Deep Agents thread state through the official LangGraph SQLite checkpointer.
+- Added scoped Markdown memory files for global user, agent-local user, and agent memory, mounted through Deep Agents backends.
+- Added bounded pinned startup memory and on-demand access to unpinned memory files.
+- Added controlled, bounded search and read tools for previous conversations, separate from long-term memory.
+- Added run-context visibility for the exact pinned memory files loaded at startup.
+
 ### Fixed
 
 - Made omitted chat-run models resolve consistently across API and CLI from the saved per-agent user-profile setting, then the backend agent setting, and finally the application default. Explicit request model overrides still take precedence.
+- Prevented persistent LangGraph runs from resending the full UI thread after a checkpoint already exists.
+
+### Removed
+
+- Removed the custom SQLite memory table, memory types/statuses, lexical and embedding scoring, embedding cache, conversation-summary memory generation, maintenance scheduler, and obsolete UI/API/CLI controls.
+
+### Changed
+
+- Replaced startup-time schema patching with ordered transactional SQLite migrations. Destructive migrations create a database backup; schema version 8 removes the obsolete memory table while preserving threads and messages.
+- Replaced the custom memory system with a Deep Agents and LangGraph-aligned architecture that separates checkpointed threads, bounded file-backed long-term memory, on-demand recall, skills, identity, and past-conversation search.
+- Simplified the Memories page to scope, content, tags, pinning, generated timestamps, and direct CRUD with plain-language help.
 
 ## [2026-07-11]
 

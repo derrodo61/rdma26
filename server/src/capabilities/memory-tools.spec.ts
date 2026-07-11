@@ -15,8 +15,7 @@ describe('memory tools', () => {
 
     const result = await saveMemory.invoke({
       scope: 'user',
-      type: 'fact',
-      lifetime: 'permanent',
+      pinned: false,
       content: "The user's address is Seeblick 4, 28870 Ottersberg, Germany.",
       tags: ['address'],
     });
@@ -24,8 +23,7 @@ describe('memory tools', () => {
     expect(createMemory).toHaveBeenCalledWith({
       scope: 'user',
       agentId: undefined,
-      type: 'fact',
-      lifetime: 'permanent',
+      pinned: false,
       content: "The user's address is Seeblick 4, 28870 Ottersberg, Germany.",
       tags: ['address'],
       source: {
@@ -50,8 +48,7 @@ describe('memory tools', () => {
 
     await saveMemory.invoke({
       scope: 'agent_user',
-      type: 'preference',
-      lifetime: 'permanent',
+      pinned: true,
       content: 'The user prefers to communicate with Ronaldo in German.',
       tags: ['language', 'preference'],
     });
@@ -60,6 +57,7 @@ describe('memory tools', () => {
       expect.objectContaining({
         scope: 'agent_user',
         agentId: 'ronaldo',
+        pinned: true,
       }),
     );
   });

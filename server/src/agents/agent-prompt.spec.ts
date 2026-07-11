@@ -12,7 +12,6 @@ describe('PersonalAgent bootloader prompt', () => {
       testProfile(),
       false,
       '# soul',
-      [],
       true,
     );
     const disabledPrompt = createBootloaderPromptForTest(
@@ -23,7 +22,6 @@ describe('PersonalAgent bootloader prompt', () => {
       testProfile(),
       false,
       '# soul',
-      [],
       false,
     );
 
@@ -47,7 +45,6 @@ describe('PersonalAgent bootloader prompt', () => {
       testProfile(),
       false,
       '# soul',
-      [],
       true,
       [],
     );
@@ -59,7 +56,6 @@ describe('PersonalAgent bootloader prompt', () => {
       testProfile(),
       false,
       '# soul',
-      [],
       true,
       ['internet_search'],
     );
@@ -86,7 +82,6 @@ describe('PersonalAgent bootloader prompt', () => {
       testProfile(),
       false,
       '# soul',
-      [],
       true,
       ['internet_search'],
     );
@@ -98,7 +93,6 @@ describe('PersonalAgent bootloader prompt', () => {
       testProfile(),
       false,
       '# soul',
-      [],
       true,
       ['internet_search', 'read_web_page'],
     );
@@ -124,7 +118,6 @@ describe('PersonalAgent bootloader prompt', () => {
       testProfile(),
       false,
       '# soul',
-      [],
       true,
       ['research', 'internet_search', 'read_web_page'],
     );

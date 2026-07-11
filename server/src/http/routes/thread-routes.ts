@@ -1,18 +1,8 @@
-import type {
-  CreateThreadRequest,
-  ThreadSummariesRequest,
-  ThreadSummaryRequest,
-} from '../../../../shared/agent-contracts';
+import type { CreateThreadRequest } from '../../../../shared/agent-contracts';
 import { getErrorMessage } from '../errors';
 import type { RouteRegistrar } from '../route-context';
 import { routeDocs } from '../route-docs';
-import {
-  agentParamsSchema,
-  createThreadRequestSchema,
-  threadParamsSchema,
-  threadSummariesRequestSchema,
-  threadSummaryRequestSchema,
-} from '../schemas';
+import { agentParamsSchema, createThreadRequestSchema, threadParamsSchema } from '../schemas';
 
 export const registerThreadRoutes: RouteRegistrar = (server, { runtime }) => {
   server.get(
@@ -45,7 +35,7 @@ export const registerThreadRoutes: RouteRegistrar = (server, { runtime }) => {
     '/api/agents/:agentId/threads',
     routeDocs({
       tags: ['threads'],
-      summary: 'Create a thread and summarize the previous thread when possible.',
+      summary: 'Create a thread.',
       params: agentParamsSchema,
       body: createThreadRequestSchema,
     }),
@@ -66,37 +56,6 @@ export const registerThreadRoutes: RouteRegistrar = (server, { runtime }) => {
         );
       } catch (error) {
         return reply.code(404).send({
-          message: getErrorMessage(error),
-        });
-      }
-    },
-  );
-
-  server.post(
-    '/api/agents/:agentId/threads/summaries',
-    routeDocs({
-      tags: ['threads', 'memories'],
-      summary: 'Create missing memory summaries for multiple threads.',
-      params: agentParamsSchema,
-      body: threadSummariesRequestSchema,
-    }),
-    async (request, reply) => {
-      const params = agentParamsSchema.safeParse(request.params);
-      const body = threadSummariesRequestSchema.safeParse(request.body ?? {});
-
-      if (!params.success || !body.success) {
-        return reply.code(400).send({
-          message: 'A valid agent id and optional summaries request are required.',
-        });
-      }
-
-      try {
-        return await runtime.consolidateAgentThreadSummaries(
-          params.data.agentId,
-          body.data satisfies ThreadSummariesRequest,
-        );
-      } catch (error) {
-        return reply.code(400).send({
           message: getErrorMessage(error),
         });
       }
@@ -201,38 +160,6 @@ export const registerThreadRoutes: RouteRegistrar = (server, { runtime }) => {
         return await runtime.listThreadRunContexts(params.data.agentId, params.data.threadId);
       } catch (error) {
         return reply.code(404).send({
-          message: getErrorMessage(error),
-        });
-      }
-    },
-  );
-
-  server.post(
-    '/api/agents/:agentId/threads/:threadId/summary',
-    routeDocs({
-      tags: ['threads', 'memories'],
-      summary: 'Create the memory summary for one thread if missing.',
-      params: threadParamsSchema,
-      body: threadSummaryRequestSchema,
-    }),
-    async (request, reply) => {
-      const params = threadParamsSchema.safeParse(request.params);
-      const body = threadSummaryRequestSchema.safeParse(request.body ?? {});
-
-      if (!params.success || !body.success) {
-        return reply.code(400).send({
-          message: 'A valid agent id, thread id, and optional summary request are required.',
-        });
-      }
-
-      try {
-        return await runtime.consolidateThreadSummary(
-          params.data.agentId,
-          params.data.threadId,
-          body.data satisfies ThreadSummaryRequest,
-        );
-      } catch (error) {
-        return reply.code(400).send({
           message: getErrorMessage(error),
         });
       }

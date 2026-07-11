@@ -8,8 +8,6 @@ const agentModelSettingsSchema = z.object({
       researcher: z.string().trim().min(1).optional(),
     })
     .optional(),
-  threadSummary: z.string().trim().min(1).optional(),
-  memoryMaintenance: z.string().trim().min(1).optional(),
 });
 
 export const createAgentRequestSchema = z.object({
@@ -45,15 +43,6 @@ export const updateAgentToolsRequestSchema = z.object({
 });
 
 const memoryScopeSchema = z.enum(['agent', 'agent_user', 'user']);
-const memoryTypeSchema = z.enum([
-  'fact',
-  'preference',
-  'conversation_summary',
-  'open_task',
-  'tracked_topic',
-]);
-const memoryStatusSchema = z.enum(['active', 'archived', 'superseded']);
-const memoryLifetimeSchema = z.enum(['permanent', 'active', 'temporary']);
 const pricingSourceTrustLevelSchema = z.enum(['official', 'third_party', 'user_added']);
 const booleanQuerySchema = z.union([z.boolean(), z.enum(['true', 'false'])]);
 const memorySourceSchema = z.object({
@@ -66,9 +55,7 @@ const memorySourceSchema = z.object({
 export const memoryListQuerySchema = z.object({
   agentId: z.string().trim().min(1).optional(),
   scope: memoryScopeSchema.optional(),
-  type: memoryTypeSchema.optional(),
-  lifetime: memoryLifetimeSchema.optional(),
-  status: memoryStatusSchema.optional(),
+  pinned: booleanQuerySchema.optional(),
   tag: z.string().trim().min(1).optional(),
   createdFrom: z.string().trim().min(1).optional(),
   createdTo: z.string().trim().min(1).optional(),
@@ -78,20 +65,21 @@ export const memoryListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional(),
 });
 
+export const memoryBudgetQuerySchema = z.object({
+  agentId: z.string().trim().min(1),
+});
+
 export const createMemoryRequestSchema = z.object({
   scope: memoryScopeSchema,
   agentId: z.string().trim().min(1).optional(),
-  type: memoryTypeSchema,
-  lifetime: memoryLifetimeSchema.optional(),
+  pinned: z.boolean().optional(),
   content: z.string().trim().min(1),
   tags: z.array(z.string().trim().min(1)).optional(),
   source: memorySourceSchema.optional(),
 });
 
 export const updateMemoryRequestSchema = z.object({
-  type: memoryTypeSchema.optional(),
-  status: memoryStatusSchema.optional(),
-  lifetime: memoryLifetimeSchema.optional(),
+  pinned: z.boolean().optional(),
   content: z.string().trim().min(1).optional(),
   tags: z.array(z.string().trim().min(1)).optional(),
   source: memorySourceSchema.optional(),
@@ -117,27 +105,6 @@ export const threadParamsSchema = z.object({
 
 export const runParamsSchema = z.object({
   runId: z.string().uuid(),
-});
-
-export const threadSummaryRequestSchema = z.object({
-  model: z.string().trim().min(1).optional(),
-});
-
-export const threadSummariesRequestSchema = threadSummaryRequestSchema.extend({
-  limit: z.number().int().min(1).max(500).optional(),
-});
-
-export const memoryMaintenanceRequestSchema = threadSummaryRequestSchema.extend({
-  agentId: z.string().trim().min(1).optional(),
-  limitPerAgent: z.number().int().min(1).max(500).optional(),
-});
-
-export const updateMemoryMaintenanceSettingsRequestSchema = z.object({
-  enabled: z.boolean().optional(),
-  intervalMinutes: z.number().int().min(5).max(10080).optional(),
-  agentId: z.string().trim().min(1).optional(),
-  model: z.string().trim().min(1).optional(),
-  limitPerAgent: z.number().int().min(1).max(500).optional(),
 });
 
 export const agentRunRequestSchema = z.object({

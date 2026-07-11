@@ -48,16 +48,13 @@
         <app-chat-composer
           [draft]="draft()"
           [error]="error()"
-          [summaryMessage]="summaryMessage()"
           [latestRunId]="latestRunId()"
-          [canConsolidateSummary]="canConsolidateSummary()"
           [canSend]="canSend()"
           [modelOptions]="modelOptions()"
           [selectedModel]="selectedModel()"
           (draftChanged)="updateDraft($event)"
           (modelChanged)="updateModel($event)"
           (sent)="send()"
-          (summaryConsolidated)="consolidateActiveThreadSummary()"
         />
       </main>
     </div>

@@ -1,546 +1,245 @@
 <div class="min-h-dvh bg-app-bg text-text">
-  <header class="border-b border-border bg-surface">
-    <div class="flex min-h-16 flex-wrap items-center justify-between gap-4 px-4 py-3 sm:px-6">
-      <div class="min-w-0">
-        <h1 class="truncate text-lg font-semibold">Memories</h1>
+  <header class="border-b border-border bg-surface px-4 py-3 sm:px-6">
+    <div class="flex min-h-10 items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <h1 class="text-lg font-semibold">Memories</h1>
+        <button
+          type="button"
+          class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-text"
+          (click)="openHelpDialog()"
+        >
+          <ng-icon name="lucideCircleHelp" size="17" /> Help
+        </button>
       </div>
-      <a
-        routerLink="/"
-        class="flex h-10 items-center border border-border bg-surface px-3 text-sm font-medium text-text-muted hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-      >
-        Back to chat
-      </a>
+      <a routerLink="/" class="text-sm text-text-muted hover:text-text">Back to chat</a>
     </div>
   </header>
 
-  <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-    @if (error(); as currentError) {
-      <p class="mb-4 border border-danger-border bg-danger-soft px-3 py-2 text-sm text-danger">
-        {{ currentError }}
-      </p>
+  <main class="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+    @if (error()) {
+      <p class="mb-4 bg-danger-soft px-3 py-2 text-sm text-danger">{{ error() }}</p>
+    }
+    @if (savedMessage()) {
+      <p class="mb-4 bg-accent-soft px-3 py-2 text-sm">{{ savedMessage() }}</p>
     }
 
-    @if (savedMessage(); as currentSavedMessage) {
-      <p class="mb-4 border border-accent-border bg-accent-soft px-3 py-2 text-sm text-text">
-        {{ currentSavedMessage }}
-      </p>
-    }
-
-    @if (isLoading()) {
-      <p class="text-sm text-text-muted">Loading memories...</p>
-    } @else {
-      <div class="grid gap-5 xl:grid-cols-[minmax(18rem,24rem)_1fr]">
-        <section class="space-y-5 border border-border bg-surface p-4">
-          <div class="grid gap-4">
-            <label class="block text-sm font-medium text-text-muted">
-              <span>Scope</span>
-              <select
-                class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                [ngModel]="selectedScope()"
-                name="scope"
-                (ngModelChange)="updateScope($event)"
-              >
-                @for (scope of scopes; track scope) {
-                  <option [value]="scope">{{ scope }}</option>
-                }
-              </select>
-            </label>
-
-            @if (selectedScope() !== 'user') {
-              <div class="block text-sm font-medium text-text-muted">
-                <span class="mb-1 block">Agent</span>
-                <app-select
-                  label="Agent"
-                  [options]="agentOptions()"
-                  [value]="selectedAgentId()"
-                  (valueChange)="updateAgent($event)"
-                />
-              </div>
-            }
-
-            <label class="block text-sm font-medium text-text-muted">
-              <span>Status</span>
-              <select
-                class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                [ngModel]="selectedStatus()"
-                name="status"
-                (ngModelChange)="updateStatus($event)"
-              >
-                @for (status of statuses; track status) {
-                  <option [value]="status">{{ status }}</option>
-                }
-              </select>
-            </label>
-
-            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-              <label class="block text-sm font-medium text-text-muted">
-                <span>Type</span>
-                <select
-                  class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                  [ngModel]="selectedType()"
-                  name="filterType"
-                  (ngModelChange)="updateType($event)"
-                >
-                  <option value="">All types</option>
-                  @for (type of types; track type) {
-                    <option [value]="type">{{ type }}</option>
-                  }
-                </select>
-              </label>
-
-              <label class="block text-sm font-medium text-text-muted">
-                <span>Lifetime</span>
-                <select
-                  class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                  [ngModel]="selectedLifetime()"
-                  name="filterLifetime"
-                  (ngModelChange)="updateLifetime($event)"
-                >
-                  <option value="">All lifetimes</option>
-                  @for (lifetime of lifetimes; track lifetime) {
-                    <option [value]="lifetime">{{ lifetime }}</option>
-                  }
-                </select>
-              </label>
-            </div>
-
-            <label class="block text-sm font-medium text-text-muted">
-              <span>Tag</span>
-              <input
-                class="mt-1 h-10 w-full border border-border bg-surface px-3 text-sm text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                placeholder="single tag"
-                [ngModel]="selectedTag()"
-                name="selectedTag"
-                (ngModelChange)="updateSelectedTag($event)"
-              />
-            </label>
-
-            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-              <label class="block text-sm font-medium text-text-muted">
-                <span>Created from</span>
-                <input
-                  type="date"
-                  class="mt-1 h-10 w-full border border-border bg-surface px-3 text-sm text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                  [ngModel]="createdFrom()"
-                  name="createdFrom"
-                  (ngModelChange)="updateCreatedFrom($event)"
-                />
-              </label>
-
-              <label class="block text-sm font-medium text-text-muted">
-                <span>Created to</span>
-                <input
-                  type="date"
-                  class="mt-1 h-10 w-full border border-border bg-surface px-3 text-sm text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                  [ngModel]="createdTo()"
-                  name="createdTo"
-                  (ngModelChange)="updateCreatedTo($event)"
-                />
-              </label>
-
-              <label class="block text-sm font-medium text-text-muted">
-                <span>Updated from</span>
-                <input
-                  type="date"
-                  class="mt-1 h-10 w-full border border-border bg-surface px-3 text-sm text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                  [ngModel]="updatedFrom()"
-                  name="updatedFrom"
-                  (ngModelChange)="updateUpdatedFrom($event)"
-                />
-              </label>
-
-              <label class="block text-sm font-medium text-text-muted">
-                <span>Updated to</span>
-                <input
-                  type="date"
-                  class="mt-1 h-10 w-full border border-border bg-surface px-3 text-sm text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                  [ngModel]="updatedTo()"
-                  name="updatedTo"
-                  (ngModelChange)="updateUpdatedTo($event)"
-                />
-              </label>
-            </div>
-
-            <form class="flex gap-2" (submit)="$event.preventDefault(); search()">
-              <input
-                class="h-10 min-w-0 flex-1 border border-border bg-surface px-3 text-sm text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                placeholder="Search"
-                [ngModel]="query()"
-                name="query"
-                (ngModelChange)="updateQuery($event)"
-              />
-              <button
-                type="submit"
-                class="h-10 border border-border bg-surface px-3 text-sm font-medium text-text-muted hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-              >
-                Search
-              </button>
-            </form>
-
-            <button
-              type="button"
-              class="h-10 border border-border bg-surface px-3 text-sm font-medium text-text-muted hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-              (click)="clearFilters()"
-            >
-              Clear filters
-            </button>
-          </div>
-
-          @if (selectedScope() !== 'user') {
-            <form
-              class="space-y-3 border-t border-border pt-5"
-              (submit)="$event.preventDefault(); refreshAgentThreadMemories()"
-            >
-              <h2 class="text-sm font-semibold text-text-muted">Memory maintenance</h2>
-
-              <label class="block text-sm font-medium text-text-muted">
-                <span>Limit</span>
-                <input
-                  class="mt-1 h-10 w-full border border-border bg-surface px-3 text-sm text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                  inputmode="numeric"
-                  [ngModel]="bulkSummaryLimit()"
-                  name="bulkSummaryLimit"
-                  (ngModelChange)="updateBulkSummaryLimit($event)"
-                />
-              </label>
-
-              <button
-                type="submit"
-                class="h-10 border border-border bg-surface px-3 text-sm font-medium text-text-muted hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)] disabled:cursor-not-allowed disabled:text-control-disabled"
-                [disabled]="isSaving()"
-              >
-                Run maintenance
-              </button>
-            </form>
-          }
-
-          <form
-            class="space-y-3 border-t border-border pt-5"
-            (submit)="$event.preventDefault(); saveSchedulerSettings()"
+    <div class="grid gap-5 lg:grid-cols-[18rem_minmax(0,1fr)]">
+      <aside class="space-y-4">
+        <label class="block text-sm text-text-muted"
+          >Scope
+          <select
+            class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text"
+            [ngModel]="selectedScope()"
+            (ngModelChange)="updateScope($event)"
           >
-            <div class="flex items-center justify-between gap-3">
-              <h2 class="text-sm font-semibold text-text-muted">Maintenance schedule</h2>
-              <label class="flex items-center gap-2 text-sm text-text-muted">
-                <input
-                  type="checkbox"
-                  class="h-4 w-4"
-                  [ngModel]="schedulerEnabled()"
-                  name="schedulerEnabled"
-                  (ngModelChange)="updateSchedulerEnabled($event)"
-                />
-                Enabled
-              </label>
-            </div>
-
-            <div class="block text-sm font-medium text-text-muted">
-              <span class="mb-1 block">Agent</span>
-              <app-select
-                label="Scheduled maintenance agent"
-                [options]="schedulerAgentOptions()"
-                [value]="schedulerAgentId()"
-                (valueChange)="updateSchedulerAgent($event)"
-              />
-            </div>
-
-            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-              <label class="block text-sm font-medium text-text-muted">
-                <span>Interval minutes</span>
-                <input
-                  class="mt-1 h-10 w-full border border-border bg-surface px-3 text-sm text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                  inputmode="numeric"
-                  [ngModel]="schedulerIntervalMinutes()"
-                  name="schedulerIntervalMinutes"
-                  (ngModelChange)="updateSchedulerIntervalMinutes($event)"
-                />
-              </label>
-
-              <label class="block text-sm font-medium text-text-muted">
-                <span>Limit per agent</span>
-                <input
-                  class="mt-1 h-10 w-full border border-border bg-surface px-3 text-sm text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                  inputmode="numeric"
-                  [ngModel]="schedulerLimit()"
-                  name="schedulerLimit"
-                  (ngModelChange)="updateSchedulerLimit($event)"
-                />
-              </label>
-            </div>
-
-            @if (schedulerLastStartedAt() || schedulerLastFinishedAt() || schedulerLastError()) {
-              <div class="space-y-1 text-xs text-text-muted">
-                @if (schedulerLastStartedAt()) {
-                  <p>Last started: {{ schedulerLastStartedAt() }}</p>
-                }
-                @if (schedulerLastFinishedAt()) {
-                  <p>Last finished: {{ schedulerLastFinishedAt() }}</p>
-                }
-                @if (schedulerLastError()) {
-                  <p class="text-danger">Last error: {{ schedulerLastError() }}</p>
-                }
-              </div>
+            @for (scope of scopes; track scope) {
+              <option [value]="scope">{{ scope }}</option>
             }
-
-            <button
-              type="submit"
-              class="h-10 border border-border bg-surface px-3 text-sm font-medium text-text-muted hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)] disabled:cursor-not-allowed disabled:text-control-disabled"
-              [disabled]="isSaving()"
-            >
-              Save schedule
-            </button>
-          </form>
-
-          <form
-            class="space-y-4 border-t border-border pt-5"
-            (submit)="$event.preventDefault(); createMemory()"
-          >
-            <h2 class="text-sm font-semibold text-text-muted">New memory</h2>
-
-            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-              <label class="block text-sm font-medium text-text-muted">
-                <span>Type</span>
-                <select
-                  class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                  [ngModel]="draftType()"
-                  name="type"
-                  (ngModelChange)="updateDraftType($event)"
-                >
-                  @for (type of types; track type) {
-                    <option [value]="type">{{ type }}</option>
-                  }
-                </select>
-              </label>
-
-              <label class="block text-sm font-medium text-text-muted">
-                <span>Lifetime</span>
-                <select
-                  class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                  [ngModel]="draftLifetime()"
-                  name="lifetime"
-                  (ngModelChange)="updateDraftLifetime($event)"
-                >
-                  @for (lifetime of lifetimes; track lifetime) {
-                    <option [value]="lifetime">{{ lifetime }}</option>
-                  }
-                </select>
-              </label>
+          </select>
+        </label>
+        @if (selectedBudget(); as budget) {
+          <div class="text-sm text-text-muted">
+            <div class="flex justify-between gap-3">
+              <span>Pinned startup budget</span>
+              <span>{{ budget.usedCharacters }} / {{ budget.limitCharacters }}</span>
             </div>
-
-            <label class="block text-sm font-medium text-text-muted">
-              <span>Content</span>
-              <textarea
-                class="mt-1 min-h-28 w-full resize-y border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                [ngModel]="draftContent()"
-                name="content"
-                (ngModelChange)="updateDraftContent($event)"
-              ></textarea>
-            </label>
-
-            <label class="block text-sm font-medium text-text-muted">
-              <span>Tags</span>
-              <input
-                class="mt-1 h-10 w-full border border-border bg-surface px-3 text-sm text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                placeholder="comma, separated"
-                [ngModel]="draftTags()"
-                name="tags"
-                (ngModelChange)="updateDraftTags($event)"
-              />
-            </label>
-
-            <button
-              type="submit"
-              class="h-10 bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-hover focus:outline-none focus-visible:shadow-[var(--focus-shadow)] disabled:cursor-not-allowed disabled:bg-control-disabled"
-              [disabled]="!canCreate()"
-            >
-              Save memory
-            </button>
-          </form>
-        </section>
-
-        <section class="min-w-0 border border-border bg-surface">
-          <div class="border-b border-border px-4 py-3">
-            <h2 class="text-sm font-semibold text-text-muted">Memory records</h2>
+            <div class="mt-2 h-1.5 overflow-hidden rounded bg-surface-muted">
+              <div
+                class="h-full bg-accent"
+                [style.width.%]="(budget.usedCharacters / budget.limitCharacters) * 100"
+              ></div>
+            </div>
           </div>
+        }
+        @if (selectedScope() !== 'user') {
+          <div class="text-sm text-text-muted">
+            Agent
+            <app-select
+              label="Agent"
+              [options]="agentOptions()"
+              [value]="selectedAgentId()"
+              (valueChange)="updateAgent($event)"
+            />
+          </div>
+        }
+        <label class="block text-sm text-text-muted"
+          >Pinned
+          <select
+            class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text"
+            [ngModel]="selectedPinned()"
+            (ngModelChange)="selectedPinned.set($event); search()"
+          >
+            <option value="">All</option>
+            <option value="true">Pinned</option>
+            <option value="false">Not pinned</option>
+          </select>
+        </label>
+        <form (submit)="$event.preventDefault(); search()">
+          <label class="block text-sm text-text-muted"
+            >Search
+            <input
+              class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text"
+              [ngModel]="query()"
+              (ngModelChange)="query.set($event)"
+              name="query"
+            />
+          </label>
+        </form>
+        <button
+          type="button"
+          class="inline-flex h-10 items-center gap-2 bg-accent px-4 text-sm font-semibold text-white"
+          (click)="openCreateDialog()"
+        >
+          <ng-icon name="lucidePlus" size="17" /> New memory
+        </button>
+      </aside>
 
-          @if (!memories().length) {
-            <p class="p-4 text-sm text-text-muted">No memories found.</p>
-          } @else {
-            <div class="divide-y divide-border">
-              @for (memory of memories(); track memory.id) {
-                <article class="grid gap-3 p-4 lg:grid-cols-[1fr_auto]">
-                  <div class="min-w-0">
-                    @if (editMemoryId() === memory.id) {
-                      <form class="space-y-3" (submit)="$event.preventDefault(); saveEdit(memory)">
-                        <div class="grid gap-3 md:grid-cols-3">
-                          <label class="block text-sm font-medium text-text-muted">
-                            <span>Type</span>
-                            <select
-                              class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                              [ngModel]="editType()"
-                              name="editType-{{ memory.id }}"
-                              (ngModelChange)="updateEditType($event)"
-                            >
-                              @for (type of types; track type) {
-                                <option [value]="type">{{ type }}</option>
-                              }
-                            </select>
-                          </label>
-
-                          <label class="block text-sm font-medium text-text-muted">
-                            <span>Status</span>
-                            <select
-                              class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                              [ngModel]="editStatus()"
-                              name="editStatus-{{ memory.id }}"
-                              (ngModelChange)="updateEditStatus($event)"
-                            >
-                              @for (status of statuses; track status) {
-                                <option [value]="status">{{ status }}</option>
-                              }
-                            </select>
-                          </label>
-
-                          <label class="block text-sm font-medium text-text-muted">
-                            <span>Lifetime</span>
-                            <select
-                              class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                              [ngModel]="editLifetime()"
-                              name="editLifetime-{{ memory.id }}"
-                              (ngModelChange)="updateEditLifetime($event)"
-                            >
-                              @for (lifetime of lifetimes; track lifetime) {
-                                <option [value]="lifetime">{{ lifetime }}</option>
-                              }
-                            </select>
-                          </label>
-                        </div>
-
-                        <label class="block text-sm font-medium text-text-muted">
-                          <span>Content</span>
-                          <textarea
-                            class="mt-1 min-h-32 w-full resize-y border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                            [ngModel]="editContent()"
-                            name="editContent-{{ memory.id }}"
-                            (ngModelChange)="updateEditContent($event)"
-                          ></textarea>
-                        </label>
-
-                        <label class="block text-sm font-medium text-text-muted">
-                          <span>Tags</span>
-                          <input
-                            class="mt-1 h-10 w-full border border-border bg-surface px-3 text-sm text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                            placeholder="comma, separated"
-                            [ngModel]="editTags()"
-                            name="editTags-{{ memory.id }}"
-                            (ngModelChange)="updateEditTags($event)"
-                          />
-                        </label>
-
-                        <div class="flex flex-wrap gap-2">
-                          <button
-                            type="submit"
-                            class="inline-flex h-10 items-center gap-2 rounded-md bg-accent px-3 text-sm font-semibold text-white hover:bg-accent-hover focus:outline-none focus-visible:shadow-[var(--focus-shadow)] disabled:cursor-not-allowed disabled:bg-control-disabled"
-                            [disabled]="!canUpdate()"
-                          >
-                            <ng-icon name="lucideSave" size="16" strokeWidth="2" />
-                            Save
-                          </button>
-                          <button
-                            type="button"
-                            class="inline-flex h-10 items-center gap-2 rounded-md px-3 text-sm font-medium text-text-muted hover:bg-surface-muted hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                            (click)="cancelEdit()"
-                          >
-                            <ng-icon name="lucideX" size="16" strokeWidth="2" />
-                            Cancel
-                          </button>
-                        </div>
-                      </form>
-                    } @else {
-                      <div class="flex flex-wrap gap-2 text-xs text-text-muted">
-                        <span>{{ memory.type }}</span>
-                        <span>{{ memory.scope }}</span>
-                        <span>{{ memory.lifetime }}</span>
-                        <span>{{ memory.status }}</span>
-                      </div>
-                      <p class="mt-2 whitespace-pre-wrap text-sm leading-6 text-text">
-                        {{ memory.content }}
-                      </p>
-                      @if (memory.tags.length) {
-                        <p class="mt-2 text-xs text-text-muted">{{ memory.tags.join(', ') }}</p>
-                      }
-                      @if (memory.source) {
-                        <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-text-muted">
-                          @if (memory.source.note) {
-                            <span>{{ memory.source.note }}</span>
-                          }
-                          @if (sourceThreadQueryParams(memory); as sourceQueryParams) {
-                            <a
-                              routerLink="/"
-                              [queryParams]="sourceQueryParams"
-                              class="inline-flex items-center gap-1 rounded px-1.5 py-1 font-medium text-text-muted hover:bg-surface-muted hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                            >
-                              <ng-icon name="lucideExternalLink" size="13" strokeWidth="2" />
-                              Source thread
-                            </a>
-                          }
-                        </div>
-                      }
-                      <p class="mt-2 truncate font-mono text-xs text-text-muted">
-                        {{ memory.id }}
-                      </p>
-                    }
-                  </div>
-
-                  <div class="flex items-start gap-2">
-                    @if (editMemoryId() !== memory.id) {
+      <section aria-label="Memory records">
+        @if (isLoading()) {
+          <p class="text-sm text-text-muted">Loading memories...</p>
+        } @else if (!memories().length) {
+          <p class="py-12 text-center text-sm text-text-muted">No memories found.</p>
+        } @else {
+          <div class="divide-y divide-border border-y border-border">
+            @for (memory of memories(); track memory.id) {
+              <article class="py-4">
+                @if (editMemoryId() === memory.id) {
+                  <form class="space-y-3" (submit)="$event.preventDefault(); saveEdit(memory)">
+                    <textarea
+                      class="min-h-28 w-full border border-border bg-surface p-3"
+                      [ngModel]="editContent()"
+                      (ngModelChange)="editContent.set($event)"
+                      name="content"
+                    ></textarea>
+                    <input
+                      class="h-10 w-full border border-border bg-surface px-3"
+                      [ngModel]="editTags()"
+                      (ngModelChange)="editTags.set($event)"
+                      name="tags"
+                      placeholder="Tags, comma separated"
+                    />
+                    <label class="flex items-center gap-2 text-sm"
+                      ><input
+                        type="checkbox"
+                        [ngModel]="editPinned()"
+                        (ngModelChange)="editPinned.set($event)"
+                        name="pinned"
+                      />
+                      Pinned</label
+                    >
+                    <div class="flex gap-2">
                       <button
+                        class="inline-flex h-9 items-center gap-2 bg-accent px-3 text-sm text-white"
+                      >
+                        <ng-icon name="lucideSave" /> Save</button
+                      ><button
                         type="button"
-                        class="grid h-9 w-9 place-items-center rounded-md text-text-muted hover:bg-surface-muted hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                        aria-label="Edit memory"
+                        class="inline-flex h-9 items-center gap-2 px-3 text-sm text-text-muted"
+                        (click)="cancelEdit()"
+                      >
+                        <ng-icon name="lucideX" /> Cancel
+                      </button>
+                    </div>
+                  </form>
+                } @else {
+                  <div class="flex gap-4">
+                    <div class="min-w-0 flex-1">
+                      <p class="whitespace-pre-wrap text-sm leading-6">{{ memory.content }}</p>
+                      <p class="mt-2 text-xs text-text-muted">
+                        {{ memory.scope }} · Updated {{ formatDate(memory.updatedAt) }}
+                        @if (memory.tags.length) {
+                          · {{ memory.tags.join(', ') }}
+                        }
+                      </p>
+                    </div>
+                    <div class="flex items-start gap-1">
+                      <button
+                        class="grid h-9 w-9 place-items-center text-text-muted hover:bg-surface-muted"
+                        [title]="memory.pinned ? 'Unpin' : 'Pin'"
+                        (click)="togglePinned(memory)"
+                      >
+                        <ng-icon [name]="memory.pinned ? 'lucidePinOff' : 'lucidePin'" />
+                      </button>
+                      <button
+                        class="grid h-9 w-9 place-items-center text-text-muted hover:bg-surface-muted"
                         title="Edit"
                         (click)="startEdit(memory)"
                       >
-                        <ng-icon name="lucidePencil" size="17" strokeWidth="2" />
+                        <ng-icon name="lucidePencil" />
                       </button>
-                    }
-
-                    @if (memory.status === 'active') {
                       <button
-                        type="button"
-                        class="grid h-9 w-9 place-items-center rounded-md text-text-muted hover:bg-surface-muted hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                        aria-label="Archive memory"
-                        title="Archive"
-                        (click)="archiveMemory(memory)"
+                        class="grid h-9 w-9 place-items-center text-danger hover:bg-danger-soft"
+                        title="Delete"
+                        (click)="deleteMemory(memory)"
                       >
-                        <ng-icon name="lucideArchive" size="17" strokeWidth="2" />
+                        <ng-icon name="lucideTrash2" />
                       </button>
-                    } @else {
-                      <button
-                        type="button"
-                        class="grid h-9 w-9 place-items-center rounded-md text-text-muted hover:bg-surface-muted hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                        aria-label="Restore memory"
-                        title="Restore"
-                        (click)="restoreMemory(memory)"
-                      >
-                        <ng-icon name="lucideRefreshCcw" size="17" strokeWidth="2" />
-                      </button>
-                    }
-
-                    <button
-                      type="button"
-                      class="grid h-9 w-9 place-items-center rounded-md text-danger hover:bg-danger-soft focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                      aria-label="Delete memory"
-                      title="Delete"
-                      (click)="deleteMemory(memory)"
-                    >
-                      <ng-icon name="lucideTrash2" size="17" strokeWidth="2" />
-                    </button>
+                    </div>
                   </div>
-                </article>
-              }
-            </div>
-          }
-        </section>
-      </div>
-    }
+                }
+              </article>
+            }
+          </div>
+        }
+      </section>
+    </div>
   </main>
+
+  <app-dialog #createDialog title="New memory">
+    <form class="space-y-4" (submit)="$event.preventDefault(); createMemory()">
+      <textarea
+        class="min-h-36 w-full border border-border bg-surface p-3"
+        [ngModel]="draftContent()"
+        (ngModelChange)="draftContent.set($event)"
+        name="content"
+        placeholder="What should the agent remember?"
+      ></textarea>
+      <input
+        class="h-10 w-full border border-border bg-surface px-3"
+        [ngModel]="draftTags()"
+        (ngModelChange)="draftTags.set($event)"
+        name="tags"
+        placeholder="Tags, comma separated"
+      />
+      <label class="flex items-center gap-2 text-sm"
+        ><input
+          type="checkbox"
+          [ngModel]="draftPinned()"
+          (ngModelChange)="draftPinned.set($event)"
+          name="pinned"
+        />
+        Load at the start of every applicable run</label
+      >
+      <button
+        class="h-10 bg-accent px-4 text-sm font-semibold text-white"
+        [disabled]="!canCreate()"
+      >
+        Save memory
+      </button>
+    </form>
+  </app-dialog>
+
+  <app-dialog #helpDialog title="How memories work">
+    <div class="space-y-4 text-sm leading-6 text-text-muted">
+      <p>Memories are Markdown files that an agent can keep beyond one conversation.</p>
+      <p>
+        <strong class="text-text">Scope</strong> controls who can use a memory: global user memory
+        is shared, agent-user memory is about the user for one agent, and agent memory belongs to
+        one agent.
+      </p>
+      <p>
+        <strong class="text-text">Pinned</strong> memories are loaded at the start of every
+        applicable run and therefore use context tokens. Keep them short and reserve them for
+        information that should always apply.
+      </p>
+      <p>
+        Unpinned memories remain available in the agent's memory directories and can be read with
+        filesystem tools when needed. Created and updated timestamps are generated automatically.
+      </p>
+      <p>
+        Conversation messages are not memory records. They remain in their threads and can be
+        searched separately.
+      </p>
+    </div>
+  </app-dialog>
 </div>

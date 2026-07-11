@@ -5,7 +5,7 @@ The backend is a Fastify service with a shared runtime facade. HTTP routes and C
 ## Main Entry Points
 
 - `server/src/index.ts` starts the backend process.
-- `server/src/http/server.ts` creates the Fastify server, Swagger docs, CORS, auth, routes, and memory maintenance scheduler.
+- `server/src/http/server.ts` creates the Fastify server, Swagger docs, CORS, auth, and routes.
 - `server/src/cli.ts` implements the `rdma26` CLI.
 - `server/src/runtime.ts` is the public backend facade used by both API routes and CLI commands.
 
@@ -17,12 +17,12 @@ The backend is a Fastify service with a shared runtime facade. HTTP routes and C
 - `server/src/capabilities/` contains configurable agent capabilities and controlled tools. The external API still calls these tools, but internally the registry is named `CapabilityRegistry` because entries can be direct LangChain tools or higher-level Deep Agents capabilities.
 - `server/src/chat/` runs chat requests and records run context.
 - `server/src/http/` contains route registration, route schemas, SSE helpers, and HTTP error handling.
-- `server/src/memory/` owns memory records, memory maintenance settings, and thread summary generation.
+- `server/src/memory/` owns scoped Markdown memory files and pinned-memory budgets.
 - `server/src/profiles/` stores synced user profile preferences.
 - `server/src/research/` implements the researcher subagent, search provider abstraction, search quality helpers, and web page reader.
 - `server/src/runs/` stores inspectable run-context snapshots.
 - `server/src/storage/` contains low-level SQLite and agent file/thread storage adapters.
-- `server/src/threads/` owns thread list/create/read/delete workflows.
+- `server/src/threads/` owns thread workflows, persistent LangGraph checkpointing, and bounded past-conversation access.
 
 ## Dependency Direction
 

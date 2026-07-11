@@ -44,7 +44,7 @@ rdma26 agents:memory:set --agent research --can-write false
 rdma26 agents:memory:set --agent research --can-read true --can-write true
 ```
 
-When memory reads are disabled, saved long-term memories and thread-summary memories are not injected into chat runs. When memory writes are disabled, the agent does not receive `save_memory` and memory maintenance skips that agent.
+When memory reads are disabled, pinned memory, on-demand memory directories, and past-conversation tools are unavailable to that agent. When memory writes are disabled, the agent does not receive `save_memory`.
 
 ### Set agent model settings
 
@@ -241,15 +241,13 @@ This uses the same internal optimizer runtime as the API. The Cost Analyst can i
 ### List or search memories
 
 ```bash
-rdma26 memories:list --agent scotty --query "football" --tag world-cup --updated-from 2026-07-01
+rdma26 memories:list --agent scotty --query "football" --tag world-cup --pinned true --updated-from 2026-07-01
 ```
 
 Useful filters:
 
 - `--scope agent|agent_user|user`
-- `--type fact|preference|conversation_summary|open_task|tracked_topic`
-- `--lifetime permanent|active|temporary`
-- `--status active|archived|superseded`
+- `--pinned true|false`
 - `--tag <tag>`
 - `--created-from YYYY-MM-DD`
 - `--created-to YYYY-MM-DD`
@@ -263,55 +261,35 @@ Useful filters:
 rdma26 memories:read --memory <memory-id>
 ```
 
+### Inspect pinned startup budgets
+
+```bash
+rdma26 memories:budgets --agent scotty
+```
+
+Returns used and maximum characters for each applicable memory scope.
+
 ### Create a memory
 
 ```bash
-rdma26 memories:create --agent scotty --scope agent --type fact --content "The user prefers concise status updates."
+rdma26 memories:create --agent scotty --scope agent --content "The user prefers concise status updates." --pinned true
 ```
 
-Use `--file ./memory.md` instead of `--content "..."` for longer content. Use `--tags football,preference` to add tags.
+Use `--file ./memory.md` instead of `--content "..."` for longer content. Use `--tags football,preference` to add tags. Pinned memories are included in every applicable memory-enabled run.
 
 ### Update a memory
 
 ```bash
-rdma26 memories:update --memory <memory-id> --content "Updated memory content"
+rdma26 memories:update --memory <memory-id> --content "Updated memory content" --pinned false
 ```
 
-You can also update `--type`, `--status`, `--lifetime`, or `--tags`.
-
-### Archive a memory
-
-```bash
-rdma26 memories:archive --memory <memory-id>
-```
+You can also update `--pinned` or `--tags`.
 
 ### Delete a memory
 
 ```bash
 rdma26 memories:delete --memory <memory-id>
 ```
-
-### Run memory maintenance
-
-```bash
-rdma26 memories:maintenance --agent scotty --limit 25
-```
-
-This consolidates thread-summary memories for one agent. Omit `--agent` to run maintenance for all agents. Agents with memory writes disabled are skipped and reported.
-
-### Read memory maintenance schedule
-
-```bash
-rdma26 memories:maintenance:settings
-```
-
-### Configure memory maintenance schedule
-
-```bash
-rdma26 memories:maintenance:configure --enabled true --interval-minutes 1440 --limit 25
-```
-
-Use `--agent scotty` to limit scheduled maintenance to one agent. Omit `--agent` to cover all agents. Scheduled maintenance is disabled by default.
 
 ## Tools
 
@@ -367,8 +345,6 @@ rdma26 threads:create --agent scotty --title "Planning"
 
 `--title` is optional.
 
-When possible, creating a new thread also creates a one-time summary for the previous latest non-empty thread for the same agent. The new thread is still created if summary creation is unavailable.
-
 ### Read a thread
 
 ```bash
@@ -380,24 +356,6 @@ rdma26 threads:read --agent scotty --thread <thread-id>
 ```bash
 rdma26 threads:delete --agent scotty --thread <thread-id>
 ```
-
-### Consolidate a thread summary memory
-
-```bash
-rdma26 threads:summary --agent scotty --thread <thread-id>
-```
-
-Creates the `conversation_summary` memory for the thread using an LLM if it does not already exist. Use `--model` to request a specific summary model.
-
-If the thread already has a summary, the existing summary is returned. If no LLM provider is configured and the thread does not have a summary yet, no summary is created and the command returns an error.
-
-### Create missing thread summary memories for an agent
-
-```bash
-rdma26 threads:summaries --agent scotty --limit 25
-```
-
-Creates missing summaries for multiple non-empty threads and reports skipped empty threads.
 
 ## Chat
 

@@ -14,9 +14,7 @@ import { AppSelect, type SelectOption } from '../../../shared/app-select/app-sel
 export class ChatComposer {
   readonly draft = input.required<string>();
   readonly error = input.required<string | null>();
-  readonly summaryMessage = input.required<string | null>();
   readonly latestRunId = input.required<string | null>();
-  readonly canConsolidateSummary = input.required<boolean>();
   readonly canSend = input.required<boolean>();
   readonly modelOptions = input.required<readonly SelectOption[]>();
   readonly selectedModel = input.required<string>();
@@ -24,7 +22,6 @@ export class ChatComposer {
   readonly draftChanged = output<string>();
   readonly modelChanged = output<string>();
   readonly sent = output<void>();
-  readonly summaryConsolidated = output<void>();
 
   private readonly composerInput = viewChild<ElementRef<HTMLTextAreaElement>>('composerInput');
 

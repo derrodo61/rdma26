@@ -1,11 +1,10 @@
-import { createDeepAgent, FilesystemBackend } from 'deepagents';
-import { MemorySaver } from '@langchain/langgraph';
+import { CompositeBackend, createDeepAgent, FilesystemBackend } from 'deepagents';
+import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import type { StructuredToolInterface } from '@langchain/core/tools';
 
 import type {
   ChatMessage,
   AgentModelSettings,
-  MemoryRecord,
   RunContextTokenUsage,
   RunContextToolCall,
   UserProfile,
@@ -23,6 +22,7 @@ import { createEnabledSubagents } from './agent-subagents';
 import { LlmAccountingCallbackHandler } from '../llm/llm-accounting-callback';
 import type { LlmCallStore } from '../llm/llm-call-store';
 import { createOpenAiChatModel } from '../llm/model-factory';
+import type { AgentMemoryDirectories } from '../memory/file-memory-store';
 
 interface PersonalAgentRequest {
   readonly runId: string;
@@ -34,7 +34,8 @@ interface PersonalAgentRequest {
   readonly isOperatorAgent: boolean;
   readonly userProfile: UserProfile;
   readonly soulContent: string;
-  readonly memories: readonly MemoryRecord[];
+  readonly memoryPaths: readonly string[];
+  readonly memoryDirectories: AgentMemoryDirectories;
   readonly memoryWritesEnabled: boolean;
   readonly messages: readonly ChatMessage[];
   readonly prompt: string;
@@ -50,9 +51,10 @@ export interface PersonalAgentResponse {
 }
 
 export class PersonalAgent {
-  private readonly checkpointer = new MemorySaver();
-
-  constructor(private readonly storage: AssistantStorage) {}
+  constructor(
+    private readonly storage: AssistantStorage,
+    private readonly checkpointer: BaseCheckpointSaver,
+  ) {}
 
   async run(request: PersonalAgentRequest): Promise<PersonalAgentResponse> {
     if (!process.env['OPENAI_API_KEY']) {
@@ -78,12 +80,27 @@ export class PersonalAgent {
       agentId: this.storage.agent.id,
       threadId: request.threadId,
     });
+    const defaultBackend = new FilesystemBackend({
+      rootDir: this.storage.deepAgentRootDir,
+      virtualMode: true,
+    });
     const agent = createDeepAgent({
       model: createOpenAiChatModel(request.model),
-      backend: new FilesystemBackend({
-        rootDir: this.storage.deepAgentRootDir,
-        virtualMode: true,
+      backend: new CompositeBackend(defaultBackend, {
+        '/memory/global/': new FilesystemBackend({
+          rootDir: request.memoryDirectories.global,
+          virtualMode: true,
+        }),
+        '/memory/agent-user/': new FilesystemBackend({
+          rootDir: request.memoryDirectories.agentUser,
+          virtualMode: true,
+        }),
+        '/memory/agent/': new FilesystemBackend({
+          rootDir: request.memoryDirectories.agent,
+          virtualMode: true,
+        }),
       }),
+      memory: [...request.memoryPaths],
       skills: ['/skills/'],
       tools: request.tools,
       subagents: createEnabledSubagents(
@@ -97,7 +114,6 @@ export class PersonalAgent {
         request.userProfile,
         request.isOperatorAgent,
         request.soulContent,
-        request.memories,
         request.memoryWritesEnabled,
         request.enabledToolIds,
       ),

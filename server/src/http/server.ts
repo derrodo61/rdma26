@@ -4,7 +4,6 @@ import swaggerUi from '@fastify/swagger-ui';
 import Fastify from 'fastify';
 
 import { readAuthConfig } from '../auth';
-import { MemoryMaintenanceScheduler } from '../memory/memory-maintenance-scheduler';
 import { AssistantRuntime } from '../runtime';
 import { registerApiRoutes } from './api-routes';
 
@@ -17,15 +16,9 @@ export async function startServer(): Promise<void> {
     logger: true,
   });
   const runtime = new AssistantRuntime();
-  const memoryMaintenanceScheduler = new MemoryMaintenanceScheduler(
-    runtime,
-    (message) => server.log.info({ component: 'memory-maintenance' }, message),
-    (message) => server.log.error({ component: 'memory-maintenance' }, message),
-  );
   const authConfig = readAuthConfig();
 
   await runtime.ensureReady();
-  await memoryMaintenanceScheduler.start();
 
   await server.register(cors, {
     origin: process.env['CLIENT_ORIGIN'] ?? 'http://localhost:4200',
@@ -59,7 +52,6 @@ export async function startServer(): Promise<void> {
 
   registerApiRoutes(server, {
     authConfig,
-    memoryMaintenanceScheduler,
     runtime,
   });
 
@@ -82,7 +74,7 @@ export async function startServer(): Promise<void> {
   });
 
   server.addHook('onClose', () => {
-    memoryMaintenanceScheduler.stop();
+    runtime.close();
   });
 
   const port = Number(process.env['PORT'] ?? 3000);

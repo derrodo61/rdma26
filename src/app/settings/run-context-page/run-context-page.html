@@ -91,24 +91,18 @@
               <h2 class="text-sm font-semibold text-text-muted">Memories used</h2>
             </div>
             @if (!run.memories.length) {
-              <p class="p-4 text-sm text-text-muted">No memories were injected into this run.</p>
+              <p class="p-4 text-sm text-text-muted">No pinned memories were loaded at startup.</p>
             } @else {
               <div class="divide-y divide-border">
                 @for (memory of run.memories; track memory.memoryId) {
                   <article class="p-4">
                     <div class="flex flex-wrap gap-2 text-xs text-text-muted">
-                      <span>{{ memory.type }}</span>
                       <span>{{ memory.scope }}</span>
-                      @if (memory.lifetime) {
-                        <span>{{ memory.lifetime }}</span>
-                      }
-                      @if (memory.status) {
-                        <span>{{ memory.status }}</span>
-                      }
+                      <span>Pinned startup memory</span>
                       @if (memory.agentId) {
                         <span>{{ memory.agentId }}</span>
                       }
-                      <span>score {{ memory.score }}</span>
+                      <span>{{ memory.virtualPath }}</span>
                     </div>
                     <p class="mt-2 whitespace-pre-wrap text-sm leading-6">{{ memory.content }}</p>
                     @if (memory.tags?.length) {

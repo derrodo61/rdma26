@@ -286,9 +286,7 @@ Query parameters:
 
 - `agentId`
 - `scope`: `agent`, `agent_user`, or `user`
-- `type`: `fact`, `preference`, `conversation_summary`, `open_task`, or `tracked_topic`
-- `lifetime`: `permanent`, `active`, or `temporary`
-- `status`: `active`, `archived`, or `superseded`
+- `pinned`: `true` or `false`
 - `tag`: exact tag filter
 - `createdFrom` and `createdTo`: ISO timestamp or `YYYY-MM-DD`
 - `updatedFrom` and `updatedTo`: ISO timestamp or `YYYY-MM-DD`
@@ -296,6 +294,10 @@ Query parameters:
 - `limit`
 
 When `agentId` is provided without `scope`, the response includes that agent's memories and global user memories.
+
+### `GET /api/memories/pinned-budgets`
+
+Requires `agentId`. Returns the used and maximum startup-memory characters for global user, agent-user, and agent scopes as they apply to that agent.
 
 ### `POST /api/memories`
 
@@ -305,8 +307,7 @@ Body:
 {
   "scope": "agent",
   "agentId": "scotty",
-  "type": "fact",
-  "lifetime": "active",
+  "pinned": false,
   "content": "The user prefers concise status updates.",
   "tags": ["preference"]
 }
@@ -324,49 +325,16 @@ Body:
 
 ```json
 {
-  "status": "archived"
+  "pinned": true,
+  "content": "Updated memory content."
 }
 ```
 
-Updates a memory. This is also how clients archive or supersede a memory.
+Updates a memory's content, tags, source metadata, or pinned state.
 
 ### `DELETE /api/memories/:memoryId`
 
 Deletes one memory record.
-
-### `POST /api/memories/maintenance`
-
-Body:
-
-```json
-{
-  "agentId": "scotty",
-  "model": "gpt-4.1-mini",
-  "limitPerAgent": 25
-}
-```
-
-Runs visible memory maintenance. For now this consolidates thread summaries for one agent or, when `agentId` is omitted, all agents. Summaries are created by an LLM. If no summary model or API key is available, summaries cannot be created. Agents with memory writes disabled are skipped and reported.
-
-### `GET /api/memories/maintenance/settings`
-
-Returns the memory maintenance scheduler settings.
-
-### `PATCH /api/memories/maintenance/settings`
-
-Body:
-
-```json
-{
-  "enabled": true,
-  "intervalMinutes": 1440,
-  "agentId": "scotty",
-  "model": "gpt-4.1-mini",
-  "limitPerAgent": 25
-}
-```
-
-Updates the scheduler settings. Scheduled memory maintenance is disabled by default and runs only when explicitly enabled.
 
 ## Agents
 
@@ -412,7 +380,7 @@ Body:
 }
 ```
 
-Updates agent settings. `memory.canRead` controls whether saved long-term memories and thread-summary memories are retrieved and injected into chat runs. `memory.canWrite` controls whether the agent receives the `save_memory` tool and whether memory maintenance may create thread-summary memories for that agent.
+Updates agent settings. `memory.canRead` controls pinned startup memory, on-demand memory directories, and past-conversation tools. `memory.canWrite` controls whether the agent receives the `save_memory` tool.
 
 The `models` object stores backend-owned model settings:
 
@@ -499,8 +467,6 @@ Body:
 
 Creates a thread. `title` is optional.
 
-When possible, this also creates a one-time summary for the previous latest non-empty thread for the same agent. The new thread is still created if summary creation is unavailable.
-
 ### `GET /api/agents/:agentId/threads/:threadId`
 
 Returns one full thread with messages.
@@ -508,37 +474,6 @@ Returns one full thread with messages.
 ### `DELETE /api/agents/:agentId/threads/:threadId`
 
 Deletes one thread.
-
-### `POST /api/agents/:agentId/threads/:threadId/summary`
-
-Creates the `conversation_summary` memory for one thread if it does not already exist.
-
-If the thread already has a summary, the existing summary is returned and no new summary is generated. This is useful after a thread is complete enough to make available for future recall.
-
-Optional body:
-
-```json
-{
-  "model": "gpt-4.1-mini"
-}
-```
-
-New summaries are created by an LLM. Use `model` to request a specific summary model. If no summary model or API key is available, a missing summary cannot be created. The response includes the model that created the summary, or an existing memory when the thread was already summarized.
-
-### `POST /api/agents/:agentId/threads/summaries`
-
-Creates missing `conversation_summary` memories for multiple non-empty threads of one agent.
-
-Optional body:
-
-```json
-{
-  "model": "gpt-4.1-mini",
-  "limit": 25
-}
-```
-
-The response includes updated summaries and `skippedEmptyThreads`.
 
 ## Agent Runs
 
@@ -597,7 +532,7 @@ The response includes:
 - loaded `soul.md` content
 - user profile snapshot
 - thread messages included in the run
-- memories injected into the run, including retrieval scores, tags, source metadata, status, and lifetime
+- pinned memory files loaded at startup, including scope, virtual path, tags, source metadata, and content
 - tools available in the run, including labels, providers, descriptions, and whether they were assigned or controlled
 - tool calls and tool results when returned by the Deep Agents run
 - token usage when returned by the model/runtime

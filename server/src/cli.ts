@@ -6,10 +6,7 @@ import type {
   CostSummaryGroupBy,
   LlmCallPurpose,
   LlmCallStatus,
-  MemoryLifetime,
   MemoryScope,
-  MemoryStatus,
-  MemoryType,
   PricingSourceTrustLevel,
   ThemePreference,
   TimeStylePreference,
@@ -143,9 +140,7 @@ async function main(): Promise<void> {
         await runtime.listMemories({
           agentId: options['agent'],
           scope: parseMemoryScope(options['scope']),
-          type: parseMemoryType(options['type']),
-          lifetime: parseMemoryLifetime(options['lifetime']),
-          status: parseMemoryStatus(options['status']),
+          pinned: parseOptionalBooleanOption(options['pinned'], 'pinned'),
           tag: options['tag'],
           createdFrom: options['created-from'],
           createdTo: options['created-to'],
@@ -159,13 +154,15 @@ async function main(): Promise<void> {
     case 'memories:read':
       printJson(await runtime.readMemory(requiredOption(options, 'memory')));
       return;
+    case 'memories:budgets':
+      printJson(await runtime.readMemoryPinnedBudgets(agentId(options)));
+      return;
     case 'memories:create':
       printJson(
         await runtime.createMemory({
           scope: parseRequiredMemoryScope(options['scope']),
           agentId: options['agent'],
-          type: parseRequiredMemoryType(options['type']),
-          lifetime: parseMemoryLifetime(options['lifetime']),
+          pinned: parseOptionalBooleanOption(options['pinned'], 'pinned'),
           content: await readMemoryContent(options),
           tags: parseOptionalList(options['tags']),
           source: {
@@ -179,47 +176,15 @@ async function main(): Promise<void> {
     case 'memories:update':
       printJson(
         await runtime.updateMemory(requiredOption(options, 'memory'), {
-          type: parseMemoryType(options['type']),
-          status: parseMemoryStatus(options['status']),
-          lifetime: parseMemoryLifetime(options['lifetime']),
+          pinned: parseOptionalBooleanOption(options['pinned'], 'pinned'),
           content:
             options['file'] || options['content'] ? await readMemoryContent(options) : undefined,
           tags: options['tags'] ? parseOptionalList(options['tags']) : undefined,
         }),
       );
       return;
-    case 'memories:archive':
-      printJson(
-        await runtime.updateMemory(requiredOption(options, 'memory'), {
-          status: 'archived',
-        }),
-      );
-      return;
     case 'memories:delete':
       printJson(await runtime.deleteMemory(requiredOption(options, 'memory')));
-      return;
-    case 'memories:maintenance':
-      printJson(
-        await runtime.runMemoryMaintenance({
-          agentId: options['agent'],
-          model: options['model'],
-          limitPerAgent: parseOptionalInteger(options['limit'], 'limit'),
-        }),
-      );
-      return;
-    case 'memories:maintenance:settings':
-      printJson(await runtime.readMemoryMaintenanceSettings());
-      return;
-    case 'memories:maintenance:configure':
-      printJson(
-        await runtime.updateMemoryMaintenanceSettings({
-          enabled: parseOptionalBooleanOption(options['enabled'], 'enabled'),
-          intervalMinutes: parseOptionalInteger(options['interval-minutes'], 'interval-minutes'),
-          agentId: options['agent'],
-          model: options['model'],
-          limitPerAgent: parseOptionalInteger(options['limit'], 'limit'),
-        }),
-      );
       return;
     case 'agents:tools':
       printJson(await runtime.agentToolsResponse(agentId(options)));
@@ -252,25 +217,6 @@ async function main(): Promise<void> {
       return;
     case 'threads:delete':
       printJson(await runtime.deleteThread(agentId(options), requiredOption(options, 'thread')));
-      return;
-    case 'threads:summary':
-      printJson(
-        await runtime.consolidateThreadSummary(
-          agentId(options),
-          requiredOption(options, 'thread'),
-          {
-            model: options['model'],
-          },
-        ),
-      );
-      return;
-    case 'threads:summaries':
-      printJson(
-        await runtime.consolidateAgentThreadSummaries(agentId(options), {
-          model: options['model'],
-          limit: parseOptionalInteger(options['limit'], 'limit'),
-        }),
-      );
       return;
     case 'chat:send': {
       const threadId = requiredOption(options, 'thread');
@@ -643,60 +589,6 @@ function parseMemoryScope(value: string | undefined): MemoryScope | undefined {
   throw new Error('--scope must be agent, agent_user, or user.');
 }
 
-function parseRequiredMemoryType(value: string | undefined): MemoryType {
-  const parsed = parseMemoryType(value);
-
-  if (!parsed) {
-    throw new Error('Missing required option: --type');
-  }
-
-  return parsed;
-}
-
-function parseMemoryType(value: string | undefined): MemoryType | undefined {
-  if (!value) {
-    return undefined;
-  }
-
-  if (
-    value === 'fact' ||
-    value === 'preference' ||
-    value === 'conversation_summary' ||
-    value === 'open_task' ||
-    value === 'tracked_topic'
-  ) {
-    return value;
-  }
-
-  throw new Error(
-    '--type must be fact, preference, conversation_summary, open_task, or tracked_topic.',
-  );
-}
-
-function parseMemoryStatus(value: string | undefined): MemoryStatus | undefined {
-  if (!value) {
-    return undefined;
-  }
-
-  if (value === 'active' || value === 'archived' || value === 'superseded') {
-    return value;
-  }
-
-  throw new Error('--status must be active, archived, or superseded.');
-}
-
-function parseMemoryLifetime(value: string | undefined): MemoryLifetime | undefined {
-  if (!value) {
-    return undefined;
-  }
-
-  if (value === 'permanent' || value === 'active' || value === 'temporary') {
-    return value;
-  }
-
-  throw new Error('--lifetime must be permanent, active, or temporary.');
-}
-
 function parsePricingSourceTrustLevel(
   value: string | undefined,
 ): PricingSourceTrustLevel | undefined {
@@ -824,14 +716,12 @@ Usage:
   rdma26 profile:read
   rdma26 profile:update --name "Rolf" --time-zone Europe/Berlin --locale de-DE --language de --date-style medium --time-style short --theme system --last-agent ronaldo
   rdma26 profile:agent-model:set --agent scotty --model gpt-4.1-mini
-  rdma26 memories:list --agent scotty --query "football" --tag project --updated-from 2026-07-01
-  rdma26 memories:create --agent scotty --scope agent --type fact --content "The user prefers concise updates."
-  rdma26 memories:update --memory <memory-id> --content "Updated memory"
-  rdma26 memories:archive --memory <memory-id>
+  rdma26 memories:list --agent scotty --query "football" --tag project --pinned true --updated-from 2026-07-01
+  rdma26 memories:read --memory <memory-id>
+  rdma26 memories:budgets --agent scotty
+  rdma26 memories:create --agent scotty --scope agent --content "The user prefers concise updates." --pinned true
+  rdma26 memories:update --memory <memory-id> --content "Updated memory" --pinned false
   rdma26 memories:delete --memory <memory-id>
-  rdma26 memories:maintenance --agent scotty --limit 25
-  rdma26 memories:maintenance:settings
-  rdma26 memories:maintenance:configure --enabled true --interval-minutes 1440 --limit 25
   rdma26 agents:tools --agent research
   rdma26 agents:tools:set --agent research --tools internet_search
   rdma26 agents:tools:grant --agent research --tool internet_search
@@ -840,8 +730,6 @@ Usage:
   rdma26 threads:create --agent scotty --title "Planning"
   rdma26 threads:read --agent scotty --thread <thread-id>
   rdma26 threads:delete --agent scotty --thread <thread-id>
-  rdma26 threads:summary --agent scotty --thread <thread-id>
-  rdma26 threads:summaries --agent scotty --limit 25
   rdma26 chat:send --agent scotty --thread <thread-id> --model gpt-4.1-mini --prompt "Hello"
   rdma26 optimizer:ask --prompt "Which agent cost the most this week?"
   rdma26 runs:context --run <run-id>

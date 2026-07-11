@@ -76,8 +76,6 @@ export interface AgentMemorySettings {
 export interface AgentModelSettings {
   readonly chat?: string;
   readonly research?: AgentResearchModelSettings;
-  readonly threadSummary?: string;
-  readonly memoryMaintenance?: string;
 }
 
 export interface AgentResearchModelSettings {
@@ -236,10 +234,6 @@ export interface UpdateUserProfileRequest {
 }
 
 export type MemoryScope = 'agent' | 'agent_user' | 'user';
-export type MemoryType =
-  'fact' | 'preference' | 'conversation_summary' | 'open_task' | 'tracked_topic';
-export type MemoryStatus = 'active' | 'archived' | 'superseded';
-export type MemoryLifetime = 'permanent' | 'active' | 'temporary';
 
 interface MemorySource {
   readonly agentId?: string;
@@ -252,9 +246,7 @@ export interface MemoryRecord {
   readonly id: string;
   readonly scope: MemoryScope;
   readonly agentId?: string;
-  readonly type: MemoryType;
-  readonly status: MemoryStatus;
-  readonly lifetime: MemoryLifetime;
+  readonly pinned: boolean;
   readonly content: string;
   readonly contentLines?: readonly string[];
   readonly tags: readonly string[];
@@ -266,9 +258,7 @@ export interface MemoryRecord {
 export interface MemoryListRequest {
   readonly agentId?: string;
   readonly scope?: MemoryScope;
-  readonly type?: MemoryType;
-  readonly lifetime?: MemoryLifetime;
-  readonly status?: MemoryStatus;
+  readonly pinned?: boolean;
   readonly tag?: string;
   readonly createdFrom?: string;
   readonly createdTo?: string;
@@ -282,20 +272,29 @@ export interface MemoryListResponse {
   readonly memories: readonly MemoryRecord[];
 }
 
+export interface MemoryPinnedBudget {
+  readonly scope: MemoryScope;
+  readonly agentId?: string;
+  readonly usedCharacters: number;
+  readonly limitCharacters: number;
+}
+
+export interface MemoryPinnedBudgetsResponse {
+  readonly agentId: string;
+  readonly budgets: readonly MemoryPinnedBudget[];
+}
+
 export interface CreateMemoryRequest {
   readonly scope: MemoryScope;
   readonly agentId?: string;
-  readonly type: MemoryType;
-  readonly lifetime?: MemoryLifetime;
+  readonly pinned?: boolean;
   readonly content: string;
   readonly tags?: readonly string[];
   readonly source?: MemorySource;
 }
 
 export interface UpdateMemoryRequest {
-  readonly type?: MemoryType;
-  readonly status?: MemoryStatus;
-  readonly lifetime?: MemoryLifetime;
+  readonly pinned?: boolean;
   readonly content?: string;
   readonly tags?: readonly string[];
   readonly source?: MemorySource;
@@ -304,71 +303,6 @@ export interface UpdateMemoryRequest {
 export interface DeleteMemoryResponse {
   readonly deleted: true;
   readonly memoryId: string;
-}
-
-export interface ThreadSummaryRequest {
-  readonly model?: string;
-}
-
-export interface ThreadSummariesRequest extends ThreadSummaryRequest {
-  readonly limit?: number;
-}
-
-export interface ThreadSummaryResponse {
-  readonly agentId: string;
-  readonly threadId: string;
-  readonly model?: string;
-  readonly memory: MemoryRecord;
-}
-
-export interface ThreadSummariesResponse {
-  readonly agentId: string;
-  readonly summaries: readonly ThreadSummaryResponse[];
-  readonly skippedEmptyThreads: readonly string[];
-}
-
-export interface MemoryMaintenanceRequest extends ThreadSummaryRequest {
-  readonly agentId?: string;
-  readonly limitPerAgent?: number;
-}
-
-export interface AgentMemoryMaintenanceResult extends ThreadSummariesResponse {
-  readonly skippedReason?: 'memory_writes_disabled';
-}
-
-export interface MemoryMaintenanceResponse {
-  readonly mode: 'manual';
-  readonly startedAt: string;
-  readonly finishedAt: string;
-  readonly agents: readonly AgentMemoryMaintenanceResult[];
-}
-
-export interface MemoryMaintenanceSettings {
-  readonly enabled: boolean;
-  readonly intervalMinutes: number;
-  readonly agentId?: string;
-  readonly model?: string;
-  readonly limitPerAgent: number;
-  readonly lastStartedAt?: string;
-  readonly lastFinishedAt?: string;
-  readonly lastError?: string;
-  readonly updatedAt: string;
-}
-
-export interface UpdateMemoryMaintenanceSettingsRequest {
-  readonly enabled?: boolean;
-  readonly intervalMinutes?: number;
-  readonly agentId?: string;
-  readonly model?: string;
-  readonly limitPerAgent?: number;
-}
-
-export interface MemoryContextSource {
-  readonly memoryId: string;
-  readonly scope: MemoryScope;
-  readonly agentId?: string;
-  readonly type: MemoryType;
-  readonly score: number;
 }
 
 interface RunContextMessage {
@@ -382,12 +316,11 @@ export interface RunContextMemory {
   readonly memoryId: string;
   readonly scope: MemoryScope;
   readonly agentId?: string;
-  readonly type: MemoryType;
-  readonly status?: MemoryStatus;
-  readonly lifetime?: MemoryLifetime;
+  readonly pinned: boolean;
   readonly tags?: readonly string[];
   readonly source?: MemorySource;
-  readonly score: number;
+  readonly virtualPath: string;
+  readonly access: 'startup';
   readonly content: string;
 }
 

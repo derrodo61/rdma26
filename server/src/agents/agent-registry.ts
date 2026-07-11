@@ -267,7 +267,6 @@ export class AgentRegistry {
     await database.ensureReady();
     const transaction = database.get().transaction(() => {
       database.get().prepare('delete from threads where agent_id = ?').run(agentId);
-      database.get().prepare('delete from memory_records where agent_id = ?').run(agentId);
       database.get().prepare('delete from run_contexts where agent_id = ?').run(agentId);
     });
 
@@ -473,8 +472,6 @@ function normalizeAgentModelSettings(value: unknown): AgentModelSettings {
     research: {
       researcher: normalizeOptionalModelId(research?.['researcher']),
     },
-    threadSummary: normalizeOptionalModelId(record['threadSummary']),
-    memoryMaintenance: normalizeOptionalModelId(record['memoryMaintenance']),
   };
 }
 

@@ -5,24 +5,8 @@
     </p>
   }
 
-  @if (summaryMessage(); as currentSummaryMessage) {
-    <p class="mx-auto mb-3 max-w-3xl text-xs text-text-muted">
-      {{ currentSummaryMessage }}
-    </p>
-  }
-
-  @if (latestRunId() || canConsolidateSummary()) {
+  @if (latestRunId()) {
     <div class="mx-auto mb-3 flex max-w-3xl flex-wrap justify-end gap-2">
-      @if (canConsolidateSummary()) {
-        <button
-          type="button"
-          class="rounded px-2 py-1 text-xs font-medium text-text-muted hover:bg-surface-muted hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)] disabled:cursor-not-allowed disabled:text-control-disabled"
-          [disabled]="!canConsolidateSummary()"
-          (click)="summaryConsolidated.emit()"
-        >
-          Update thread memory
-        </button>
-      }
       @if (latestRunId(); as runId) {
         <a
           [routerLink]="['/settings/runs', runId]"

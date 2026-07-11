@@ -1,11 +1,10 @@
-import type { MemoryRecord, UserProfile } from '../../../shared/agent-contracts';
+import type { UserProfile } from '../../../shared/agent-contracts';
 
 export function createBootloaderPromptForTest(
   agent: { name: string; soulVirtualPath: string },
   userProfile: UserProfile,
   isOperatorAgent: boolean,
   soulContent: string,
-  memories: readonly MemoryRecord[],
   memoryWritesEnabled: boolean,
   enabledToolNames: readonly string[] = [],
 ): string {
@@ -16,7 +15,7 @@ You are a protected system agent. Your role may include helping Rolf administer,
 You may use admin tools when they are available to create agents, rename agents, delete non-protected agents, read or update agent soul.md files, list normal tools, grant or revoke normal tools, inspect and manage memories, and enable or disable long-term memory reads or writes for agents. These are controlled application tools, not raw CLI or shell access. Do not claim to have unrestricted terminal access.`
     : '';
   const memoryWriteGuidance = memoryWritesEnabled
-    ? 'Use the save_memory tool when the user explicitly asks you to remember something or when a future-useful, low-risk memory clearly fits the memory rules. Use agent_user for user preferences that apply only to this agent, including how the user wants this agent to communicate. Use user only when the user clearly wants the memory shared across agents. If the user explicitly asks you to remember sensitive personal data, you may save it, but use the narrowest sensible scope and never save secrets or credentials. Ask first when sensitive information was not explicitly requested for memory, or when the content, consent, or scope is ambiguous or conflicting.'
+    ? 'Use the save_memory tool when the user explicitly asks you to remember something or when a future-useful, low-risk memory clearly fits the memory rules. Pin a memory only when the user explicitly asks to always apply, always remember, or pin it; automatically inferred memories must remain unpinned. Use agent_user for user preferences that apply only to this agent, including how the user wants this agent to communicate. Use user only when the user clearly wants the memory shared across agents. If the user explicitly asks you to remember sensitive personal data, you may save it, but use the narrowest sensible scope and never save secrets or credentials. Ask first when sensitive information was not explicitly requested for memory, or when the content, consent, or scope is ambiguous or conflicting.'
     : 'Memory writing is disabled for this agent in the current run. Do not claim that you saved a new memory. If the user asks you to remember something, explain that memory writing is disabled for this agent and that the setting can be changed by the user.';
   const hasInternetSearch = enabledToolNames.includes('internet_search');
   const hasWebPageReader = enabledToolNames.includes('read_web_page');
@@ -74,9 +73,6 @@ ${operatorGuidance}
 Loaded soul.md:
 ${soulContent}
 
-Retrieved long-term memories:
-${formatMemories(memories)}
-
 User profile and display preferences:
 - Name: ${userProfile.name || 'not configured'}
 - Time zone: ${userProfile.timeZone}
@@ -95,24 +91,13 @@ ${webPageReaderGuidance}
 
 ${memoryWriteGuidance}
 
+Long-term memory guidance:
+- Pinned memory files configured for this agent are loaded by Deep Agents at startup.
+- Additional unpinned memory files are available under /memory/global/, /memory/agent-user/, and /memory/agent/. Search or read those files only when the current request needs them.
+- Past conversation messages are not long-term memories. Use search_past_conversations and then read_past_conversation when the user asks about earlier discussions or when earlier thread details are needed.
+- Do not claim that no earlier conversation exists until you have searched past conversations when those tools are available.
+
 If the file does not contain a specific instruction for a situation, be practical, conversational, and clear about uncertainty.`;
-}
-
-function formatMemories(memories: readonly MemoryRecord[]): string {
-  if (!memories.length) {
-    return '- none found for this prompt';
-  }
-
-  return memories
-    .map((memory) =>
-      [
-        `- [${memory.id}] ${memory.type}, ${memory.scope}, ${memory.lifetime}: ${memory.content}`,
-        memory.tags.length ? `  tags: ${memory.tags.join(', ')}` : '',
-      ]
-        .filter(Boolean)
-        .join('\n'),
-    )
-    .join('\n');
 }
 
 function formatLocalDateTime(userProfile: UserProfile): string {

@@ -77,12 +77,10 @@ export class ChatPage {
   protected readonly activeThread = this.threadState.activeThread;
   protected readonly latestRunId = this.threadState.latestRunId;
   protected readonly messageResearchSources = this.threadState.messageResearchSources;
-  protected readonly summaryMessage = signal<string | null>(null);
   protected readonly runActivity = signal<RunActivity | null>(null);
   protected readonly draft = signal('');
   protected readonly isLoading = signal(true);
   protected readonly isRunning = signal(false);
-  protected readonly isConsolidatingSummary = signal(false);
   protected readonly isSidebarCollapsed = signal(false);
   protected readonly isSettingsMenuOpen = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -106,12 +104,6 @@ export class ChatPage {
         this.selectedModel() &&
         this.draft().trim(),
       ) && !this.isRunning(),
-  );
-  protected readonly canConsolidateSummary = computed(
-    () =>
-      Boolean(this.selectedAgentId() && this.activeThread()?.messages.length) &&
-      !this.isRunning() &&
-      !this.isConsolidatingSummary(),
   );
   protected readonly activeAgent = computed<AgentProfile | null>(
     () => this.agents().find((agent) => agent.id === this.selectedAgentId()) ?? null,
@@ -270,7 +262,6 @@ export class ChatPage {
       label: 'Starting run',
     });
     this.error.set(null);
-    this.summaryMessage.set(null);
 
     const optimistic: ChatThread = {
       ...thread,
@@ -326,28 +317,6 @@ export class ChatPage {
     } finally {
       this.isRunning.set(false);
       this.runActivity.set(null);
-    }
-  }
-
-  protected async consolidateActiveThreadSummary(): Promise<void> {
-    const agentId = this.selectedAgentId();
-    const thread = this.activeThread();
-
-    if (!agentId || !thread || !this.canConsolidateSummary()) {
-      return;
-    }
-
-    try {
-      this.isConsolidatingSummary.set(true);
-      const response = await this.api.consolidateThreadSummary(agentId, thread.id, {
-        model: this.selectedModel() || undefined,
-      });
-      const model = response.model ? ` using ${response.model}` : '';
-      this.summaryMessage.set(`Thread memory updated${model}: ${response.memory.id}`);
-    } catch (error) {
-      this.error.set(getErrorMessage(error, 'Could not consolidate thread summary.'));
-    } finally {
-      this.isConsolidatingSummary.set(false);
     }
   }
 

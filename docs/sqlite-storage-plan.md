@@ -1,169 +1,39 @@
 # SQLite Storage Plan
 
-This document describes the phased move from UUID-named JSON files to a local SQLite database.
+This document records the current storage boundary for `rdma26`.
 
-## Goal
+## Databases
 
-`rdma26` should remain local-first, but structured app data should become searchable, sortable, and easier to manage from UI, API, and CLI.
+`.assistant-data/rdma26.sqlite` stores structured application data:
 
-SQLite becomes the source of truth for structured state:
+- threads and messages for UI/API/CLI access
+- run-context snapshots
+- LLM call accounting
+- model pricing and pricing sources
 
-```text
-.assistant-data/rdma26.sqlite
-```
+`.assistant-data/langgraph-checkpoints.sqlite` is owned by the official LangGraph SQLite checkpointer and stores Deep Agents thread state across backend restarts.
 
-Files remain useful for data that is naturally file-like:
+## Files
 
-- per-agent `configuration/soul.md`
-- Deep Agents filesystem backend data
+Data that is naturally editable and file-oriented remains outside SQLite:
+
+- `.assistant-data/agents/<agent-id>/configuration/soul.md`
+- scoped Markdown long-term memory under user and agent memory directories
+- Deep Agents skills and filesystem backend data
 - future attachments or exports
 
-## Why SQLite
+The complete memory layout is documented in [memory.md](./memory.md).
 
-- single local file, no server dependency
-- chronological sorting without relying on UUID filenames
-- efficient filtering by agent, scope, type, status, and dates
-- transactions for multi-step writes
-- future full-text search with FTS5
-- easier UI data browsing
-- reasonable migration path to another SQL database later if needed
+## Migrations
 
-## Phase 1: Memories
+`server/src/storage/schema-migrations.ts` contains ordered schema migrations. The current schema version is 8.
 
-Move memory records to SQLite while keeping the existing MemoryStore API stable.
+Before a destructive migration, the backend creates a timestamped SQLite backup under `.assistant-data/backups/`. Each migration runs transactionally and advances `schema_metadata.schema_version` only after success.
 
-Status: implemented.
+Schema version 7 removed the former memory lifetime column. Schema version 8 removed the obsolete custom `memory_records` table after the project adopted scoped Deep Agents Markdown memory. Threads and messages are preserved.
 
-Tables:
+New databases are created directly at the current schema and do not need migration backups.
 
-```sql
-memory_records (
-  id text primary key,
-  scope text not null,
-  agent_id text,
-  type text not null,
-  status text not null,
-  lifetime text not null,
-  content text not null,
-  content_lines_json text,
-  tags_json text not null,
-  source_json text,
-  created_at text not null,
-  updated_at text not null
-)
-```
+## Future SQL Work
 
-Indexes:
-
-- `(agent_id, scope, type, status, updated_at)`
-- `(scope, type, status, updated_at)`
-- `(type, status, updated_at)`
-- `(updated_at)`
-
-Migration:
-
-- On startup, create the schema if missing.
-- Import existing JSON memories from:
-  - `.assistant-data/user/memories/*.json`
-  - `.assistant-data/agents/<agent-id>/memories/*.json`
-- Use `insert or ignore` so migration is idempotent.
-- Remove JSON source files after successful import.
-- New and updated memories are written to SQLite.
-
-Compatibility:
-
-- API responses remain unchanged.
-- CLI commands remain unchanged.
-- Runtime memory retrieval remains unchanged from callers' perspective.
-- Embedding cache can stay as JSON in phase 1.
-
-## Phase 2: Memory UI
-
-Improve the memory UI once SQLite backs the data.
-
-Status: implemented with metadata and date browsing filters in the memory UI,
-API, and CLI.
-
-Expected filters:
-
-- scope: `user`, `agent_user`, `agent`
-- agent
-- type
-- status
-- tags
-- created/updated date
-- text search
-
-Useful views:
-
-- Global user memory
-- Agent-specific user memory
-- Agent memory
-- Conversation summaries
-- Archived/superseded memory
-
-## Phase 3: Threads And Messages
-
-Move threads and messages to SQLite.
-
-Status: implemented.
-
-Tables:
-
-```sql
-threads (
-  id text primary key,
-  agent_id text not null,
-  title text not null,
-  created_at text not null,
-  updated_at text not null
-)
-
-messages (
-  id text primary key,
-  thread_id text not null references threads(id) on delete cascade,
-  role text not null,
-  content text not null,
-  created_at text not null,
-  position integer not null,
-  unique(thread_id, position)
-)
-```
-
-Migration imports `.assistant-data/agents/<agent-id>/threads/*.json` once per agent
-and imports old root `.assistant-data/threads/*.json` into the default agent. JSON
-source files are removed after successful import. New and updated threads/messages
-are written to SQLite.
-
-## Phase 4: Runs, Tool Calls, And Research Sources
-
-Move run contexts to SQLite after threads/messages are stable.
-
-Status: implemented with a compact run-context table.
-
-Table:
-
-```sql
-run_contexts (
-  id text primary key,
-  agent_id text not null,
-  thread_id text not null,
-  created_at text not null,
-  context_json text not null
-)
-```
-
-The full typed run context is stored as JSON so the existing API, CLI, and UI
-can continue to render the same details. Indexed metadata supports lookup,
-thread deletion cleanup, orphan cleanup, and later browsing views.
-Legacy global and per-agent run-context JSON files are removed after successful
-import.
-
-The run-context inspector should query this data directly.
-
-## Later
-
-- Add FTS5 tables for memory and thread search.
-- Add database backup/export commands.
-- Add JSON export/import for portability.
-- Consider SQL migrations with explicit schema versions once multiple phases exist.
+Potential future improvements include FTS5 indexes for larger thread-history collections and retention controls for high-volume run/LLM telemetry. These should be added only when real usage shows a need.
