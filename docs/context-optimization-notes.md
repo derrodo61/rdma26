@@ -34,6 +34,25 @@ Creating the new thread also triggered a separate summary call for the previous 
 - 443 input tokens
 - 142 output tokens
 
+### Follow-up after model-resolution fix
+
+Date: 2026-07-11
+
+Run ID: `f2658c9f-2429-4479-9ed0-2008f4a551a7`
+
+The same question was sent through the CLI without an explicit `--model`. The run correctly resolved Ronaldo's saved `gpt-5.4-mini` setting and returned the correct fixture information.
+
+- 11 LLM calls for the chat run
+- 2 parent-agent calls
+- 9 researcher-subagent calls
+- 131,839 input tokens
+- 100,480 cached input tokens
+- 31,359 uncached input tokens
+- 2,592 output tokens
+- Estimated cost: USD 0.04271925
+
+Pricing coverage worked for `gpt-5.4-mini`, but the researcher call count and context growth were substantially higher than the original baseline.
+
 ## Topics to Resolve
 
 ### Effective model selection
@@ -56,6 +75,8 @@ Expected direction:
 - Every model that can be selected or selected implicitly should have an active pricing record when its official pricing is available.
 - Missing pricing should remain visible as an observability problem.
 
+Status: resolved for the tested effective-model path on 2026-07-11. After model resolution selected `gpt-5.4-mini`, rdma26 found its active pricing record and calculated an estimated run cost of USD 0.04271925. Missing pricing remains visible for models such as `gpt-4.1-mini` that have no saved record.
+
 ### Memory retrieval relevance
 
 The run loaded eight conversation summaries totaling approximately 6,500 characters. Most were unrelated to the fixture question, including local news and incident summaries. Some summaries appeared to duplicate the same source thread.
@@ -77,6 +98,14 @@ Questions to investigate:
 - Is a full research workflow necessary for a narrow factual lookup?
 - Can call count be reduced without weakening factual reliability?
 
+Observed in the `gpt-5.4-mini` follow-up:
+
+- The researcher ran three searches and read multiple source pages.
+- The official FIFA page could not be extracted correctly.
+- The England Football page had a misleading extracted title even though its body contained the correct fixture.
+- The researcher therefore verified the answer against additional CBS and Fox Sports pages.
+- The verification work was understandable, but nine researcher-model calls were excessive for the narrow question.
+
 ### Parent and subagent context
 
 The first parent call already contained 9,872 input tokens. Researcher input then grew from 5,229 to 8,578 tokens, and the final parent call contained 10,104 input tokens.
@@ -87,6 +116,42 @@ Questions to investigate:
 - Which research outputs are repeatedly carried into later calls?
 - Can tool and subagent results be represented more compactly?
 - Can static prompt content make better use of provider prompt caching?
+
+The follow-up research result was also much more detailed than the parent needed. It repeated the answer, findings, excerpts, searches, temporal candidates, warnings, notes, and source URLs before the parent generated a short response.
+
+## Recommended Optimization Order
+
+### 1. Memory retrieval relevance and deduplication
+
+- Do not automatically inject conversation summaries into ordinary factual requests merely because they share broad keywords.
+- Keep stable user and agent preferences available when relevant.
+- Load conversation summaries automatically for explicit recall questions, or expose them through a memory-search tool when prior conversation context is needed.
+- Deduplicate summaries by source thread.
+- Apply a meaningful relevance threshold and a smaller result limit.
+- Avoid seeding current research with a stale candidate answer retrieved from an earlier conversation.
+
+### 2. Research activity visibility
+
+- Record every researcher search query and page read in chronological order.
+- Record whether each operation succeeded, how much content it returned, and which model turn requested it.
+- Preserve the reason for continuing when available so research-loop optimization can be evidence-based.
+
+### 3. Adaptive research depth
+
+- Keep research as a real Deep Agents subagent.
+- Distinguish focused, standard, and deep evidence needs without adding domain-specific logic.
+- Allow focused, low-risk questions to stop after sufficient authoritative evidence.
+- Continue deeper research for sensitive, contradictory, broad, or high-stakes questions.
+
+### 4. Batch independent retrieval
+
+- Allow independent candidate pages to be read in parallel after a search when practical.
+- Reduce model turns without weakening source verification.
+
+### 5. Compact subagent results
+
+- Return only the verified answer, directly supporting sources, and material warnings to the parent for narrow questions.
+- Keep detailed findings, diagnostics, rejected candidates, and search history in run records instead of copying all of them into the parent context.
 
 ### Thread-summary trigger cost
 
