@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added bounded pinned startup memory and on-demand access to unpinned memory files.
 - Added controlled, bounded search and read tools for previous conversations, separate from long-term memory.
 - Added a bounded `search_memory` tool for deterministic on-demand recall of unpinned long-term memory.
+- Added multilingual semantic memory retrieval with OpenAI embeddings, exact-match preference, scoped results, and a content-hash SQLite vector cache that reuses unchanged memory embeddings.
 - Added run-context visibility for the exact pinned memory files loaded at startup.
 
 ### Fixed
@@ -22,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Enforced agent memory permissions at the Deep Agents filesystem boundary so native tools cannot bypass disabled reads or controlled `save_memory` writes.
 - Limited run-context tool calls and token totals to the current run instead of inherited checkpoint history.
 - Removed an agent's LangGraph checkpoints together with its threads and other owned data.
+- Distinguished durable storage from pinned startup context so ordinary permanent-memory requests stay unpinned, and discouraged redundant memory searches when pinned context already contains the answer.
 
 ### Removed
 
@@ -29,7 +31,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- Replaced startup-time schema patching with ordered transactional SQLite migrations. Destructive migrations create a database backup; schema version 8 removes the obsolete memory table while preserving threads and messages.
+- Replaced startup-time schema patching with ordered transactional SQLite migrations. Destructive migrations create a database backup; schema version 8 removes the obsolete memory table and schema version 9 adds a rebuildable semantic-memory vector cache while preserving threads and messages.
 - Replaced the custom memory system with a Deep Agents and LangGraph-aligned architecture that separates checkpointed threads, bounded file-backed long-term memory, on-demand recall, skills, identity, and past-conversation search.
 - Simplified the Memories page to scope, content, tags, pinning, generated timestamps, and direct CRUD with plain-language help.
 

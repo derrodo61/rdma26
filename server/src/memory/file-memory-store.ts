@@ -4,6 +4,7 @@ import { parse, stringify } from 'yaml';
 
 import type { MemoryScope } from '../../../shared/agent-contracts';
 import { validateAgentId } from '../agents/agent-registry';
+import type { MemorySemanticIndex } from './semantic-memory-index';
 
 export const defaultPinnedMemoryCharacterLimit = 3_000;
 
@@ -74,12 +75,20 @@ interface FileMemoryMetadata {
 }
 
 export class FileMemoryStore {
+  private readyPromise: Promise<void> | null = null;
+
   constructor(
     private readonly dataDir: string,
     private readonly pinnedCharacterLimit = defaultPinnedMemoryCharacterLimit,
+    private readonly semanticIndex?: MemorySemanticIndex,
   ) {}
 
   async ensureReady(): Promise<void> {
+    this.readyPromise ??= this.initialize();
+    await this.readyPromise;
+  }
+
+  private async initialize(): Promise<void> {
     await Promise.all([
       rm(join(this.dataDir, 'memory-index'), { recursive: true, force: true }),
       rm(join(this.dataDir, 'memory-maintenance-settings.json'), { force: true }),
@@ -87,27 +96,31 @@ export class FileMemoryStore {
       rm(join(this.dataDir, 'deepagent'), { recursive: true, force: true }),
     ]);
     await mkdir(this.globalMemoryDir(), { recursive: true });
+    const entries = await this.readCandidateEntries({});
+    await this.semanticIndex?.ensureReady(entries);
   }
 
   async listEntries(request: FileMemoryListRequest = {}): Promise<FileMemoryEntry[]> {
     await this.ensureReady();
     const entries = await this.readCandidateEntries(request);
-    const query = request.query?.trim().toLocaleLowerCase();
+    const query = request.query?.trim();
     const tag = request.tag?.trim().toLocaleLowerCase();
-
-    return entries
+    const filtered = entries
       .filter((entry) => request.pinned === undefined || entry.pinned === request.pinned)
       .filter((entry) => !tag || entry.tags.includes(tag))
       .filter((entry) => !request.createdFrom || entry.createdAt >= request.createdFrom)
       .filter((entry) => !request.createdTo || entry.createdAt <= request.createdTo)
       .filter((entry) => !request.updatedFrom || entry.updatedAt >= request.updatedFrom)
-      .filter((entry) => !request.updatedTo || entry.updatedAt <= request.updatedTo)
-      .filter(
-        (entry) =>
-          !query || `${entry.content}\n${entry.tags.join(' ')}`.toLocaleLowerCase().includes(query),
-      )
-      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
-      .slice(0, normalizeLimit(request.limit));
+      .filter((entry) => !request.updatedTo || entry.updatedAt <= request.updatedTo);
+    const limit = normalizeLimit(request.limit);
+
+    if (!query) {
+      return filtered
+        .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+        .slice(0, limit);
+    }
+
+    return await this.searchEntries(filtered, query, limit);
   }
 
   async readEntry(memoryId: string): Promise<FileMemoryEntry | null> {
@@ -144,6 +157,7 @@ export class FileMemoryStore {
 
     await this.assertPinnedBudget(entry);
     await this.writeEntry(entry);
+    await this.semanticIndex?.invalidate(entry.id);
 
     return entry;
   }
@@ -161,6 +175,7 @@ export class FileMemoryStore {
 
     await this.assertPinnedBudget(entry, existing.id);
     await this.writeEntry(entry);
+    await this.semanticIndex?.invalidate(entry.id);
 
     return entry;
   }
@@ -173,6 +188,7 @@ export class FileMemoryStore {
     }
 
     await rm(this.entryPath(existing), { force: true });
+    await this.semanticIndex?.delete(existing.id);
     return true;
   }
 
@@ -220,6 +236,31 @@ export class FileMemoryStore {
       agentUser: this.agentUserMemoryDir(agentId),
       agent: this.agentMemoryDir(agentId),
     };
+  }
+
+  private async searchEntries(
+    entries: readonly FileMemoryEntry[],
+    query: string,
+    limit: number,
+  ): Promise<FileMemoryEntry[]> {
+    const normalizedQuery = query.toLocaleLowerCase();
+    const exact = entries.filter((entry) =>
+      `${entry.content}\n${entry.tags.join(' ')}`.toLocaleLowerCase().includes(normalizedQuery),
+    );
+
+    if (exact.length || !this.semanticIndex) {
+      return exact
+        .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+        .slice(0, limit);
+    }
+
+    const semantic = await this.semanticIndex.search(entries, query, limit);
+    const entriesById = new Map(entries.map((entry) => [entry.id, entry]));
+    const ordered = semantic
+      .map((match) => entriesById.get(match.memoryId))
+      .filter((entry): entry is FileMemoryEntry => Boolean(entry));
+
+    return [...new Map(ordered.map((entry) => [entry.id, entry])).values()].slice(0, limit);
   }
 
   private async assertPinnedBudget(entry: FileMemoryEntry, replacingId?: string): Promise<void> {

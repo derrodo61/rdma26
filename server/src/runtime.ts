@@ -63,11 +63,13 @@ import { listAdminToolDefinitions } from './capabilities/admin-tools';
 import { CapabilityRegistry } from './capabilities/capability-registry';
 import { ChatRunService, type RunAgentOptions, type RunAgentResult } from './chat/chat-run-service';
 import { FileMemoryStore } from './memory/file-memory-store';
+import { SqliteSemanticMemoryIndex } from './memory/semantic-memory-index';
 import { UserProfileStore } from './profiles/user-profile-store';
 import { LlmCallStore } from './llm/llm-call-store';
 import { ModelPricingStore } from './llm/model-pricing-store';
 import { syncOpenAiModelPricingFromSource } from './llm/openai-pricing-sync';
 import { PricingSourceStore } from './llm/pricing-source-store';
+import { createOpenAiEmbeddings } from './llm/model-factory';
 import { readWebPage } from './research/web-page-reader';
 import { RunContextStore } from './runs/run-context-store';
 import { ThreadService } from './threads/thread-service';
@@ -94,7 +96,15 @@ export class AssistantRuntime {
       options.defaultAgentName,
     );
     this.userProfileStore = new UserProfileStore(options.dataDir);
-    this.fileMemoryStore = new FileMemoryStore(options.dataDir);
+    const embeddingModel = process.env['OPENAI_EMBEDDING_MODEL'] ?? 'text-embedding-3-small';
+    const semanticMemoryIndex = process.env['OPENAI_API_KEY']
+      ? new SqliteSemanticMemoryIndex(
+          options.dataDir,
+          createOpenAiEmbeddings(embeddingModel),
+          embeddingModel,
+        )
+      : undefined;
+    this.fileMemoryStore = new FileMemoryStore(options.dataDir, undefined, semanticMemoryIndex);
     this.runContextStore = new RunContextStore(options.dataDir);
     this.modelPricingStore = new ModelPricingStore(options.dataDir);
     this.pricingSourceStore = new PricingSourceStore(options.dataDir);

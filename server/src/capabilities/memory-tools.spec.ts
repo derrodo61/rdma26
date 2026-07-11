@@ -77,4 +77,26 @@ describe('memory tools', () => {
       }),
     );
   });
+
+  it('saves durable memory as unpinned when pinning is omitted', async () => {
+    const createMemory = vi.fn(async (request: unknown) => request);
+    const [saveMemory] = createMemoryTools(
+      { createMemory } as unknown as AssistantRuntime,
+      'ronaldo',
+    );
+
+    await saveMemory.invoke({
+      scope: 'agent_user',
+      content: "The user's favorite club is Werder Bremen.",
+      tags: ['preference'],
+    });
+
+    expect(createMemory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: 'agent_user',
+        agentId: 'ronaldo',
+        pinned: false,
+      }),
+    );
+  });
 });

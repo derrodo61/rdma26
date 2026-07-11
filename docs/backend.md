@@ -17,7 +17,7 @@ The backend is a Fastify service with a shared runtime facade. HTTP routes and C
 - `server/src/capabilities/` contains configurable agent capabilities and controlled tools. The external API still calls these tools, but internally the registry is named `CapabilityRegistry` because entries can be direct LangChain tools or higher-level Deep Agents capabilities.
 - `server/src/chat/` runs chat requests and records run context.
 - `server/src/http/` contains route registration, route schemas, SSE helpers, and HTTP error handling.
-- `server/src/memory/` owns scoped Markdown memory files and pinned-memory budgets.
+- `server/src/memory/` owns scoped Markdown memory files, pinned-memory budgets, and the rebuildable semantic retrieval index.
 - `server/src/profiles/` stores synced user profile preferences.
 - `server/src/research/` implements the researcher subagent, search provider abstraction, search quality helpers, and web page reader.
 - `server/src/runs/` stores inspectable run-context snapshots.

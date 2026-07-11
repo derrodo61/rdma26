@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { LocalDatabase } from './local-database';
 
 describe('LocalDatabase migrations', () => {
-  it('backs up and transactionally removes the obsolete memory table through schema 8', async () => {
+  it('backs up destructive migrations and reaches the current semantic-memory schema', async () => {
     const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-database-migration-'));
     const databasePath = join(dataDir, 'rdma26.sqlite');
     const legacy = new Database(databasePath);
@@ -71,9 +71,16 @@ describe('LocalDatabase migrations', () => {
         .get()
         .prepare("select value from schema_metadata where key = 'schema_version'")
         .get();
+      const embeddingTable = migrated
+        .get()
+        .prepare(
+          "select name from sqlite_master where type = 'table' and name = 'memory_embedding_cache'",
+        )
+        .get();
 
       expect(memoryTable).toBeUndefined();
-      expect(version).toEqual({ value: '8' });
+      expect(embeddingTable).toEqual({ name: 'memory_embedding_cache' });
+      expect(version).toEqual({ value: '9' });
       expect(await readdir(join(dataDir, 'backups'))).toHaveLength(2);
       migrated.close();
     } finally {
@@ -98,9 +105,16 @@ describe('LocalDatabase migrations', () => {
         .get()
         .prepare("select name from sqlite_master where type = 'table' and name = 'memory_records'")
         .get();
+      const embeddingTable = database
+        .get()
+        .prepare(
+          "select name from sqlite_master where type = 'table' and name = 'memory_embedding_cache'",
+        )
+        .get();
 
-      expect(version).toEqual({ value: '8' });
+      expect(version).toEqual({ value: '9' });
       expect(memoryTable).toBeUndefined();
+      expect(embeddingTable).toEqual({ name: 'memory_embedding_cache' });
       await expect(readdir(join(dataDir, 'backups'))).rejects.toMatchObject({ code: 'ENOENT' });
       database.close();
     } finally {

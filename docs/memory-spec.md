@@ -192,11 +192,11 @@ Examples:
 
 ### On-Demand Memory
 
-Unpinned entries are stored as Markdown outside the startup memory list. Deep Agents can inspect them through its filesystem tools when needed.
+Unpinned entries are stored as Markdown outside the startup memory list. Deep Agents can retrieve them through the controlled `search_memory` tool when needed.
 
-The first implementation uses local file search and direct reads. It does not require embeddings or an additional LLM request.
+Evaluation showed that exact text search cannot reliably retrieve paraphrased or multilingual memories. The implemented search therefore combines exact matching with semantic similarity from a rebuildable embedding index. The Markdown files remain authoritative.
 
-If the collection later becomes too large for effective file search, rdma26 may add a rebuildable hybrid keyword/vector index. That is a later retrieval optimization, not part of the memory source model.
+Embedding vectors are cached by content hash so unchanged memories are not re-embedded. A query embedding is created only when `search_memory` performs semantic retrieval; it is not created for every chat message.
 
 ## Memory Operations
 
@@ -327,11 +327,11 @@ The rdma26 SQLite database may store UI metadata, source references, and searcha
 
 ### Search Index
 
-No embedding index is required in phase 1. A future index must be:
+The semantic index added after retrieval evaluation is:
 
 - rebuildable from memory files
 - configurable by provider and model
-- observable for embedding calls and cost
+- intended to become observable for embedding calls and cost
 - optional, with deterministic lexical search available
 
 ## Migration From The Current Implementation
@@ -384,7 +384,7 @@ Existing development memory data may be deleted; backward compatibility is not r
 
 - Remove the custom memory table, embedding cache, retrieval scoring, and summary maintenance.
 - Measure prompt size, extra tool calls, recall quality, and cost.
-- Add semantic or hybrid indexing only if evaluation shows deterministic file/thread search is insufficient.
+- Add semantic or hybrid indexing only if evaluation shows deterministic file/thread search is insufficient. This condition was met by the multilingual recall test and semantic memory search is now implemented.
 
 ## Non-Goals For The First Implementation
 

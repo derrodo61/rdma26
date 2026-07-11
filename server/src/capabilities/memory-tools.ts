@@ -13,7 +13,7 @@ export function createMemoryReadTools(
     tool(async ({ query, limit }) => await runtime.listMemories({ agentId, query, limit }), {
       name: 'search_memory',
       description:
-        "Search this agent's applicable unpinned and pinned long-term memory files by text. Use when the user asks about remembered information that is not already present in startup context. Search before saying a remembered value is unavailable.",
+        "Search this agent's applicable long-term memory files by text. First use any relevant pinned memory already present in startup context. Call this tool only when the needed information is not already loaded, and before saying a remembered value is unavailable.",
       schema: z.object({
         query: z.string().trim().min(2).describe('Short meaningful words to find in memory.'),
         limit: z.number().int().min(1).max(10).default(5),
@@ -42,7 +42,7 @@ export function createMemoryTools(
       {
         name: 'save_memory',
         description:
-          'Save an important long-term memory. Use when the user explicitly asks you to remember something or when future-useful, low-risk context clearly fits the memory rules. Pin only when the user explicitly asks to always apply, always remember, or pin the information. Automatically inferred memories must remain unpinned. Use agent_user for user preferences that apply only to this agent, such as how the user wants this agent to communicate. Use user only when the user clearly wants the memory shared across agents. Sensitive personal data may be saved only when the user explicitly asks for it. Never save secrets, credentials, raw long conversations, or temporary chat noise.',
+          'Save an important durable long-term memory. Durable means it remains saved until deleted; it does not mean pinned. Requests to remember something permanently or dauerhaft must remain unpinned. Pin only when the user explicitly asks for this information to be loaded into every conversation or explicitly uses the word pin or pinned. Automatically inferred memories must remain unpinned. Use agent_user for user preferences that apply only to this agent, such as how the user wants this agent to communicate. Use user only when the user clearly wants the memory shared across agents. Sensitive personal data may be saved only when the user explicitly asks for it. Never save secrets, credentials, raw long conversations, or temporary chat noise.',
         schema: z.object({
           scope: memoryScopeSchema
             .default('agent')
@@ -54,7 +54,7 @@ export function createMemoryTools(
             .boolean()
             .default(false)
             .describe(
-              'Include this memory in every applicable run. Set true only after an explicit user request to always apply or pin it.',
+              'Load this memory into every applicable run. Keep false for ordinary durable or permanent memory. Set true only when the user explicitly requests loading it in every conversation or explicitly says to pin it.',
             ),
           tags: z.array(z.string().trim().min(1)).default([]).describe('Short optional tags.'),
         }),

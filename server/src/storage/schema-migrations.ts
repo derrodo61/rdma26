@@ -2,7 +2,7 @@ import type Database from 'better-sqlite3';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
-export const currentSchemaVersion = 8;
+export const currentSchemaVersion = 9;
 
 interface SchemaMigration {
   readonly version: number;
@@ -20,6 +20,10 @@ const migrations: readonly SchemaMigration[] = [
     version: 8,
     destructive: true,
     up: removeCustomMemoryTable,
+  },
+  {
+    version: 9,
+    up: addMemoryEmbeddingCache,
   },
 ];
 
@@ -167,6 +171,15 @@ export function createCurrentSchema(database: Database.Database): void {
       unique(provider, url)
     );
 
+    create table if not exists memory_embedding_cache (
+      memory_id text primary key,
+      content_hash text not null,
+      model text not null,
+      dimensions integer not null,
+      vector_json text not null,
+      updated_at text not null
+    );
+
     create index if not exists idx_threads_agent_updated on threads(agent_id, updated_at);
     create index if not exists idx_messages_thread_position on messages(thread_id, position);
     create index if not exists idx_run_contexts_agent_thread on run_contexts(agent_id, thread_id);
@@ -183,6 +196,8 @@ export function createCurrentSchema(database: Database.Database): void {
     create index if not exists idx_pricing_sources_provider_active
       on pricing_sources(provider, active);
     create index if not exists idx_pricing_sources_updated on pricing_sources(updated_at);
+    create index if not exists idx_memory_embedding_model
+      on memory_embedding_cache(model, updated_at);
   `);
 }
 
@@ -254,5 +269,21 @@ function removeCustomMemoryTable(database: Database.Database): void {
     drop index if exists idx_memory_type_status_updated;
     drop index if exists idx_memory_updated;
     drop table if exists memory_records;
+  `);
+}
+
+function addMemoryEmbeddingCache(database: Database.Database): void {
+  database.exec(`
+    create table memory_embedding_cache (
+      memory_id text primary key,
+      content_hash text not null,
+      model text not null,
+      dimensions integer not null,
+      vector_json text not null,
+      updated_at text not null
+    );
+
+    create index idx_memory_embedding_model
+      on memory_embedding_cache(model, updated_at);
   `);
 }

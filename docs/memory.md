@@ -11,7 +11,7 @@ rdma26 keeps four different things separate:
 3. Scoped Markdown files contain curated long-term memory across threads.
 4. Stored threads contain past conversations and can be searched on demand.
 
-A conversation is not converted into a memory record. There are no automatic thread summaries, memory embeddings, expiration rules, lifecycle states, or background memory-maintenance LLM calls.
+A conversation is not converted into a memory record. There are no automatic thread summaries, expiration rules, lifecycle states, or background memory-maintenance LLM calls.
 
 ## Storage
 
@@ -35,7 +35,7 @@ A conversation is not converted into a memory record. There are no automatic thr
 
 `langgraph-checkpoints.sqlite` is the official LangGraph SQLite checkpointer database. It allows a Deep Agent conversation to continue after a backend restart.
 
-`rdma26.sqlite` remains the UI read model for threads, messages, run contexts, LLM calls, and pricing. It does not contain long-term memory records.
+`rdma26.sqlite` remains the UI read model for threads, messages, run contexts, LLM calls, and pricing. It does not contain authoritative long-term memory records. It also caches derived embedding vectors for semantic memory search; those vectors can be rebuilt from the Markdown files.
 
 Each memory is a Markdown file with YAML frontmatter for its id, scope, pin state, tags, source, and timestamps. The Markdown body is the durable content.
 
@@ -57,15 +57,19 @@ Knowledge or working agreements belonging to one agent. Files live in `.assistan
 
 Pinning means "load this memory at the start of every applicable run." The backend supplies pinned virtual paths through Deep Agents' `memory` option.
 
+Durable and pinned are different. Every saved memory remains stored until it is deleted, including unpinned memory. Asking an agent to remember something permanently does not pin it. Agent-created memory is unpinned by default; pinning requires an explicit request to load the information into every conversation, or a direct change through UI, API, or CLI.
+
 Each scope has a 3,000-character startup budget. A write that would exceed the budget fails clearly; rdma26 does not silently truncate another memory. Pinned memory should therefore be short and limited to information that must always apply.
 
 The run-context page shows every pinned file loaded into a run, including its scope, virtual path, content, and source metadata.
 
 ## Unpinned Memory
 
-Unpinned files are not added to startup context. When a request depends on remembered information that was not pinned, the agent can call the bounded `search_memory` tool. It searches the applicable global user, agent-user, and agent memory files and returns matching records through the same memory service used by the API and CLI.
+Unpinned files are not added to startup context. When a request depends on remembered information that was not pinned and is not already available in pinned startup memory, the agent can call the bounded `search_memory` tool. It searches the applicable global user, agent-user, and agent memory files and returns matching records through the same memory service used by the API and CLI.
 
-This is deterministic text search. It does not perform an embedding request or a hidden LLM retrieval call.
+The search combines exact text matching with semantic similarity. Semantic search uses the configured embedding model, `text-embedding-3-small` by default, so queries can match memories with different wording or language. Memory content and tags are embedded lazily on the first semantic search and cached in SQLite by content hash. Unchanged memories are not embedded again; updates invalidate their cached vector and deletion removes it. Query embeddings are created for semantic searches but do not require a chat-model call.
+
+When `OPENAI_API_KEY` is not configured, memory search falls back to exact text matching. `OPENAI_EMBEDDING_MODEL` can select a different OpenAI embedding model. With OpenAI embeddings enabled, memory text used for indexing is sent to the configured OpenAI embedding service.
 
 ## Past Conversations
 
@@ -121,4 +125,4 @@ Deleting an agent deletes its agent directory, local memory files, threads, run 
 
 ## Schema Migration
 
-Schema version 8 removes the old `memory_records` table. Startup also removes the obsolete embedding cache and memory-maintenance settings file. This migration does not delete threads or messages.
+Schema version 8 removes the old `memory_records` table. Schema version 9 adds a rebuildable embedding-vector cache while keeping Markdown as the only authoritative long-term memory source. Startup also removes the obsolete JSON embedding cache and memory-maintenance settings file. These migrations do not delete threads or messages.

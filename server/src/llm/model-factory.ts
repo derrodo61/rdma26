@@ -1,4 +1,4 @@
-import { ChatOpenAI } from '@langchain/openai';
+import { ChatOpenAI, OpenAIEmbeddings } from '@langchain/openai';
 
 export function createOpenAiChatModel(
   model: string,
@@ -14,6 +14,19 @@ export function createOpenAiChatModel(
     apiKey,
     model,
     temperature: options.temperature,
+  });
+}
+
+export function createOpenAiEmbeddings(model: string): OpenAIEmbeddings {
+  const apiKey = process.env['OPENAI_API_KEY'];
+
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY is required to create OpenAI embeddings.');
+  }
+
+  return new OpenAIEmbeddings({
+    apiKey,
+    model,
   });
 }
 
