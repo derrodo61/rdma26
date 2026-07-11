@@ -6,6 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2026-07-11]
+
+### Added
+
+- Added Usage and Pricing tabs to the cost dashboard, OpenAI pricing refresh controls, and full pricing record CRUD through the UI, API, and CLI.
+- Simplified model pricing to one active/inactive record per provider and model. Creating or updating prices activates the record, while deactivation is an explicit UI, API, or CLI action.
+- Redesigned the Pricing tab around a compact source toolbar and full-width pricing table, with create and edit forms moved into a focused modal dialog.
+- Extended official OpenAI price updates to persist input, cached-input, and output prices together for existing model records.
+- Added a shared accessible dialog component and a pricing help modal with plain-language terminology and an example cost calculation.
+
+### Fixed
+
+- Persisted the latest successful pricing-source retrieval time and displayed it after checking official prices.
+
+## [2026-07-10]
+
+### Added
+
+- Added a Deep Agents `pricing-source-analysis` skill and a generic pricing-source page reader so Cost Analyst can inspect configured official pricing pages before falling back to general research.
+- Added a generic `read_web_page_structure` capability for cleaned HTML, Markdown, links, lists, and structured tables, and taught Cost Analyst to prefer it for official pricing-source comparison.
+- Added focused `read_web_page_structure` modes and query filtering so agents can request compact table, heading, link, list, article, Markdown, or full extraction instead of full-page output by default.
+- Added separate per-agent long-term memory read and write permissions through API, CLI, and the agent edit UI, and disabled automatic memory retrieval/writes for the protected Cost Analyst agent.
+- Tightened Cost Analyst pricing-source guidance so configured official pages use `read_web_page_structure` first and the pricing-source page reader only as fallback.
+- Added a dedicated `admin_sync_openai_model_pricing` Cost Analyst tool that fetches the official OpenAI pricing page, extracts model prices deterministically, and compares them with active saved OpenAI pricing records without changing data.
+- Added direct OpenAI pricing sync through `rdma26 pricing:sync-openai` and `POST /api/model-pricing/openai/sync` so saved OpenAI price checks can run without an agent loop or LLM call.
+
+## [2026-07-09]
+
 ### Added
 
 - Added an LLM observability and cost-control specification covering call accounting, pricing records, cost estimates, model configuration, dashboards, and a future optimization agent.
@@ -35,23 +63,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added protected Cost Analyst pricing tools so it can research provider prices and update pricing only after explicit approval.
 - Added a SQLite-backed pricing source registry with API, CLI, default official OpenAI pricing source, reachability checks, and Cost Analyst source-inspection tools.
 - Enabled the protected Cost Analyst agent in the normal chat selector so it can use the full streaming chat experience.
-- Added a Deep Agents `pricing-source-analysis` skill and a generic pricing-source page reader so Cost Analyst can inspect configured official pricing pages before falling back to general research.
-- Added a generic `read_web_page_structure` capability for cleaned HTML, Markdown, links, lists, and structured tables, and taught Cost Analyst to prefer it for official pricing-source comparison.
-- Added focused `read_web_page_structure` modes and query filtering so agents can request compact table, heading, link, list, article, Markdown, or full extraction instead of full-page output by default.
-- Added separate per-agent long-term memory read and write permissions through API, CLI, and the agent edit UI, and disabled automatic memory retrieval/writes for the protected Cost Analyst agent.
-- Tightened Cost Analyst pricing-source guidance so configured official pages use `read_web_page_structure` first and the pricing-source page reader only as fallback.
-- Added a dedicated `admin_sync_openai_model_pricing` Cost Analyst tool that fetches the official OpenAI pricing page, extracts model prices deterministically, and compares them with active saved OpenAI pricing records without changing data.
-- Added direct OpenAI pricing sync through `rdma26 pricing:sync-openai` and `POST /api/model-pricing/openai/sync` so saved OpenAI price checks can run without an agent loop or LLM call.
-- Added Usage and Pricing tabs to the cost dashboard, OpenAI pricing refresh controls, and full pricing record CRUD through the UI, API, and CLI.
-- Simplified model pricing to one active/inactive record per provider and model. Creating or updating prices activates the record, while deactivation is an explicit UI, API, or CLI action.
-- Redesigned the Pricing tab around a compact source toolbar and full-width pricing table, with create and edit forms moved into a focused modal dialog.
-- Extended official OpenAI price updates to persist input, cached-input, and output prices together for existing model records.
-- Added a shared accessible dialog component and a pricing help modal with plain-language terminology and an example cost calculation.
 
 ### Fixed
 
 - Added client-side safeguards so stalled or prematurely closed agent run streams stop the chat composer and show an error instead of leaving the UI in a permanent thinking state.
-- Persist the latest successful pricing-source retrieval time and display it after checking official prices.
 
 ## [2026-07-08]
 
