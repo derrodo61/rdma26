@@ -1,7 +1,9 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, ElementRef, inject, signal, viewChild } from '@angular/core';
+import { Component, computed, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideCircleHelp } from '@ng-icons/lucide';
 
 import type {
   AgentProfile,
@@ -15,18 +17,20 @@ import type {
   SyncOpenAiModelPricingResult,
 } from '../../../../shared/agent-contracts';
 import { AssistantApi } from '../../chat/assistant-api';
+import { AppDialog } from '../../shared/app-dialog/app-dialog';
 import { AppSelect, type SelectOption } from '../../shared/app-select/app-select';
 
 @Component({
   selector: 'app-cost-settings-page',
-  imports: [FormsModule, RouterLink, AppSelect],
+  imports: [FormsModule, RouterLink, NgIcon, AppDialog, AppSelect],
+  providers: [provideIcons({ lucideCircleHelp })],
   templateUrl: './cost-settings-page.html',
   styleUrl: './cost-settings-page.css',
 })
 export class CostSettingsPage {
   private readonly api = inject(AssistantApi);
-  private readonly pricingDialog =
-    viewChild.required<ElementRef<HTMLDialogElement>>('pricingDialog');
+  private readonly pricingDialog = viewChild.required<AppDialog>('pricingDialog');
+  private readonly pricingHelpDialog = viewChild.required<AppDialog>('pricingHelpDialog');
 
   protected readonly selectedTab = signal<'usage' | 'pricing'>('usage');
   protected readonly agents = signal<readonly AgentProfile[]>([]);
@@ -264,7 +268,7 @@ export class CostSettingsPage {
         this.savedMessage.set('Pricing record created.');
       }
 
-      this.pricingDialog().nativeElement.close();
+      this.pricingDialog().close();
       this.resetPricingDraft();
       await this.loadPricing();
     });
@@ -272,7 +276,7 @@ export class CostSettingsPage {
 
   protected addPricing(): void {
     this.resetPricingDraft();
-    this.pricingDialog().nativeElement.showModal();
+    this.pricingDialog().open();
   }
 
   protected editPricing(record: ModelPricingRecord): void {
@@ -288,16 +292,20 @@ export class CostSettingsPage {
     this.draftSourceUrl.set(record.sourceUrl);
     this.draftSourceName.set(record.sourceName ?? '');
     this.selectedTab.set('pricing');
-    this.pricingDialog().nativeElement.showModal();
+    this.pricingDialog().open();
   }
 
   protected cancelPricingEdit(): void {
-    this.pricingDialog().nativeElement.close();
+    this.pricingDialog().close();
     this.resetPricingDraft();
   }
 
   protected pricingDialogClosed(): void {
     this.resetPricingDraft();
+  }
+
+  protected showPricingHelp(): void {
+    this.pricingHelpDialog().open();
   }
 
   protected async deletePricing(record: ModelPricingRecord): Promise<void> {
@@ -321,7 +329,7 @@ export class CostSettingsPage {
 
   protected async syncOpenAiPricing(): Promise<void> {
     await this.handleAsync(async () => {
-      const result = await this.api.syncOpenAiModelPricing();
+      const result = await this.api.syncOpenAiModelPricing(undefined, true);
       this.pricingSyncResult.set(result);
       this.savedMessage.set('OpenAI pricing source checked.');
       await this.loadPricing();

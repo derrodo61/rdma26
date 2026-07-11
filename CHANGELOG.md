@@ -45,6 +45,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added Usage and Pricing tabs to the cost dashboard, OpenAI pricing refresh controls, and full pricing record CRUD through the UI, API, and CLI.
 - Simplified model pricing to one active/inactive record per provider and model. Creating or updating prices activates the record, while deactivation is an explicit UI, API, or CLI action.
 - Redesigned the Pricing tab around a compact source toolbar and full-width pricing table, with create and edit forms moved into a focused modal dialog.
+- Extended official OpenAI price updates to persist input, cached-input, and output prices together for existing model records.
+- Added a shared accessible dialog component and a pricing help modal with plain-language terminology and an example cost calculation.
 
 ### Fixed
 

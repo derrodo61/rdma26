@@ -631,6 +631,7 @@ export interface SyncOpenAiModelPricingResult {
   readonly officialModelCount: number;
   readonly savedActiveModelCount: number;
   readonly matchedModels: readonly string[];
+  readonly updatedModels: readonly string[];
   readonly different: readonly OpenAiPricingComparison[];
   readonly missingOfficialModels: readonly string[];
   readonly missingLocalModels: readonly string[];

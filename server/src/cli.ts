@@ -393,7 +393,12 @@ async function main(): Promise<void> {
       );
       return;
     case 'pricing:sync-openai':
-      printJson(await runtime.syncOpenAiModelPricing(options['source']));
+      printJson(
+        await runtime.syncOpenAiModelPricing(
+          options['source'],
+          parseOptionalBooleanOption(options['apply'], 'apply') ?? false,
+        ),
+      );
       return;
     case 'pricing:delete':
       printJson(await runtime.deleteModelPricing(requiredOption(options, 'pricing')));
@@ -848,7 +853,7 @@ Usage:
   rdma26 pricing:create --provider openai --model gpt-4.1-mini --input 0.40 --output 1.60 --source-url "https://developers.openai.com/api/docs/pricing"
   rdma26 pricing:update --pricing <pricing-id> --input 0.40 --output 1.60
   rdma26 pricing:active --pricing <pricing-id> --active false
-  rdma26 pricing:sync-openai
+  rdma26 pricing:sync-openai --apply true
   rdma26 pricing:delete --pricing <pricing-id>
   rdma26 pricing-sources:list --provider openai --active true
   rdma26 pricing-sources:add --provider openai --name "OpenAI API pricing" --url "https://developers.openai.com/api/docs/pricing" --trust-level official

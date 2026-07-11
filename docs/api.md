@@ -192,7 +192,15 @@ Checks whether a pricing source URL is reachable and updates `lastCheckedAt`, `l
 
 ### `POST /api/model-pricing/openai/sync`
 
-Runs the direct deterministic OpenAI pricing check without an agent run or LLM call. It fetches the configured official OpenAI pricing source, extracts the OpenAI pricing table, compares it with active saved OpenAI pricing records, and returns a compact diff without changing saved records.
+Runs the direct deterministic OpenAI pricing check without an agent run or LLM call. It fetches the configured official OpenAI pricing source, extracts the OpenAI pricing table, and compares it with active saved OpenAI pricing records.
+
+Set `apply` to `true` to update the input, cached-input, output, source URL, and retrieval timestamp of existing records from the official short-context prices. Apply mode does not create missing models.
+
+```json
+{
+  "apply": true
+}
+```
 
 Optional body:
 

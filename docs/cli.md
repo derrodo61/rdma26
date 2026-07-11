@@ -148,7 +148,13 @@ Updating prices automatically activates the record. Use `pricing:active` to deac
 rdma26 pricing:sync-openai
 ```
 
-This is a direct deterministic check, not an agent run. It fetches the configured official OpenAI pricing source, extracts the OpenAI pricing table, compares it with active saved OpenAI pricing records, and returns a compact diff without changing saved records or using an LLM.
+This is a direct deterministic check, not an agent run. It fetches the configured official OpenAI pricing source, extracts the OpenAI pricing table, compares it with active saved OpenAI pricing records, and returns a compact diff without using an LLM.
+
+Use `--apply true` to update input, cached-input, output, source, and retrieval data for existing model records. Missing official models are not created automatically.
+
+```bash
+rdma26 pricing:sync-openai --apply true
+```
 
 ### List pricing source pages
 

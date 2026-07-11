@@ -254,6 +254,7 @@ export const setModelPricingActiveRequestSchema = z.object({
 
 export const syncOpenAiModelPricingRequestSchema = z.object({
   sourceId: z.string().uuid().optional(),
+  apply: z.boolean().optional(),
 });
 
 export const modelPricingParamsSchema = z.object({

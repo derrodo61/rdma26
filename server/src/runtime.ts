@@ -462,7 +462,10 @@ export class AssistantRuntime {
     };
   }
 
-  async syncOpenAiModelPricing(sourceId?: string): Promise<SyncOpenAiModelPricingResult> {
+  async syncOpenAiModelPricing(
+    sourceId?: string,
+    apply = false,
+  ): Promise<SyncOpenAiModelPricingResult> {
     const source = sourceId
       ? await this.pricingSourceStore.requireSource(sourceId)
       : await this.findActiveOfficialOpenAiPricingSource();
@@ -474,7 +477,54 @@ export class AssistantRuntime {
     try {
       const result = await syncOpenAiModelPricingFromSource(source, savedPricing);
       await this.pricingSourceStore.recordSourceCheck(source.id, result.source.retrievedAt);
-      return result;
+
+      if (!apply) {
+        return result;
+      }
+
+      const updatedModels: string[] = [];
+
+      for (const comparison of result.different) {
+        const official = comparison.official?.shortContext;
+
+        if (
+          official?.inputCostPerMillionTokens === undefined ||
+          official.outputCostPerMillionTokens === undefined
+        ) {
+          continue;
+        }
+
+        await this.modelPricingStore.updatePricing(comparison.saved.pricingId, {
+          inputCostPerMillionTokens: official.inputCostPerMillionTokens,
+          cachedInputCostPerMillionTokens:
+            official.cachedInputCostPerMillionTokens === undefined
+              ? null
+              : official.cachedInputCostPerMillionTokens,
+          outputCostPerMillionTokens: official.outputCostPerMillionTokens,
+          sourceUrl: result.source.url,
+          sourceName: result.source.name,
+          sourceRetrievedAt: result.source.retrievedAt,
+        });
+        updatedModels.push(comparison.model);
+      }
+
+      const remainingDifferences = result.different.filter(
+        (comparison) => !updatedModels.includes(comparison.model),
+      );
+
+      return {
+        ...result,
+        summary: updatedModels.length
+          ? `Updated ${updatedModels.length} saved OpenAI pricing records from the official source. Input, cached-input, and output prices are now current for: ${updatedModels.join(', ')}.`
+          : 'All saved OpenAI input, cached-input, and output prices already match the official source.',
+        matchedModels: [...new Set([...result.matchedModels, ...updatedModels])],
+        updatedModels,
+        different: remainingDifferences,
+        notes: [
+          ...result.notes.filter((note) => !note.startsWith('This tool only compares records.')),
+          'Apply mode updates existing records only. Official models missing locally are not created automatically.',
+        ],
+      };
     } catch (error) {
       await this.pricingSourceStore.recordSourceCheck(
         source.id,

@@ -141,10 +141,14 @@ export class AssistantApi {
     );
   }
 
-  async syncOpenAiModelPricing(sourceId?: string): Promise<SyncOpenAiModelPricingResult> {
+  async syncOpenAiModelPricing(
+    sourceId?: string,
+    apply = false,
+  ): Promise<SyncOpenAiModelPricingResult> {
     return await firstValueFrom(
       this.http.post<SyncOpenAiModelPricingResult>('/api/model-pricing/openai/sync', {
         ...(sourceId ? { sourceId } : {}),
+        apply,
       }),
     );
   }

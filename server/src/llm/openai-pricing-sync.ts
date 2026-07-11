@@ -103,10 +103,10 @@ export function compareOpenAiModelPricing({
 
   return {
     summary: [
-      `${matched.length} saved active OpenAI pricing records match official standard short-context input/output prices.`,
+      `${matched.length} saved active OpenAI pricing records match official short-context input, cached-input, and output prices.`,
       different.length
         ? `${different.length} saved records differ: ${different.map((item) => item.model).join(', ')}.`
-        : 'No saved records differ on input/output price values.',
+        : 'No saved records differ on short-context price values.',
       missingOfficial.length
         ? `${missingOfficial.length} saved records were not found in the official table: ${missingOfficial.map((item) => item.model).join(', ')}.`
         : 'Every saved active OpenAI model was found in the official table.',
@@ -124,6 +124,7 @@ export function compareOpenAiModelPricing({
     officialModelCount: officialPricing.length,
     savedActiveModelCount: savedOpenAi.length,
     matchedModels: matched.map((comparison) => comparison.model),
+    updatedModels: [],
     different,
     missingOfficialModels: missingOfficial.map((comparison) => comparison.model),
     missingLocalModels,
@@ -134,7 +135,7 @@ export function compareOpenAiModelPricing({
       }))
       .filter((warning) => warning.warnings.length > 0),
     notes: [
-      'Saved flat input/output prices are compared against official standard short-context input/output prices.',
+      'Saved input, cached-input, and output prices are compared against official short-context prices.',
       'Official cached-input, cache-write, and long-context prices are reported as metadata because the local pricing schema does not fully represent every official dimension.',
       'This tool only compares records. It does not create, update, activate, deactivate, or delete pricing records.',
     ],
@@ -211,21 +212,15 @@ function compareSavedPricing(
       saved.outputCostPerMillionTokens,
       official.shortContext.outputCostPerMillionTokens,
     ),
-    saved.cachedInputCostPerMillionTokens === undefined
-      ? undefined
-      : optionalPriceDifference(
-          'cachedInputCostPerMillionTokens',
-          saved.cachedInputCostPerMillionTokens,
-          official.shortContext.cachedInputCostPerMillionTokens,
-        ),
+    optionalPriceDifference(
+      'cachedInputCostPerMillionTokens',
+      saved.cachedInputCostPerMillionTokens,
+      official.shortContext.cachedInputCostPerMillionTokens,
+    ),
   ].filter((difference): difference is string => Boolean(difference));
 
   const metadataWarnings = [
     ...sourceWarnings(saved, officialSourceUrl),
-    saved.cachedInputCostPerMillionTokens === undefined &&
-    official.shortContext.cachedInputCostPerMillionTokens !== undefined
-      ? `Official short-context cached-input pricing exists (${official.shortContext.cachedInputCostPerMillionTokens}) but is missing locally.`
-      : undefined,
     official.shortContext.cacheWriteCostPerMillionTokens !== undefined
       ? 'Official short-context cache-write pricing exists but is not represented in the local flat pricing schema.'
       : undefined,

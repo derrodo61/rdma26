@@ -105,18 +105,21 @@ describe('OpenAI pricing sync', () => {
       ],
     });
 
-    expect(result.summary).toContain(
-      '1 saved active OpenAI pricing records match official standard short-context input/output prices.',
-    );
-    expect(result.matchedModels).toEqual(['gpt-5.4']);
+    expect(result.summary).toContain('1 saved records differ: gpt-5.4.');
+    expect(result.matchedModels).toEqual([]);
+    expect(result.updatedModels).toEqual([]);
     expect(result.metadataWarnings).toContainEqual({
       model: 'gpt-5.4',
       warnings: [
         'Saved source URL is not the configured official OpenAI pricing source: https://example.com/old-pricing',
-        'Official short-context cached-input pricing exists (0.25) but is missing locally.',
       ],
     });
-    expect(result.different).toHaveLength(0);
+    expect(result.different).toMatchObject([
+      {
+        model: 'gpt-5.4',
+        differences: ['cachedInputCostPerMillionTokens: saved missing, official 0.25.'],
+      },
+    ]);
     expect(result.missingOfficialModels).toEqual(['gpt-5.4-mini']);
     expect(result.missingLocalModels).toEqual(['gpt-5.4-pro']);
     expect(result.notes).toContain(

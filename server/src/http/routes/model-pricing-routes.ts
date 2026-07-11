@@ -80,7 +80,7 @@ export const registerModelPricingRoutes: RouteRegistrar = (server, { runtime }) 
       }
 
       try {
-        return await runtime.syncOpenAiModelPricing(body.data.sourceId);
+        return await runtime.syncOpenAiModelPricing(body.data.sourceId, body.data.apply ?? false);
       } catch (error) {
         return reply.code(400).send({
           message: getErrorMessage(error),
