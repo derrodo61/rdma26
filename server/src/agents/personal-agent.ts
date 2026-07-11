@@ -1,5 +1,6 @@
 import { CompositeBackend, createDeepAgent, FilesystemBackend } from 'deepagents';
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
+import type { ToolCallStream } from '@langchain/langgraph';
 import type { StructuredToolInterface } from '@langchain/core/tools';
 
 import type {
@@ -17,7 +18,7 @@ import {
   type AgentActivityCallback,
 } from './agent-activity';
 import { createBootloaderPromptForTest } from './agent-prompt';
-import { extractText, extractTokenUsage, extractToolCalls } from './agent-result';
+import { extractText } from './agent-result';
 import { createEnabledSubagents } from './agent-subagents';
 import { LlmAccountingCallbackHandler } from '../llm/llm-accounting-callback';
 import type { LlmCallStore } from '../llm/llm-call-store';
@@ -36,6 +37,7 @@ interface PersonalAgentRequest {
   readonly soulContent: string;
   readonly memoryPaths: readonly string[];
   readonly memoryDirectories: AgentMemoryDirectories;
+  readonly memoryReadsEnabled: boolean;
   readonly memoryWritesEnabled: boolean;
   readonly messages: readonly ChatMessage[];
   readonly prompt: string;
@@ -101,6 +103,7 @@ export class PersonalAgent {
         }),
       }),
       memory: [...request.memoryPaths],
+      permissions: createMemoryFilesystemPermissions(request.memoryReadsEnabled),
       skills: ['/skills/'],
       tools: request.tools,
       subagents: createEnabledSubagents(
@@ -138,7 +141,9 @@ export class PersonalAgent {
       },
     );
     const activityObserver = observeAgentRunActivity(run, request.onActivity);
+    const toolCallsPromise = collectCurrentToolCalls(run.toolCalls);
     const result: unknown = await run.output;
+    const toolCalls = await toolCallsPromise;
     await waitForActivityObserver(activityObserver);
 
     emitActivity(request.onActivity, {
@@ -148,8 +153,54 @@ export class PersonalAgent {
     return {
       content: extractText(result),
       usedFallback: false,
-      toolCalls: extractToolCalls(result),
-      tokenUsage: extractTokenUsage(result),
+      toolCalls,
     };
   }
+}
+
+export function createMemoryFilesystemPermissions(memoryReadsEnabled: boolean) {
+  return [
+    {
+      operations: ['write'] as const,
+      paths: ['/memory', '/memory/**'],
+      mode: 'deny' as const,
+    },
+    ...(memoryReadsEnabled
+      ? []
+      : [
+          {
+            operations: ['read'] as const,
+            paths: ['/memory', '/memory/**'],
+            mode: 'deny' as const,
+          },
+        ]),
+  ];
+}
+
+async function collectCurrentToolCalls(
+  toolCalls: AsyncIterable<ToolCallStream> | undefined,
+): Promise<RunContextToolCall[]> {
+  if (!toolCalls) return [];
+  const collected: RunContextToolCall[] = [];
+
+  for await (const call of toolCalls) {
+    let result: string;
+    try {
+      result = stringifyToolOutput(await call.output);
+    } catch (error) {
+      result = error instanceof Error ? error.message : String(error);
+    }
+    collected.push({
+      id: call.callId,
+      name: call.name,
+      args: call.input,
+      result,
+    });
+  }
+
+  return collected;
+}
+
+function stringifyToolOutput(output: unknown): string {
+  return typeof output === 'string' ? output : JSON.stringify(output);
 }

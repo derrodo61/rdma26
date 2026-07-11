@@ -93,7 +93,8 @@ ${memoryWriteGuidance}
 
 Long-term memory guidance:
 - Pinned memory files configured for this agent are loaded by Deep Agents at startup.
-- Additional unpinned memory files are available under /memory/global/, /memory/agent-user/, and /memory/agent/. Search or read those files only when the current request needs them.
+- Additional unpinned memory files are available on demand. When the user asks about remembered information that is not in pinned startup memory, use search_memory before saying it is unavailable. Native reads may inspect a returned file when more detail is needed.
+- Native filesystem writes to /memory are forbidden. Use save_memory for every memory write so scope, metadata, and pinned budgets are enforced.
 - Past conversation messages are not long-term memories. Use search_past_conversations and then read_past_conversation when the user asks about earlier discussions or when earlier thread details are needed.
 - Do not claim that no earlier conversation exists until you have searched past conversations when those tools are available.
 

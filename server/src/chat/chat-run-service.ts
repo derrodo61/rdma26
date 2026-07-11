@@ -3,7 +3,9 @@ import type { StructuredToolInterface } from '@langchain/core/tools';
 import type {
   AgentRunRequest,
   ChatThread,
+  LlmCallRecord,
   RunContextDetails,
+  RunContextTokenUsage,
   RunContextTool,
 } from '../../../shared/agent-contracts';
 import type { AgentRegistry } from '../agents/agent-registry';
@@ -11,7 +13,7 @@ import { PersonalAgent, type PersonalAgentResponse } from '../agents/personal-ag
 import { isSystemOperatorAgent } from '../agents/system-agents';
 import { createAdminTools, listAdminToolDefinitions } from '../capabilities/admin-tools';
 import type { CapabilityRegistry } from '../capabilities/capability-registry';
-import { createMemoryTools } from '../capabilities/memory-tools';
+import { createMemoryReadTools, createMemoryTools } from '../capabilities/memory-tools';
 import { createConversationTools } from '../capabilities/conversation-tools';
 import type { FileMemoryStore } from '../memory/file-memory-store';
 import type { UserProfileStore } from '../profiles/user-profile-store';
@@ -51,6 +53,7 @@ export class ChatRunService {
     const memoryWritesEnabled = storage.agent.memory.canWrite;
     const tools = [
       ...this.capabilities.createRunnableTools(storage.agent.enabledTools),
+      ...(memoryReadsEnabled ? createMemoryReadTools(this.runtime, storage.agent.id) : []),
       ...(memoryReadsEnabled
         ? createConversationTools(this.runtime, storage.agent.id, request.threadId)
         : []),
@@ -86,15 +89,22 @@ export class ChatRunService {
       soulContent,
       memoryPaths,
       memoryDirectories: this.fileMemoryStore.memoryDirectoriesForAgent(storage.agent.id),
+      memoryReadsEnabled,
       memoryWritesEnabled,
       messages: inputMessages,
       prompt: request.prompt,
       llmCallStore: this.llmCallStore,
       onActivity: options.onActivity,
     });
+    const llmCalls = await this.llmCallStore.listCallsForRun(runId);
+    const currentTokenUsage = summarizeCurrentRunTokenUsage(llmCalls);
+    const currentAgentResponse: PersonalAgentResponse = {
+      ...agentResponse,
+      tokenUsage: currentTokenUsage,
+    };
     const thread = await storage.appendMessage(request.threadId, {
       role: 'assistant',
-      content: agentResponse.content,
+      content: currentAgentResponse.content,
     });
     const assistantMessage = thread.messages.at(-1);
     const runContext = await this.runContextStore.writeRunContext({
@@ -106,7 +116,7 @@ export class ChatRunService {
       model,
       createdAt: new Date().toISOString(),
       prompt: request.prompt,
-      assistantResponse: agentResponse.content,
+      assistantResponse: currentAgentResponse.content,
       assistantMessageId: assistantMessage?.role === 'assistant' ? assistantMessage.id : undefined,
       soulVirtualPath: storage.agent.soulVirtualPath,
       soulContent,
@@ -129,15 +139,15 @@ export class ChatRunService {
         content: message.content,
       })),
       tools: toolContext,
-      toolCalls: agentResponse.toolCalls,
-      tokenUsage: agentResponse.tokenUsage,
-      llmCalls: await this.llmCallStore.listCallsForRun(runId),
+      toolCalls: currentAgentResponse.toolCalls,
+      tokenUsage: currentAgentResponse.tokenUsage,
+      llmCalls,
       memoryReadsEnabled,
       memoryWritesEnabled,
     });
 
     return {
-      agentResponse,
+      agentResponse: currentAgentResponse,
       runContext,
       runId,
       thread,
@@ -187,6 +197,13 @@ export class ChatRunService {
     const conversationTools = canReadMemory
       ? [
           {
+            id: 'search_memory',
+            label: 'Search memory',
+            description: 'Search applicable long-term memory files on demand.',
+            provider: 'rdma26-memory',
+            controlled: true,
+          },
+          {
             id: 'search_past_conversations',
             label: 'Search past conversations',
             description: "Search this agent's earlier threads.",
@@ -212,6 +229,25 @@ export class ChatRunService {
 
     return [...assignableTools, ...conversationTools, ...memoryTools, ...adminTools];
   }
+}
+
+function summarizeCurrentRunTokenUsage(
+  calls: readonly LlmCallRecord[],
+): RunContextTokenUsage | undefined {
+  if (!calls.length) return undefined;
+
+  const sum = (select: (call: LlmCallRecord) => number | undefined) =>
+    calls.reduce((total, call) => total + (select(call) ?? 0), 0);
+  const inputTokens = sum((call) => call.inputTokens);
+  const outputTokens = sum((call) => call.outputTokens);
+
+  return {
+    inputTokens,
+    outputTokens,
+    totalTokens: inputTokens + outputTokens,
+    cachedInputTokens: sum((call) => call.cachedInputTokens),
+    reasoningTokens: sum((call) => call.reasoningTokens),
+  };
 }
 
 export interface RunAgentResult {

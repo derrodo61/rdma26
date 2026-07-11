@@ -12,12 +12,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added scoped Markdown memory files for global user, agent-local user, and agent memory, mounted through Deep Agents backends.
 - Added bounded pinned startup memory and on-demand access to unpinned memory files.
 - Added controlled, bounded search and read tools for previous conversations, separate from long-term memory.
+- Added a bounded `search_memory` tool for deterministic on-demand recall of unpinned long-term memory.
 - Added run-context visibility for the exact pinned memory files loaded at startup.
 
 ### Fixed
 
 - Made omitted chat-run models resolve consistently across API and CLI from the saved per-agent user-profile setting, then the backend agent setting, and finally the application default. Explicit request model overrides still take precedence.
 - Prevented persistent LangGraph runs from resending the full UI thread after a checkpoint already exists.
+- Enforced agent memory permissions at the Deep Agents filesystem boundary so native tools cannot bypass disabled reads or controlled `save_memory` writes.
+- Limited run-context tool calls and token totals to the current run instead of inherited checkpoint history.
+- Removed an agent's LangGraph checkpoints together with its threads and other owned data.
 
 ### Removed
 

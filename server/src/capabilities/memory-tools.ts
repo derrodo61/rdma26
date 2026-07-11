@@ -4,6 +4,23 @@ import { z } from 'zod';
 import type { AssistantRuntime } from '../runtime';
 
 const memoryScopeSchema = z.enum(['agent', 'agent_user', 'user']);
+
+export function createMemoryReadTools(
+  runtime: AssistantRuntime,
+  agentId: string,
+): readonly StructuredToolInterface[] {
+  return [
+    tool(async ({ query, limit }) => await runtime.listMemories({ agentId, query, limit }), {
+      name: 'search_memory',
+      description:
+        "Search this agent's applicable unpinned and pinned long-term memory files by text. Use when the user asks about remembered information that is not already present in startup context. Search before saying a remembered value is unavailable.",
+      schema: z.object({
+        query: z.string().trim().min(2).describe('Short meaningful words to find in memory.'),
+        limit: z.number().int().min(1).max(10).default(5),
+      }),
+    }),
+  ];
+}
 export function createMemoryTools(
   runtime: AssistantRuntime,
   agentId: string,

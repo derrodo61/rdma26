@@ -63,9 +63,9 @@ The run-context page shows every pinned file loaded into a run, including its sc
 
 ## Unpinned Memory
 
-Unpinned files are mounted through Deep Agents' `CompositeBackend` but are not added to startup context. The agent can use native filesystem tools to list, search, and read `/memory/global/`, `/memory/agent-user/`, and `/memory/agent/` only when the current request requires them.
+Unpinned files are not added to startup context. When a request depends on remembered information that was not pinned, the agent can call the bounded `search_memory` tool. It searches the applicable global user, agent-user, and agent memory files and returns matching records through the same memory service used by the API and CLI.
 
-This is deterministic file access. It does not perform an embedding request or a hidden LLM retrieval call.
+This is deterministic text search. It does not perform an embedding request or a hidden LLM retrieval call.
 
 ## Past Conversations
 
@@ -80,12 +80,14 @@ The current thread is excluded. Cross-agent thread access is not allowed. This k
 
 Every agent has two independent settings:
 
-- `canRead`: enables pinned startup memory, on-demand memory directories, and past-conversation tools.
+- `canRead`: enables pinned startup memory, `search_memory`, and past-conversation tools.
 - `canWrite`: enables the controlled `save_memory` tool.
 
 The user can still manage memory through UI, API, and CLI regardless of an agent's tool permissions.
 
 The `save_memory` tool uses the same backend service as the API and CLI. Explicit user requests should be saved when writing is enabled. Sensitive, ambiguous, or unclear-scope information requires clarification. Secrets and credentials must never be saved.
+
+Deep Agents' native filesystem tools are not allowed to write under `/memory`; all agent memory writes must go through `save_memory`. When `canRead` is disabled, native reads under `/memory` are denied as well. This prevents an agent from bypassing its configured memory permissions.
 
 ## API And CLI
 
@@ -115,7 +117,7 @@ The Memories settings page supports scope selection, search, create, edit, pin/u
 
 Deleting a thread deletes its UI messages, run contexts, LLM call records, and LangGraph checkpoints. It does not delete unrelated curated memories.
 
-Deleting an agent deletes its agent directory, which includes that agent's local memory files. Global user memory remains.
+Deleting an agent deletes its agent directory, local memory files, threads, run data, and LangGraph checkpoints. Global user memory remains.
 
 ## Schema Migration
 

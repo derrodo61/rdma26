@@ -288,12 +288,17 @@ export class AssistantRuntime {
   }
 
   async deleteAgent(agentId: string): Promise<DeleteAgentResponse> {
+    const threads = await this.listThreads(agentId);
     await this.llmCallStore.deleteCallsForAgent(agentId);
     const deleted = await this.registry.deleteAgent(agentId);
 
     if (!deleted) {
       throw new Error(`Agent ${agentId} does not exist.`);
     }
+
+    await Promise.all(
+      threads.map(async (thread) => await this.threadCheckpointer.deleteThread(thread.id)),
+    );
 
     return {
       deleted: true,

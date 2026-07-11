@@ -1,9 +1,25 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type { AssistantRuntime } from '../runtime';
-import { createMemoryTools } from './memory-tools';
+import { createMemoryReadTools, createMemoryTools } from './memory-tools';
 
 describe('memory tools', () => {
+  it('searches only memory applicable to the current agent', async () => {
+    const listMemories = vi.fn(async () => ({ memories: [] }));
+    const [searchMemory] = createMemoryReadTools(
+      { listMemories } as unknown as AssistantRuntime,
+      'ronaldo',
+    );
+
+    await searchMemory.invoke({ query: 'verification planet', limit: 3 });
+
+    expect(listMemories).toHaveBeenCalledWith({
+      agentId: 'ronaldo',
+      query: 'verification planet',
+      limit: 3,
+    });
+  });
+
   it('can save explicitly requested global user memory', async () => {
     const createMemory = vi.fn(async (request: unknown) => request);
     const [saveMemory] = createMemoryTools(
