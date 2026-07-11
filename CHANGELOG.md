@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Made omitted chat-run models resolve consistently across API and CLI from the saved per-agent user-profile setting, then the backend agent setting, and finally the application default. Explicit request model overrides still take precedence.
+
 ## [2026-07-11]
 
 ### Added

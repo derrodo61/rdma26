@@ -274,12 +274,11 @@ async function main(): Promise<void> {
       return;
     case 'chat:send': {
       const threadId = requiredOption(options, 'thread');
-      const model = options['model'] ?? runtime.modelsResponse().defaultModel;
       const prompt = requiredOption(options, 'prompt');
       const result = await runtime.runAgent({
         agentId: agentId(options),
         threadId,
-        model,
+        model: options['model'],
         prompt,
       });
 

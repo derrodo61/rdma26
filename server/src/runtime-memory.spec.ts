@@ -8,6 +8,57 @@ import { LocalDatabase } from './storage/local-database';
 import { AssistantRuntime } from './runtime';
 
 describe('AssistantRuntime memory behavior', () => {
+  it('uses the saved per-agent model unless the request explicitly overrides it', async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-runtime-memory-'));
+    const previousApiKey = process.env['OPENAI_API_KEY'];
+    delete process.env['OPENAI_API_KEY'];
+
+    try {
+      const runtime = new AssistantRuntime({
+        dataDir,
+        defaultAgentId: 'scotty',
+        defaultAgentName: 'Scotty',
+      });
+      await runtime.ensureReady();
+      await runtime.updateUserProfile({
+        agentSettings: {
+          scotty: {
+            model: 'gpt-5.4-mini',
+          },
+        },
+      });
+
+      const savedModelThread = await runtime.createThread('scotty', {
+        title: 'Saved model',
+      });
+      const savedModelRun = await runtime.runAgent({
+        agentId: 'scotty',
+        threadId: savedModelThread.id,
+        prompt: 'Which model is selected?',
+      });
+
+      const overrideThread = await runtime.createThread('scotty', {
+        title: 'Explicit model override',
+      });
+      const overrideRun = await runtime.runAgent({
+        agentId: 'scotty',
+        threadId: overrideThread.id,
+        model: 'gpt-4.1-mini',
+        prompt: 'Which model is selected now?',
+      });
+
+      expect(savedModelRun.runContext.model).toBe('gpt-5.4-mini');
+      expect(overrideRun.runContext.model).toBe('gpt-4.1-mini');
+    } finally {
+      if (previousApiKey === undefined) {
+        delete process.env['OPENAI_API_KEY'];
+      } else {
+        process.env['OPENAI_API_KEY'] = previousApiKey;
+      }
+      await rm(dataDir, { recursive: true, force: true });
+    }
+  });
+
   it('enables normal chat for the protected Cost Analyst agent', async () => {
     const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-runtime-memory-'));
 

@@ -35,8 +35,12 @@ export class ChatRunService {
     const runId = options.runId ?? crypto.randomUUID();
     const storage = await this.registry.storageFor(request.agentId);
     const existingThread = await storage.readThread(request.threadId);
+    const userProfile = await this.userProfileStore.readProfile();
     const model =
-      request.model ?? storage.agent.models.chat ?? this.runtime.modelsResponse().defaultModel;
+      request.model ??
+      userProfile.agentSettings[request.agentId]?.model ??
+      storage.agent.models.chat ??
+      this.runtime.modelsResponse().defaultModel;
 
     if (!existingThread) {
       throw new Error(`Thread ${request.threadId} does not exist for agent ${request.agentId}.`);
@@ -54,7 +58,6 @@ export class ChatRunService {
       storage.agent.enabledTools,
       memoryWritesEnabled,
     );
-    const userProfile = await this.userProfileStore.readProfile();
     const soulContent = await storage.readSoul();
     const memories = memoryReadsEnabled
       ? await this.memoryStore.searchForRun(storage.agent.id, request.prompt)
