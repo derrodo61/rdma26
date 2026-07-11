@@ -105,16 +105,22 @@ describe('OpenAI pricing sync', () => {
       ],
     });
 
-    expect(result.matched).toHaveLength(1);
-    expect(result.matched[0]?.model).toBe('gpt-5.4');
-    expect(result.matched[0]?.metadataWarnings).toContain(
-      'Saved source URL is not the configured official OpenAI pricing source: https://example.com/old-pricing',
+    expect(result.summary).toContain(
+      '1 saved active OpenAI pricing records match official standard short-context input/output prices.',
     );
+    expect(result.matchedModels).toEqual(['gpt-5.4']);
+    expect(result.metadataWarnings).toContainEqual({
+      model: 'gpt-5.4',
+      warnings: [
+        'Saved source URL is not the configured official OpenAI pricing source: https://example.com/old-pricing',
+        'Official short-context cached-input pricing exists (0.25) but is missing locally.',
+      ],
+    });
     expect(result.different).toHaveLength(0);
-    expect(result.missingOfficial.map((comparison) => comparison.model)).toEqual(['gpt-5.4-mini']);
+    expect(result.missingOfficialModels).toEqual(['gpt-5.4-mini']);
     expect(result.missingLocalModels).toEqual(['gpt-5.4-pro']);
     expect(result.notes).toContain(
-      'This tool only compares records. It does not create, activate, supersede, or delete pricing records.',
+      'This tool only compares records. It does not create, update, activate, deactivate, or delete pricing records.',
     );
   });
 });
@@ -138,8 +144,6 @@ function savedPricing(
     sourceUrl: input.sourceUrl ?? source.url,
     sourceName: input.sourceName,
     sourceRetrievedAt: '2026-07-10T00:00:00.000Z',
-    validFrom: input.validFrom,
-    validUntil: input.validUntil,
     status: 'active',
     notes: input.notes,
     createdAt: '2026-07-10T00:00:00.000Z',

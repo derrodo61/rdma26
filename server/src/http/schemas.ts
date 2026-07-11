@@ -174,7 +174,7 @@ export const updateUserProfileRequestSchema = z.object({
   agentSettings: z.record(z.string(), agentSettingsSchema).optional(),
 });
 
-const modelPricingStatusSchema = z.enum(['active', 'superseded', 'unverified']);
+const modelPricingStatusSchema = z.enum(['active', 'inactive']);
 const llmCallPurposeSchema = z.enum([
   'chat',
   'research_parent',
@@ -231,16 +231,29 @@ export const createModelPricingRequestSchema = z.object({
   sourceUrl: z.string().trim().url(),
   sourceName: z.string().trim().min(1).optional(),
   sourceRetrievedAt: z.string().trim().min(1).optional(),
-  validFrom: z.string().trim().min(1).optional(),
-  validUntil: z.string().trim().min(1).optional(),
-  status: modelPricingStatusSchema.optional(),
   notes: z.string().trim().min(1).optional(),
 });
 
 export const updateModelPricingRequestSchema = z.object({
-  status: modelPricingStatusSchema.optional(),
-  validUntil: z.string().trim().min(1).optional(),
-  notes: z.string().trim().min(1).optional(),
+  provider: z.string().trim().min(1).optional(),
+  model: z.string().trim().min(1).optional(),
+  inputCostPerMillionTokens: z.number().min(0).optional(),
+  outputCostPerMillionTokens: z.number().min(0).optional(),
+  cachedInputCostPerMillionTokens: z.number().min(0).nullable().optional(),
+  reasoningCostPerMillionTokens: z.number().min(0).nullable().optional(),
+  currency: z.string().trim().min(1).optional(),
+  sourceUrl: z.string().trim().url().optional(),
+  sourceName: z.string().trim().min(1).nullable().optional(),
+  sourceRetrievedAt: z.string().trim().min(1).optional(),
+  notes: z.string().trim().min(1).nullable().optional(),
+});
+
+export const setModelPricingActiveRequestSchema = z.object({
+  active: z.boolean(),
+});
+
+export const syncOpenAiModelPricingRequestSchema = z.object({
+  sourceId: z.string().uuid().optional(),
 });
 
 export const modelPricingParamsSchema = z.object({

@@ -415,7 +415,7 @@ export interface RunContextTokenUsage {
 }
 
 export type LlmCallStatus = 'success' | 'error' | 'cancelled';
-export type ModelPricingStatus = 'active' | 'superseded' | 'unverified';
+export type ModelPricingStatus = 'active' | 'inactive';
 export type PricingSourceTrustLevel = 'official' | 'third_party' | 'user_added';
 
 export type LlmCallPurpose =
@@ -517,8 +517,6 @@ export interface ModelPricingRecord {
   readonly sourceUrl: string;
   readonly sourceName?: string;
   readonly sourceRetrievedAt: string;
-  readonly validFrom?: string;
-  readonly validUntil?: string;
   readonly status: ModelPricingStatus;
   readonly notes?: string;
   readonly createdAt: string;
@@ -546,16 +544,30 @@ export interface CreateModelPricingRequest {
   readonly sourceUrl: string;
   readonly sourceName?: string;
   readonly sourceRetrievedAt?: string;
-  readonly validFrom?: string;
-  readonly validUntil?: string;
-  readonly status?: ModelPricingStatus;
   readonly notes?: string;
 }
 
 export interface UpdateModelPricingRequest {
-  readonly status?: ModelPricingStatus;
-  readonly validUntil?: string;
-  readonly notes?: string;
+  readonly provider?: string;
+  readonly model?: string;
+  readonly inputCostPerMillionTokens?: number;
+  readonly outputCostPerMillionTokens?: number;
+  readonly cachedInputCostPerMillionTokens?: number | null;
+  readonly reasoningCostPerMillionTokens?: number | null;
+  readonly currency?: string;
+  readonly sourceUrl?: string;
+  readonly sourceName?: string | null;
+  readonly sourceRetrievedAt?: string;
+  readonly notes?: string | null;
+}
+
+export interface SetModelPricingActiveRequest {
+  readonly active: boolean;
+}
+
+export interface DeleteModelPricingResponse {
+  readonly deleted: true;
+  readonly pricingId: string;
 }
 
 export interface PricingSourceRecord {
@@ -609,6 +621,7 @@ export interface DeletePricingSourceResponse {
 export type OpenAiPricingComparisonStatus = 'match' | 'different' | 'missing_official';
 
 export interface SyncOpenAiModelPricingResult {
+  readonly summary: string;
   readonly source: {
     readonly id: string;
     readonly name: string;
@@ -617,11 +630,17 @@ export interface SyncOpenAiModelPricingResult {
   };
   readonly officialModelCount: number;
   readonly savedActiveModelCount: number;
-  readonly matched: readonly OpenAiPricingComparison[];
+  readonly matchedModels: readonly string[];
   readonly different: readonly OpenAiPricingComparison[];
-  readonly missingOfficial: readonly OpenAiPricingComparison[];
+  readonly missingOfficialModels: readonly string[];
   readonly missingLocalModels: readonly string[];
+  readonly metadataWarnings: readonly OpenAiPricingMetadataWarning[];
   readonly notes: readonly string[];
+}
+
+export interface OpenAiPricingMetadataWarning {
+  readonly model: string;
+  readonly warnings: readonly string[];
 }
 
 export interface OpenAiPricingComparison {

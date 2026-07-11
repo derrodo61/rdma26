@@ -102,6 +102,19 @@ export function compareOpenAiModelPricing({
     .filter((model) => !savedModels.has(model));
 
   return {
+    summary: [
+      `${matched.length} saved active OpenAI pricing records match official standard short-context input/output prices.`,
+      different.length
+        ? `${different.length} saved records differ: ${different.map((item) => item.model).join(', ')}.`
+        : 'No saved records differ on input/output price values.',
+      missingOfficial.length
+        ? `${missingOfficial.length} saved records were not found in the official table: ${missingOfficial.map((item) => item.model).join(', ')}.`
+        : 'Every saved active OpenAI model was found in the official table.',
+      missingLocalModels.length
+        ? `${missingLocalModels.length} official models are missing locally: ${missingLocalModels.join(', ')}.`
+        : 'No official models are missing locally.',
+      'Use metadataWarnings for source metadata, cached-input, cache-write, and long-context schema gaps. No pricing records were changed.',
+    ].join(' '),
     source: {
       id: source.id,
       name: source.name,
@@ -110,14 +123,20 @@ export function compareOpenAiModelPricing({
     },
     officialModelCount: officialPricing.length,
     savedActiveModelCount: savedOpenAi.length,
-    matched,
+    matchedModels: matched.map((comparison) => comparison.model),
     different,
-    missingOfficial,
+    missingOfficialModels: missingOfficial.map((comparison) => comparison.model),
     missingLocalModels,
+    metadataWarnings: [...matched, ...different, ...missingOfficial]
+      .map((comparison) => ({
+        model: comparison.model,
+        warnings: comparison.metadataWarnings,
+      }))
+      .filter((warning) => warning.warnings.length > 0),
     notes: [
       'Saved flat input/output prices are compared against official standard short-context input/output prices.',
       'Official cached-input, cache-write, and long-context prices are reported as metadata because the local pricing schema does not fully represent every official dimension.',
-      'This tool only compares records. It does not create, activate, supersede, or delete pricing records.',
+      'This tool only compares records. It does not create, update, activate, deactivate, or delete pricing records.',
     ],
   };
 }

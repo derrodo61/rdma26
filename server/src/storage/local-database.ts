@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import { mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
-const currentSchemaVersion = 4;
+const currentSchemaVersion = 5;
 
 export class LocalDatabase {
   private database: Database.Database | null = null;
@@ -204,6 +204,8 @@ function applySchema(database: Database.Database): void {
   ensureColumn(database, 'llm_calls', 'estimated_total_cost', 'real');
   ensureColumn(database, 'llm_calls', 'estimated_cost_currency', 'text');
 
+  migrateModelPricingToSingleRecord(database);
+
   database
     .prepare(
       `
@@ -213,6 +215,42 @@ function applySchema(database: Database.Database): void {
       `,
     )
     .run(String(currentSchemaVersion));
+}
+
+function migrateModelPricingToSingleRecord(database: Database.Database): void {
+  database.transaction(() => {
+    database.exec(`
+      delete from model_pricing
+      where id in (
+        select id
+        from (
+          select
+            id,
+            row_number() over (
+              partition by provider, model
+              order by
+                case when status = 'active' then 0 else 1 end,
+                updated_at desc,
+                created_at desc
+            ) as duplicate_rank
+          from model_pricing
+        )
+        where duplicate_rank > 1
+      );
+
+      update model_pricing
+      set status = case when status = 'active' then 'active' else 'inactive' end,
+          valid_from = null,
+          valid_until = null;
+
+      update model_pricing
+      set notes = null
+      where notes like 'Unverified pricing proposal%';
+
+      create unique index if not exists idx_model_pricing_provider_model
+        on model_pricing(provider, model);
+    `);
+  })();
 }
 
 function ensureColumn(

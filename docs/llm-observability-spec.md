@@ -138,7 +138,7 @@ The purpose should be assigned by the backend runtime at the point where the cal
 
 ### Pricing Record
 
-Model prices change. The system should store pricing as versioned records with source metadata.
+Model prices change. The system stores one current pricing record per provider and model, with source metadata.
 
 ```ts
 interface ModelPricingRecord {
@@ -153,14 +153,12 @@ interface ModelPricingRecord {
   sourceUrl: string;
   sourceName?: string;
   sourceRetrievedAt: string;
-  validFrom?: string;
-  validUntil?: string;
-  status: 'active' | 'superseded' | 'unverified';
+  status: 'active' | 'inactive';
   notes?: string;
 }
 ```
 
-Costs should be calculated from the pricing record that was active when the LLM call finished. If no pricing is known, the call should still be logged with token usage and `estimatedTotalCost` left empty.
+Costs should be calculated from the pricing record that was active when the LLM call finished. Creating or updating a pricing record makes it active. The user can deactivate it explicitly. If no active pricing is known, the call should still be logged with token usage and `estimatedTotalCost` left empty.
 
 ### Context Snapshot
 
@@ -295,30 +293,12 @@ Later, a specialized cost/optimization agent can help maintain pricing by:
 - finding new official pricing pages when configured sources no longer work
 - saving source URLs in the source registry
 - reading pricing pages periodically
-- extracting candidate prices
-- creating unverified pricing proposals
+- extracting candidate prices for user review
 - notifying the user/operator when prices may have changed
 
-Pricing updates should use a suggestion, review, approve flow.
+Pricing updates use a suggestion, review, approve flow. A suggestion is presented to the user without creating another pricing record. After explicit approval, the existing record is updated in place and becomes active. New provider/model combinations create one active record. The user can deactivate a record manually when its prices should not be used.
 
-The cost/optimization agent may create an `unverified` pricing record or proposal from an official source, but it must not silently replace active pricing. Activating a new pricing record requires explicit user approval through UI, CLI, or API.
-
-Approval should:
-
-- mark the previous active pricing record for the same provider/model as `superseded`
-- mark the approved pricing record as `active`
-- keep source URL and source retrieval date
-- keep proposal metadata
-- keep approval timestamp and approval actor when available
-
-The pricing lifecycle is:
-
-```text
-unverified -> active -> superseded
-             rejected
-```
-
-Periodic checks may create proposals or notifications, but must not automatically alter active cost calculations. Price updates affect cost reporting, so they must remain auditable.
+Periodic checks may create suggestions or notifications, but must not automatically alter active cost calculations. Source URL and retrieval date remain on the record so the current values are auditable. Historical LLM calls retain their already-calculated cost estimates.
 
 ## Cost Calculation
 
@@ -432,7 +412,7 @@ rdma26 costs:summary --since 2026-07-01 --group-by agent
 rdma26 costs:runs --limit 20
 rdma26 pricing:list
 rdma26 pricing:create --provider openai --model gpt-5.4-mini --input 0.00 --output 0.00 --source-url "..."
-rdma26 pricing:supersede --pricing <id>
+rdma26 pricing:active --pricing <id> --active false
 ```
 
 The exact command names can change, but API, CLI, and UI should use the same backend services.

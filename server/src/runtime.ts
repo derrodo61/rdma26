@@ -18,6 +18,7 @@ import type {
   CreateThreadRequest,
   DeleteAgentResponse,
   DeleteMemoryResponse,
+  DeleteModelPricingResponse,
   DeletePricingSourceResponse,
   DeleteThreadResponse,
   HealthResponse,
@@ -414,6 +415,14 @@ export class AssistantRuntime {
     return await this.modelPricingStore.updatePricing(pricingId, request);
   }
 
+  async setModelPricingActive(pricingId: string, active: boolean): Promise<ModelPricingRecord> {
+    return await this.modelPricingStore.setPricingActive(pricingId, active);
+  }
+
+  async deleteModelPricing(pricingId: string): Promise<DeleteModelPricingResponse> {
+    return await this.modelPricingStore.deletePricing(pricingId);
+  }
+
   async listPricingSources(
     request: PricingSourceListRequest = {},
   ): Promise<PricingSourceListResponse> {
@@ -627,8 +636,8 @@ ${currentGuidance}
 - For OpenAI model-price comparison, use the pricing-source-analysis skill and call admin_sync_openai_model_pricing first. It fetches the official OpenAI pricing page, extracts model prices, and compares them with saved active OpenAI pricing records without changing data.
 - Use read_web_page_structure only when the dedicated OpenAI pricing sync cannot answer the question, when the user asks for page-structure debugging, or when the provider is not OpenAI.
 - Use research only when no configured source exists, a configured source cannot be read, or the user asks you to find a new source.
-- You may create unverified model pricing records when the user asks you to store researched prices.
-- Do not activate, supersede, or replace active pricing unless the user explicitly approves that specific change.
+- Keep one pricing record per provider and model. Creating or updating prices makes that record active.
+- Do not create, update, deactivate, or delete pricing unless the user explicitly approves that specific change.
 `);
   }
 
@@ -673,12 +682,16 @@ function removeLegacyCostAnalystPricingGuidance(content: string): string {
       '\n',
     )
     .replace(
-      /\n## Pricing source analysis\n\n- First inspect configured pricing sources\. Prefer active official provider sources and include source URL, source name, and retrieval date\.\n- When a pricing source URL is already configured, use the pricing-source-analysis skill and (?:read the configured source page before using general research|extract the configured source page with structured extraction before using fallback page reading or general research)\.\n(?:- Prefer read_web_page_structure with the narrowest useful mode\. For price comparisons, use mode "tables" and a focused query\.\n)?- Use research only when no configured source exists, a configured source cannot be read, or the user asks you to find a new source\.\n/g,
+      /\n## Pricing source analysis\n\n- First inspect configured pricing sources\. Prefer active official provider sources and include source URL, source name, and retrieval date\.\n(?:(?!\n## ).)*?(?:extract_web_content|read_web_page_structure|configured source page)(?:(?!\n## ).)*?- Use research only when no configured source exists, a configured source cannot be read, or the user asks you to find a new source\.\n/gs,
       '\n',
     )
     .replace(
       '- Use research when the user asks you to find current provider prices.\n- Prefer official provider pricing pages and include source URL, source name, and retrieval date.\n',
       '- First inspect configured pricing sources. Prefer active official provider sources and include source URL, source name, and retrieval date.\n',
+    )
+    .replace(
+      '- You may create unverified model pricing records when the user asks you to store researched prices.\n- Do not activate, supersede, or replace active pricing unless the user explicitly approves that specific change.\n',
+      '- Keep one pricing record per provider and model. Creating or updating prices makes that record active.\n- Do not create, update, deactivate, or delete pricing unless the user explicitly approves that specific change.\n',
     )
     .replace(/\n{3,}/g, '\n\n')
     .trim();

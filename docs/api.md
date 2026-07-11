@@ -90,7 +90,7 @@ Optional query parameters:
 
 - `provider`
 - `model`
-- `status`: `active`, `superseded`, or `unverified`
+- `status`: `active` or `inactive`
 
 ### `POST /api/model-pricing`
 
@@ -107,25 +107,43 @@ Body:
   "cachedInputCostPerMillionTokens": 0.1,
   "currency": "USD",
   "sourceUrl": "https://developers.openai.com/api/docs/pricing",
-  "sourceName": "OpenAI API pricing",
-  "status": "active"
+  "sourceName": "OpenAI API pricing"
 }
 ```
 
-New records default to `unverified`. Creating or activating an `active` record supersedes the previous active record for the same provider and model.
+There can be only one pricing record for each provider/model combination. New records are active immediately.
 
 ### `PATCH /api/model-pricing/:pricingId`
 
-Updates a pricing record status, `validUntil`, or notes.
+Updates a pricing record.
 
 Body:
 
 ```json
 {
-  "status": "active",
+  "inputCostPerMillionTokens": 0.4,
+  "outputCostPerMillionTokens": 1.6,
   "notes": "Verified manually from the official pricing page."
 }
 ```
+
+Updating a pricing record automatically makes it active. Optional nullable fields such as `cachedInputCostPerMillionTokens`, `reasoningCostPerMillionTokens`, `sourceName`, and `notes` can be set to `null` to clear them.
+
+### `PATCH /api/model-pricing/:pricingId/active`
+
+Activates or deactivates a pricing record without changing its prices.
+
+```json
+{
+  "active": false
+}
+```
+
+When inactive, token usage is still recorded but new calls for that model have no estimated monetary cost.
+
+### `DELETE /api/model-pricing/:pricingId`
+
+Deletes a pricing record.
 
 ### `GET /api/pricing-sources`
 
@@ -171,6 +189,18 @@ Deletes a provider pricing source page.
 ### `POST /api/pricing-sources/:sourceId/check`
 
 Checks whether a pricing source URL is reachable and updates `lastCheckedAt`, `lastSuccessAt`, and `lastError`.
+
+### `POST /api/model-pricing/openai/sync`
+
+Runs the direct deterministic OpenAI pricing check without an agent run or LLM call. It fetches the configured official OpenAI pricing source, extracts the OpenAI pricing table, compares it with active saved OpenAI pricing records, and returns a compact diff without changing saved records.
+
+Optional body:
+
+```json
+{
+  "sourceId": "pricing-source-uuid"
+}
+```
 
 Cost Analyst can use configured pricing sources through controlled tools and its `pricing-source-analysis` Deep Agents skill before falling back to general web research. For OpenAI model-price comparison, it has a dedicated `admin_sync_openai_model_pricing` controlled tool that fetches the official OpenAI pricing page, extracts the model pricing table deterministically, and returns a compact comparison without changing saved pricing records.
 
@@ -224,7 +254,7 @@ Optional query parameters:
 
 ### `POST /api/optimizer-runs`
 
-Creates a hidden internal Cost Analyst thread and asks the protected optimization agent to inspect local LLM usage, pricing, run context, and model settings. The Cost Analyst has the `research` capability, a dedicated OpenAI pricing sync/compare tool, and controlled pricing tools for unverified pricing proposals from provider sources. Active pricing changes still require explicit approval.
+Creates a hidden internal Cost Analyst thread and asks the protected optimization agent to inspect local LLM usage, pricing, run context, and model settings. The Cost Analyst has the `research` capability, a dedicated OpenAI pricing sync/compare tool, and controlled pricing tools. Pricing changes require explicit approval.
 
 Body:
 

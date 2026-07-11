@@ -66,7 +66,6 @@ describe('LlmCallStore', () => {
         cachedInputCostPerMillionTokens: 0.1,
         reasoningCostPerMillionTokens: 3,
         sourceUrl: 'https://example.com/pricing',
-        status: 'active',
       });
       const runId = crypto.randomUUID();
       const call = await store.startCall({
@@ -113,7 +112,6 @@ describe('LlmCallStore', () => {
         inputCostPerMillionTokens: 1,
         outputCostPerMillionTokens: 2,
         sourceUrl: 'https://example.com/pricing',
-        status: 'active',
       });
       const first = await store.startCall({
         provider: 'openai',

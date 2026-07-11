@@ -111,15 +111,15 @@ Useful filters:
 
 - `--provider openai`
 - `--model gpt-4.1-mini`
-- `--status active|superseded|unverified`
+- `--active true|false`
 
 ### Create a model pricing record
 
 ```bash
-rdma26 pricing:create --provider openai --model gpt-4.1-mini --input 0.40 --output 1.60 --source-url "https://developers.openai.com/api/docs/pricing" --status active
+rdma26 pricing:create --provider openai --model gpt-4.1-mini --input 0.40 --output 1.60 --source-url "https://developers.openai.com/api/docs/pricing"
 ```
 
-New records default to `unverified`. Use `--status active` only after checking the source.
+New records are active immediately. A provider/model combination can have only one pricing record.
 
 Optional fields:
 
@@ -128,18 +128,27 @@ Optional fields:
 - `--currency USD`
 - `--source-name "OpenAI API pricing"`
 - `--source-retrieved-at <iso-timestamp>`
-- `--valid-from <iso-timestamp>`
-- `--valid-until <iso-timestamp>`
 - `--notes "..."`
 
-### Activate or supersede pricing
+### Update or deactivate pricing
 
 ```bash
-rdma26 pricing:activate --pricing <pricing-id>
-rdma26 pricing:supersede --pricing <pricing-id>
+rdma26 pricing:update --pricing <pricing-id> --input 0.40 --output 1.60
+rdma26 pricing:active --pricing <pricing-id> --active false
+rdma26 pricing:delete --pricing <pricing-id>
 ```
 
-Activating a pricing record supersedes the previous active record for the same provider and model.
+Updating prices automatically activates the record. Use `pricing:active` to deactivate or reactivate it explicitly.
+
+`pricing:update` accepts the same editable fields as `pricing:create`. Use `none` for optional fields such as `--cached-input`, `--reasoning`, `--source-name`, or `--notes` when you want to clear a value.
+
+### Check saved OpenAI prices against the official source
+
+```bash
+rdma26 pricing:sync-openai
+```
+
+This is a direct deterministic check, not an agent run. It fetches the configured official OpenAI pricing source, extracts the OpenAI pricing table, compares it with active saved OpenAI pricing records, and returns a compact diff without changing saved records or using an LLM.
 
 ### List pricing source pages
 
@@ -219,7 +228,7 @@ Optional flags:
 - `--title "Cost review"`
 - `--model gpt-4.1-mini`
 
-This uses the same internal optimizer runtime as the API. The Cost Analyst can inspect local LLM call records, pricing records, run context, and model settings through protected tools. It can compare saved OpenAI pricing against the configured official OpenAI pricing source with a deterministic sync tool, and it can research other provider pricing or create unverified pricing proposals. It only activates or replaces active pricing when the user explicitly approves the change.
+This uses the same internal optimizer runtime as the API. The Cost Analyst can inspect local LLM call records, pricing records, run context, and model settings through protected tools. It can compare saved OpenAI pricing against the configured official OpenAI pricing source with a deterministic sync tool and research other provider pricing. It changes pricing only when the user explicitly approves the change.
 
 ## Memories
 

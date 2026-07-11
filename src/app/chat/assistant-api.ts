@@ -19,6 +19,7 @@ import type {
   CreateModelPricingRequest,
   DeleteAgentResponse,
   DeleteMemoryResponse,
+  DeleteModelPricingResponse,
   DeleteThreadResponse,
   HealthResponse,
   LlmCallListRequest,
@@ -41,6 +42,7 @@ import type {
   ThreadSummariesRequest,
   ThreadSummariesResponse,
   ToolsResponse,
+  SyncOpenAiModelPricingResult,
   UpdateMemoryMaintenanceSettingsRequest,
   UpdateAgentRequest,
   UpdateMemoryRequest,
@@ -115,6 +117,26 @@ export class AssistantApi {
   ): Promise<ModelPricingRecord> {
     return await firstValueFrom(
       this.http.patch<ModelPricingRecord>(`/api/model-pricing/${pricingId}`, request),
+    );
+  }
+
+  async setModelPricingActive(pricingId: string, active: boolean): Promise<ModelPricingRecord> {
+    return await firstValueFrom(
+      this.http.patch<ModelPricingRecord>(`/api/model-pricing/${pricingId}/active`, { active }),
+    );
+  }
+
+  async deleteModelPricing(pricingId: string): Promise<DeleteModelPricingResponse> {
+    return await firstValueFrom(
+      this.http.delete<DeleteModelPricingResponse>(`/api/model-pricing/${pricingId}`),
+    );
+  }
+
+  async syncOpenAiModelPricing(sourceId?: string): Promise<SyncOpenAiModelPricingResult> {
+    return await firstValueFrom(
+      this.http.post<SyncOpenAiModelPricingResult>('/api/model-pricing/openai/sync', {
+        ...(sourceId ? { sourceId } : {}),
+      }),
     );
   }
 

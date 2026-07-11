@@ -12,9 +12,9 @@ import type {
   MemoryScope,
   MemoryStatus,
   MemoryType,
-  ModelPricingStatus,
   PricingSourceTrustLevel,
   ToolDefinition,
+  UpdateModelPricingRequest,
   UpdatePricingSourceRequest,
 } from '../../../shared/agent-contracts';
 import type { AssistantRuntime } from '../runtime';
@@ -42,7 +42,6 @@ const llmCallPurposeSchema = z.enum([
 ]);
 const llmCallStatusSchema = z.enum(['success', 'error', 'cancelled']);
 const costSummaryGroupBySchema = z.enum(['day', 'agent', 'model', 'purpose']);
-const modelPricingStatusSchema = z.enum(['active', 'superseded', 'unverified']);
 const pricingSourceTrustLevelSchema = z.enum(['official', 'third_party', 'user_added']);
 
 const adminToolDefinitions: readonly ToolDefinition[] = [
@@ -182,14 +181,14 @@ const adminToolDefinitions: readonly ToolDefinition[] = [
   {
     id: 'admin_create_model_pricing',
     label: 'Create pricing',
-    description: 'Create an unverified model pricing record from a researched source.',
+    description: 'Create an active model pricing record from an approved official source.',
     provider: 'rdma26-admin',
     available: true,
   },
   {
     id: 'admin_update_model_pricing',
     label: 'Update pricing',
-    description: 'Activate, supersede, or annotate a model pricing record after approval.',
+    description: 'Update pricing values or change whether a pricing record is active.',
     provider: 'rdma26-admin',
     available: true,
   },
@@ -562,11 +561,11 @@ export function createAdminTools(runtime: AssistantRuntime): readonly Structured
       },
     ),
     tool(
-      async ({ provider, model, status }: AdminListModelPricingInput) =>
+      async ({ provider, model, active }: AdminListModelPricingInput) =>
         await runtime.listModelPricing({
           provider,
           model,
-          status,
+          status: active === undefined ? undefined : active ? 'active' : 'inactive',
         }),
       {
         name: 'admin_list_model_pricing',
@@ -574,10 +573,7 @@ export function createAdminTools(runtime: AssistantRuntime): readonly Structured
         schema: z.object({
           provider: z.string().trim().min(1).optional().describe('Optional provider filter.'),
           model: z.string().trim().min(1).optional().describe('Optional model filter.'),
-          status: z
-            .enum(['active', 'superseded', 'unverified'])
-            .optional()
-            .describe('Optional pricing status filter.'),
+          active: z.boolean().optional().describe('Optional active-state filter.'),
         }),
       },
     ),
@@ -681,7 +677,7 @@ export function createAdminTools(runtime: AssistantRuntime): readonly Structured
       {
         name: 'admin_sync_openai_model_pricing',
         description:
-          'Fetch the official OpenAI pricing page, extract model prices deterministically, and compare them with active saved OpenAI pricing records. This does not create, activate, supersede, or delete pricing records.',
+          'Fetch the official OpenAI pricing page, extract model prices deterministically, and compare them with active saved OpenAI pricing records. This returns enough information to answer normal OpenAI price-match questions; do not call admin_list_model_pricing afterward unless the user needs record ids, full local metadata, or a pricing mutation plan. This does not change pricing records.',
         schema: z.object({
           sourceId: z
             .string()
@@ -695,17 +691,19 @@ export function createAdminTools(runtime: AssistantRuntime): readonly Structured
     ),
     tool(
       async (input: AdminCreateModelPricingInput) => {
+        if (!input.confirm) {
+          throw new Error('Creating model pricing requires confirm=true after explicit approval.');
+        }
+
         await ensurePricingSourceAllowed(runtime, input.provider, input.sourceUrl);
 
-        return await runtime.createModelPricing({
-          ...input,
-          status: 'unverified',
-        });
+        const { confirm: _confirm, ...request } = input;
+        return await runtime.createModelPricing(request);
       },
       {
         name: 'admin_create_model_pricing',
         description:
-          'Create an unverified model pricing proposal after researching a trustworthy source. First list configured pricing sources and use active official sources when available. This does not activate the price.',
+          'Create the single active pricing record for a model after the user explicitly approves prices from a trustworthy source.',
         schema: z.object({
           provider: z.string().trim().min(1).describe('Provider id, such as openai.'),
           model: z.string().trim().min(1).describe('Exact model id.'),
@@ -736,48 +734,48 @@ export function createAdminTools(runtime: AssistantRuntime): readonly Structured
             .min(1)
             .optional()
             .describe('ISO timestamp or date when the source was retrieved.'),
-          validFrom: z
-            .string()
-            .trim()
-            .min(1)
-            .optional()
-            .describe('Optional date/time when this pricing became valid.'),
-          validUntil: z
-            .string()
-            .trim()
-            .min(1)
-            .optional()
-            .describe('Optional date/time when this pricing stops being valid.'),
           notes: z.string().trim().min(1).optional().describe('Short evidence or caveat note.'),
+          confirm: z.literal(true).describe('Must be true after explicit user approval.'),
         }),
       },
     ),
     tool(
-      async ({ pricingId, status, validUntil, notes, confirm }: AdminUpdateModelPricingInput) => {
+      async ({ pricingId, active, confirm, ...request }: AdminUpdateModelPricingInput) => {
         if (!confirm) {
-          throw new Error('Pricing status changes require confirm=true after explicit approval.');
+          throw new Error('Pricing changes require confirm=true after explicit approval.');
         }
 
-        return await runtime.updateModelPricing(pricingId, {
-          status,
-          validUntil,
-          notes,
-        });
+        let updated: Awaited<ReturnType<AssistantRuntime['updateModelPricing']>> | undefined;
+
+        if (Object.keys(request).length) {
+          updated = await runtime.updateModelPricing(pricingId, request);
+        }
+
+        if (active !== undefined) {
+          updated = await runtime.setModelPricingActive(pricingId, active);
+        }
+
+        if (!updated) {
+          throw new Error('At least one pricing field or active state must be provided.');
+        }
+
+        return updated;
       },
       {
         name: 'admin_update_model_pricing',
         description:
-          'Activate, supersede, or annotate a pricing record. Only use after the user explicitly approves this pricing change.',
+          'Update the single pricing record for a model, or activate/deactivate it, after explicit user approval. Price updates automatically activate the record.',
         schema: z.object({
           pricingId: z.string().uuid().describe('Pricing record id.'),
-          status: modelPricingStatusSchema.describe('New pricing status.'),
-          validUntil: z
-            .string()
-            .trim()
-            .min(1)
-            .optional()
-            .describe('Optional date/time when superseded pricing stopped being valid.'),
+          inputCostPerMillionTokens: z.number().min(0).optional(),
+          outputCostPerMillionTokens: z.number().min(0).optional(),
+          cachedInputCostPerMillionTokens: z.number().min(0).nullable().optional(),
+          currency: z.string().trim().min(1).optional(),
+          sourceUrl: z.string().url().optional(),
+          sourceName: z.string().trim().min(1).nullable().optional(),
+          sourceRetrievedAt: z.string().trim().min(1).optional(),
           notes: z.string().trim().min(1).optional().describe('Optional update note.'),
+          active: z.boolean().optional().describe('Optional active-state change.'),
           confirm: z.literal(true).describe('Must be true after explicit user approval.'),
         }),
       },
@@ -864,7 +862,7 @@ interface AdminSummarizeCostsInput extends Omit<AdminListLlmCallsInput, 'limit'>
 interface AdminListModelPricingInput {
   readonly provider?: string;
   readonly model?: string;
-  readonly status?: ModelPricingStatus;
+  readonly active?: boolean;
 }
 
 interface AdminListPricingSourcesInput {
@@ -873,18 +871,14 @@ interface AdminListPricingSourcesInput {
   readonly active?: boolean;
 }
 
-interface AdminCreateModelPricingInput extends Omit<
-  CreateModelPricingRequest,
-  'status' | 'currency'
-> {
+interface AdminCreateModelPricingInput extends Omit<CreateModelPricingRequest, 'currency'> {
   readonly currency: string;
+  readonly confirm: true;
 }
 
-interface AdminUpdateModelPricingInput {
+interface AdminUpdateModelPricingInput extends UpdateModelPricingRequest {
   readonly pricingId: string;
-  readonly status: ModelPricingStatus;
-  readonly validUntil?: string;
-  readonly notes?: string;
+  readonly active?: boolean;
   readonly confirm: true;
 }
 

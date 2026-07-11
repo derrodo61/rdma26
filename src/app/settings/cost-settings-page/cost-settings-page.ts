@@ -10,8 +10,8 @@ import type {
   LlmCallPurpose,
   LlmCallRecord,
   ModelPricingRecord,
-  ModelPricingStatus,
   OptimizerRunResponse,
+  SyncOpenAiModelPricingResult,
 } from '../../../../shared/agent-contracts';
 import { AssistantApi } from '../../chat/assistant-api';
 import { AppSelect, type SelectOption } from '../../shared/app-select/app-select';
@@ -25,6 +25,7 @@ import { AppSelect, type SelectOption } from '../../shared/app-select/app-select
 export class CostSettingsPage {
   private readonly api = inject(AssistantApi);
 
+  protected readonly selectedTab = signal<'usage' | 'pricing'>('usage');
   protected readonly agents = signal<readonly AgentProfile[]>([]);
   protected readonly summaryRows = signal<readonly CostSummaryRow[]>([]);
   protected readonly llmCalls = signal<readonly LlmCallRecord[]>([]);
@@ -39,11 +40,11 @@ export class CostSettingsPage {
   protected readonly draftInputCost = signal('');
   protected readonly draftOutputCost = signal('');
   protected readonly draftCachedInputCost = signal('');
-  protected readonly draftReasoningCost = signal('');
   protected readonly draftCurrency = signal('USD');
   protected readonly draftSourceUrl = signal('');
   protected readonly draftSourceName = signal('');
-  protected readonly draftStatus = signal<ModelPricingStatus>('unverified');
+  protected readonly editingPricingId = signal<string | null>(null);
+  protected readonly pricingSyncResult = signal<SyncOpenAiModelPricingResult | null>(null);
   protected readonly optimizerPrompt = signal('');
   protected readonly optimizerResult = signal<OptimizerRunResponse | null>(null);
   protected readonly isLoading = signal(true);
@@ -68,11 +69,6 @@ export class CostSettingsPage {
     { value: 'memory_retrieval', label: 'Memory retrieval' },
     { value: 'memory_maintenance', label: 'Memory maintenance' },
     { value: 'unknown', label: 'Unknown' },
-  ];
-  protected readonly pricingStatusOptions: readonly SelectOption[] = [
-    { value: 'unverified', label: 'Unverified' },
-    { value: 'active', label: 'Active' },
-    { value: 'superseded', label: 'Superseded' },
   ];
   protected readonly agentOptions = computed<readonly SelectOption[]>(() => [
     { value: '', label: 'All agents' },
@@ -110,12 +106,22 @@ export class CostSettingsPage {
       Boolean(this.draftSourceUrl().trim()) &&
       !this.isSaving(),
   );
+  protected readonly pricingFormTitle = computed(() =>
+    this.editingPricingId() ? 'Edit pricing record' : 'Create pricing record',
+  );
+  protected readonly pricingFormAction = computed(() =>
+    this.editingPricingId() ? 'Save pricing' : 'Create pricing',
+  );
   protected readonly canAskOptimizer = computed(
     () => Boolean(this.optimizerPrompt().trim()) && !this.isSaving(),
   );
 
   constructor() {
     void this.load();
+  }
+
+  protected selectTab(tab: 'usage' | 'pricing'): void {
+    this.selectedTab.set(tab);
   }
 
   protected updateAgent(agentId: string): void {
@@ -174,10 +180,6 @@ export class CostSettingsPage {
     this.draftCachedInputCost.set(value);
   }
 
-  protected updateDraftReasoningCost(value: string): void {
-    this.draftReasoningCost.set(value);
-  }
-
   protected updateDraftCurrency(value: string): void {
     this.draftCurrency.set(value);
   }
@@ -188,10 +190,6 @@ export class CostSettingsPage {
 
   protected updateDraftSourceName(value: string): void {
     this.draftSourceName.set(value);
-  }
-
-  protected updateDraftStatus(value: string): void {
-    this.draftStatus.set(value as ModelPricingStatus);
   }
 
   protected updateOptimizerPrompt(value: string): void {
@@ -217,7 +215,7 @@ export class CostSettingsPage {
     });
   }
 
-  protected async createPricing(): Promise<void> {
+  protected async savePricing(): Promise<void> {
     const inputCost = parseOptionalNonNegativeNumber(this.draftInputCost());
     const outputCost = parseOptionalNonNegativeNumber(this.draftOutputCost());
 
@@ -227,44 +225,87 @@ export class CostSettingsPage {
     }
 
     await this.handleAsync(async () => {
-      await this.api.createModelPricing({
+      const request = {
         provider: this.draftProvider().trim(),
         model: this.draftModel().trim(),
         inputCostPerMillionTokens: inputCost,
         outputCostPerMillionTokens: outputCost,
-        cachedInputCostPerMillionTokens: parseOptionalNonNegativeNumber(
-          this.draftCachedInputCost(),
-        ),
-        reasoningCostPerMillionTokens: parseOptionalNonNegativeNumber(this.draftReasoningCost()),
+        cachedInputCostPerMillionTokens: parseOptionalNullableNumber(this.draftCachedInputCost()),
         currency: this.draftCurrency().trim() || 'USD',
         sourceUrl: this.draftSourceUrl().trim(),
-        sourceName: this.draftSourceName().trim() || undefined,
-        status: this.draftStatus(),
-      });
-      this.draftModel.set('');
-      this.draftInputCost.set('');
-      this.draftOutputCost.set('');
-      this.draftCachedInputCost.set('');
-      this.draftReasoningCost.set('');
-      this.draftSourceUrl.set('');
-      this.draftSourceName.set('');
-      this.savedMessage.set('Pricing record created.');
+        sourceName: this.draftSourceName().trim() || null,
+      };
+      const editingPricingId = this.editingPricingId();
+
+      if (editingPricingId) {
+        await this.api.updateModelPricing(editingPricingId, request);
+        this.savedMessage.set('Pricing record updated.');
+      } else {
+        await this.api.createModelPricing({
+          ...request,
+          sourceName: request.sourceName ?? undefined,
+          cachedInputCostPerMillionTokens: request.cachedInputCostPerMillionTokens ?? undefined,
+        });
+        this.savedMessage.set('Pricing record created.');
+      }
+
+      this.resetPricingDraft();
       await this.loadPricing();
     });
   }
 
-  protected async activatePricing(record: ModelPricingRecord): Promise<void> {
+  protected editPricing(record: ModelPricingRecord): void {
+    this.editingPricingId.set(record.id);
+    this.draftProvider.set(record.provider);
+    this.draftModel.set(record.model);
+    this.draftInputCost.set(String(record.inputCostPerMillionTokens));
+    this.draftOutputCost.set(String(record.outputCostPerMillionTokens));
+    this.draftCachedInputCost.set(
+      formatOptionalDraftNumber(record.cachedInputCostPerMillionTokens),
+    );
+    this.draftCurrency.set(record.currency);
+    this.draftSourceUrl.set(record.sourceUrl);
+    this.draftSourceName.set(record.sourceName ?? '');
+    this.selectedTab.set('pricing');
+  }
+
+  protected cancelPricingEdit(): void {
+    this.resetPricingDraft();
+  }
+
+  protected async deletePricing(record: ModelPricingRecord): Promise<void> {
+    const confirmed = window.confirm(
+      `Delete pricing record for ${record.provider} / ${record.model}?`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
     await this.handleAsync(async () => {
-      await this.api.updateModelPricing(record.id, { status: 'active' });
-      this.savedMessage.set('Pricing record activated.');
+      await this.api.deleteModelPricing(record.id);
+      if (this.editingPricingId() === record.id) {
+        this.resetPricingDraft();
+      }
+      this.savedMessage.set('Pricing record deleted.');
       await this.loadPricing();
     });
   }
 
-  protected async supersedePricing(record: ModelPricingRecord): Promise<void> {
+  protected async syncOpenAiPricing(): Promise<void> {
     await this.handleAsync(async () => {
-      await this.api.updateModelPricing(record.id, { status: 'superseded' });
-      this.savedMessage.set('Pricing record superseded.');
+      const result = await this.api.syncOpenAiModelPricing();
+      this.pricingSyncResult.set(result);
+      this.savedMessage.set('OpenAI pricing source checked.');
+      await this.loadPricing();
+    });
+  }
+
+  protected async togglePricingActive(record: ModelPricingRecord): Promise<void> {
+    await this.handleAsync(async () => {
+      const active = record.status !== 'active';
+      await this.api.setModelPricingActive(record.id, active);
+      this.savedMessage.set(active ? 'Pricing record activated.' : 'Pricing record deactivated.');
       await this.loadPricing();
     });
   }
@@ -329,6 +370,18 @@ export class CostSettingsPage {
     this.pricing.set(response.pricing);
   }
 
+  private resetPricingDraft(): void {
+    this.editingPricingId.set(null);
+    this.draftProvider.set('openai');
+    this.draftModel.set('');
+    this.draftInputCost.set('');
+    this.draftOutputCost.set('');
+    this.draftCachedInputCost.set('');
+    this.draftCurrency.set('USD');
+    this.draftSourceUrl.set('');
+    this.draftSourceName.set('');
+  }
+
   private async handleAsync(work: () => Promise<void>): Promise<void> {
     try {
       this.isSaving.set(true);
@@ -352,6 +405,14 @@ function parseOptionalNonNegativeNumber(value: string): number | undefined {
   const parsed = Number(trimmed);
 
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+}
+
+function parseOptionalNullableNumber(value: string): number | null {
+  return parseOptionalNonNegativeNumber(value) ?? null;
+}
+
+function formatOptionalDraftNumber(value: number | undefined): string {
+  return value === undefined ? '' : String(value);
 }
 
 function formatCost(amount: number, currency: string): string {

@@ -10,7 +10,6 @@ import type {
   MemoryScope,
   MemoryStatus,
   MemoryType,
-  ModelPricingStatus,
   PricingSourceTrustLevel,
   ThemePreference,
   TimeStylePreference,
@@ -338,7 +337,7 @@ async function main(): Promise<void> {
         await runtime.listModelPricing({
           provider: options['provider'],
           model: options['model'],
-          status: parseModelPricingStatus(options['status']),
+          status: pricingStatusFromActiveOption(options['active']),
         }),
       );
       return;
@@ -358,27 +357,46 @@ async function main(): Promise<void> {
           sourceUrl: requiredOption(options, 'source-url'),
           sourceName: options['source-name'],
           sourceRetrievedAt: options['source-retrieved-at'],
-          validFrom: options['valid-from'],
-          validUntil: options['valid-until'],
-          status: parseModelPricingStatus(options['status']) ?? 'unverified',
           notes: options['notes'],
         }),
       );
       return;
-    case 'pricing:activate':
+    case 'pricing:update':
       printJson(
         await runtime.updateModelPricing(requiredOption(options, 'pricing'), {
-          status: 'active',
+          provider: options['provider'],
+          model: options['model'],
+          inputCostPerMillionTokens: parseOptionalNumber(options['input'], 'input'),
+          outputCostPerMillionTokens: parseOptionalNumber(options['output'], 'output'),
+          cachedInputCostPerMillionTokens: parseOptionalNullableNumber(
+            options['cached-input'],
+            'cached-input',
+          ),
+          reasoningCostPerMillionTokens: parseOptionalNullableNumber(
+            options['reasoning'],
+            'reasoning',
+          ),
+          currency: options['currency'],
+          sourceUrl: options['source-url'],
+          sourceName: parseOptionalNullableString(options['source-name']),
+          sourceRetrievedAt: options['source-retrieved-at'],
+          notes: parseOptionalNullableString(options['notes']),
         }),
       );
       return;
-    case 'pricing:supersede':
+    case 'pricing:active':
       printJson(
-        await runtime.updateModelPricing(requiredOption(options, 'pricing'), {
-          status: 'superseded',
-          validUntil: options['valid-until'],
-        }),
+        await runtime.setModelPricingActive(
+          requiredOption(options, 'pricing'),
+          parseBooleanOption(requiredOption(options, 'active'), 'active'),
+        ),
       );
+      return;
+    case 'pricing:sync-openai':
+      printJson(await runtime.syncOpenAiModelPricing(options['source']));
+      return;
+    case 'pricing:delete':
+      printJson(await runtime.deleteModelPricing(requiredOption(options, 'pricing')));
       return;
     case 'pricing-sources:list':
       printJson(
@@ -557,6 +575,25 @@ function parseOptionalNumber(value: string | undefined, name: string): number | 
   return parsed;
 }
 
+function parseOptionalNullableNumber(
+  value: string | undefined,
+  name: string,
+): number | null | undefined {
+  if (value === 'none') {
+    return null;
+  }
+
+  return parseOptionalNumber(value, name);
+}
+
+function parseOptionalNullableString(value: string | undefined): string | null | undefined {
+  if (value === 'none') {
+    return null;
+  }
+
+  return value;
+}
+
 function parseBooleanOption(value: string, name: string): boolean {
   if (value === 'true') {
     return true;
@@ -571,6 +608,13 @@ function parseBooleanOption(value: string, name: string): boolean {
 
 function parseOptionalBooleanOption(value: string | undefined, name: string): boolean | undefined {
   return value === undefined ? undefined : parseBooleanOption(value, name);
+}
+
+function pricingStatusFromActiveOption(
+  value: string | undefined,
+): 'active' | 'inactive' | undefined {
+  const active = parseOptionalBooleanOption(value, 'active');
+  return active === undefined ? undefined : active ? 'active' : 'inactive';
 }
 
 function parseRequiredMemoryScope(value: string | undefined): MemoryScope {
@@ -647,18 +691,6 @@ function parseMemoryLifetime(value: string | undefined): MemoryLifetime | undefi
   }
 
   throw new Error('--lifetime must be permanent, active, or temporary.');
-}
-
-function parseModelPricingStatus(value: string | undefined): ModelPricingStatus | undefined {
-  if (!value) {
-    return undefined;
-  }
-
-  if (value === 'active' || value === 'superseded' || value === 'unverified') {
-    return value;
-  }
-
-  throw new Error('--status must be active, superseded, or unverified.');
 }
 
 function parsePricingSourceTrustLevel(
@@ -812,10 +844,12 @@ Usage:
   rdma26 llm-calls:list --agent scotty --limit 20
   rdma26 llm-calls:show --call <call-id>
   rdma26 costs:summary --started-from 2026-07-01 --group-by model
-  rdma26 pricing:list --provider openai --model gpt-4.1-mini
-  rdma26 pricing:create --provider openai --model gpt-4.1-mini --input 0.40 --output 1.60 --source-url "https://developers.openai.com/api/docs/pricing" --status active
-  rdma26 pricing:activate --pricing <pricing-id>
-  rdma26 pricing:supersede --pricing <pricing-id>
+  rdma26 pricing:list --provider openai --model gpt-4.1-mini --active true
+  rdma26 pricing:create --provider openai --model gpt-4.1-mini --input 0.40 --output 1.60 --source-url "https://developers.openai.com/api/docs/pricing"
+  rdma26 pricing:update --pricing <pricing-id> --input 0.40 --output 1.60
+  rdma26 pricing:active --pricing <pricing-id> --active false
+  rdma26 pricing:sync-openai
+  rdma26 pricing:delete --pricing <pricing-id>
   rdma26 pricing-sources:list --provider openai --active true
   rdma26 pricing-sources:add --provider openai --name "OpenAI API pricing" --url "https://developers.openai.com/api/docs/pricing" --trust-level official
   rdma26 pricing-sources:update --source <source-id> --active false

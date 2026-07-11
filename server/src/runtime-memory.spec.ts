@@ -63,6 +63,7 @@ describe('AssistantRuntime memory behavior', () => {
       expect(skill).toContain('read_web_page_structure');
       expect(skill).toContain('admin_read_pricing_source_page');
       expect(skill).toContain('call `admin_sync_openai_model_pricing` first');
+      expect(skill).toContain('Do not call `admin_list_model_pricing` before');
       expect(skill).toContain('Use the narrowest useful mode');
       expect(skill).toContain('mode: "tables"');
       expect(skill).toContain('short-context cached input');

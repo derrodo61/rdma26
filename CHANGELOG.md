@@ -14,7 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Decided that model settings should be backend-owned, live-editable through UI/API/CLI, and layered as global defaults plus per-agent and per-capability overrides.
 - Decided that LLM context inspection should store structured context references by default, with exact full prompt capture available only through an explicit local debug setting and purge support.
 - Decided that LLM cost reporting should be labeled as estimated cost based on recorded usage and auditable pricing snapshots, not exact provider billing.
-- Decided that pricing updates should use unverified proposals and explicit user approval before changing active cost calculations.
+- Decided that pricing suggestions require explicit user approval before updating the single active/inactive record for a provider and model.
 - Decided that LLM call records should be retained indefinitely by default, with manual cleanup controls and separate full-prompt payload purging.
 - Decided that failed LLM calls should be logged, with estimated cost calculated only when usage metadata is available.
 - Decided that estimated cost should not be shown inline in normal chat by default, with detailed cost shown in run inspection and dashboards instead.
@@ -32,7 +32,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added controlled Scotty observability tools for listing LLM calls, summarizing estimated costs, and reading pricing records.
 - Added a cost dashboard for filtering LLM calls, summarizing estimated costs, inspecting recent calls, and managing pricing records.
 - Added the protected internal Cost Analyst agent with API, CLI, and UI access for advisory LLM usage and cost optimization.
-- Added protected Cost Analyst pricing tools so it can research provider prices and store unverified pricing proposals, with activation still requiring explicit approval.
+- Added protected Cost Analyst pricing tools so it can research provider prices and update pricing only after explicit approval.
 - Added a SQLite-backed pricing source registry with API, CLI, default official OpenAI pricing source, reachability checks, and Cost Analyst source-inspection tools.
 - Enabled the protected Cost Analyst agent in the normal chat selector so it can use the full streaming chat experience.
 - Added a Deep Agents `pricing-source-analysis` skill and a generic pricing-source page reader so Cost Analyst can inspect configured official pricing pages before falling back to general research.
@@ -41,6 +41,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added separate per-agent long-term memory read and write permissions through API, CLI, and the agent edit UI, and disabled automatic memory retrieval/writes for the protected Cost Analyst agent.
 - Tightened Cost Analyst pricing-source guidance so configured official pages use `read_web_page_structure` first and the pricing-source page reader only as fallback.
 - Added a dedicated `admin_sync_openai_model_pricing` Cost Analyst tool that fetches the official OpenAI pricing page, extracts model prices deterministically, and compares them with active saved OpenAI pricing records without changing data.
+- Added direct OpenAI pricing sync through `rdma26 pricing:sync-openai` and `POST /api/model-pricing/openai/sync` so saved OpenAI price checks can run without an agent loop or LLM call.
+- Added Usage and Pricing tabs to the cost dashboard, OpenAI pricing refresh controls, and full pricing record CRUD through the UI, API, and CLI.
+- Simplified model pricing to one active/inactive record per provider and model. Creating or updating prices activates the record, while deactivation is an explicit UI, API, or CLI action.
 
 ### Fixed
 

@@ -1,5 +1,6 @@
 import type {
   CreateModelPricingRequest,
+  DeleteModelPricingResponse,
   ModelPricingListRequest,
   ModelPricingRecord,
   ModelPricingStatus,
@@ -58,12 +59,24 @@ export class ModelPricingStore {
   async createPricing(request: CreateModelPricingRequest): Promise<ModelPricingRecord> {
     await this.ensureReady();
 
+    const provider = request.provider.trim();
+    const model = request.model.trim();
+    const existing = this.database
+      .get()
+      .prepare('select id from model_pricing where provider = ? and model = ?')
+      .get(provider, model);
+
+    if (existing) {
+      throw new Error(
+        `Pricing for ${provider} / ${model} already exists. Update that record instead.`,
+      );
+    }
+
     const now = new Date().toISOString();
-    const status = request.status ?? 'unverified';
     const record: ModelPricingRecord = {
       id: crypto.randomUUID(),
-      provider: request.provider.trim(),
-      model: request.model.trim(),
+      provider,
+      model,
       inputCostPerMillionTokens: request.inputCostPerMillionTokens,
       outputCostPerMillionTokens: request.outputCostPerMillionTokens,
       cachedInputCostPerMillionTokens: request.cachedInputCostPerMillionTokens,
@@ -72,23 +85,16 @@ export class ModelPricingStore {
       sourceUrl: request.sourceUrl.trim(),
       sourceName: request.sourceName?.trim() || undefined,
       sourceRetrievedAt: request.sourceRetrievedAt ?? now,
-      validFrom: request.validFrom,
-      validUntil: request.validUntil,
-      status,
+      status: 'active',
       notes: request.notes?.trim() || undefined,
       createdAt: now,
       updatedAt: now,
     };
 
-    this.database.get().transaction(() => {
-      if (record.status === 'active') {
-        this.supersedeActivePricing(record.provider, record.model, record.id, now);
-      }
-
-      this.database
-        .get()
-        .prepare(
-          `
+    this.database
+      .get()
+      .prepare(
+        `
             insert into model_pricing (
               id,
               provider,
@@ -110,27 +116,26 @@ export class ModelPricingStore {
             )
             values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `,
-        )
-        .run(
-          record.id,
-          record.provider,
-          record.model,
-          record.inputCostPerMillionTokens,
-          record.outputCostPerMillionTokens,
-          record.cachedInputCostPerMillionTokens,
-          record.reasoningCostPerMillionTokens,
-          record.currency,
-          record.sourceUrl,
-          record.sourceName,
-          record.sourceRetrievedAt,
-          record.validFrom,
-          record.validUntil,
-          record.status,
-          record.notes,
-          record.createdAt,
-          record.updatedAt,
-        );
-    })();
+      )
+      .run(
+        record.id,
+        record.provider,
+        record.model,
+        record.inputCostPerMillionTokens,
+        record.outputCostPerMillionTokens,
+        record.cachedInputCostPerMillionTokens,
+        record.reasoningCostPerMillionTokens,
+        record.currency,
+        record.sourceUrl,
+        record.sourceName,
+        record.sourceRetrievedAt,
+        undefined,
+        undefined,
+        record.status,
+        record.notes,
+        record.createdAt,
+        record.updatedAt,
+      );
 
     return await this.requirePricing(record.id);
   }
@@ -143,31 +148,100 @@ export class ModelPricingStore {
 
     const existing = await this.requirePricing(pricingId);
     const now = new Date().toISOString();
-    const status = request.status ?? existing.status;
-    const validUntil = request.validUntil ?? existing.validUntil;
-    const notes = request.notes ?? existing.notes;
+    const provider = request.provider?.trim() ?? existing.provider;
+    const model = request.model?.trim() ?? existing.model;
+    const inputCostPerMillionTokens =
+      request.inputCostPerMillionTokens ?? existing.inputCostPerMillionTokens;
+    const outputCostPerMillionTokens =
+      request.outputCostPerMillionTokens ?? existing.outputCostPerMillionTokens;
+    const cachedInputCostPerMillionTokens =
+      request.cachedInputCostPerMillionTokens === undefined
+        ? existing.cachedInputCostPerMillionTokens
+        : (request.cachedInputCostPerMillionTokens ?? undefined);
+    const reasoningCostPerMillionTokens =
+      request.reasoningCostPerMillionTokens === undefined
+        ? existing.reasoningCostPerMillionTokens
+        : (request.reasoningCostPerMillionTokens ?? undefined);
+    const currency = request.currency?.trim() ?? existing.currency;
+    const sourceUrl = request.sourceUrl?.trim() ?? existing.sourceUrl;
+    const sourceName =
+      request.sourceName === undefined
+        ? existing.sourceName
+        : request.sourceName?.trim() || undefined;
+    const sourceRetrievedAt = request.sourceRetrievedAt ?? existing.sourceRetrievedAt;
+    const notes = request.notes === undefined ? existing.notes : request.notes?.trim() || undefined;
 
-    this.database.get().transaction(() => {
-      if (status === 'active') {
-        this.supersedeActivePricing(existing.provider, existing.model, pricingId, now);
-      }
-
-      this.database
-        .get()
-        .prepare(
-          `
+    this.database
+      .get()
+      .prepare(
+        `
             update model_pricing
-            set status = ?,
-                valid_until = ?,
+            set provider = ?,
+                model = ?,
+                input_cost_per_million_tokens = ?,
+                output_cost_per_million_tokens = ?,
+                cached_input_cost_per_million_tokens = ?,
+                reasoning_cost_per_million_tokens = ?,
+                currency = ?,
+                source_url = ?,
+                source_name = ?,
+                source_retrieved_at = ?,
+                valid_from = null,
+                status = 'active',
+                valid_until = null,
                 notes = ?,
                 updated_at = ?
             where id = ?
           `,
-        )
-        .run(status, validUntil, notes, now, pricingId);
-    })();
+      )
+      .run(
+        provider,
+        model,
+        inputCostPerMillionTokens,
+        outputCostPerMillionTokens,
+        cachedInputCostPerMillionTokens,
+        reasoningCostPerMillionTokens,
+        currency,
+        sourceUrl,
+        sourceName,
+        sourceRetrievedAt,
+        notes,
+        now,
+        pricingId,
+      );
 
     return await this.requirePricing(pricingId);
+  }
+
+  async setPricingActive(pricingId: string, active: boolean): Promise<ModelPricingRecord> {
+    await this.ensureReady();
+    await this.requirePricing(pricingId);
+
+    this.database
+      .get()
+      .prepare(
+        `
+          update model_pricing
+          set status = ?,
+              updated_at = ?
+          where id = ?
+        `,
+      )
+      .run(active ? 'active' : 'inactive', new Date().toISOString(), pricingId);
+
+    return await this.requirePricing(pricingId);
+  }
+
+  async deletePricing(pricingId: string): Promise<DeleteModelPricingResponse> {
+    await this.ensureReady();
+    await this.requirePricing(pricingId);
+
+    this.database.get().prepare('delete from model_pricing where id = ?').run(pricingId);
+
+    return {
+      deleted: true,
+      pricingId,
+    };
   }
 
   async requirePricing(pricingId: string): Promise<ModelPricingRecord> {
@@ -194,7 +268,7 @@ export class ModelPricingStore {
   async findActivePricing(
     provider: string,
     model: string,
-    at: string,
+    _at: string,
   ): Promise<ModelPricingRecord | null> {
     await this.ensureReady();
 
@@ -207,38 +281,12 @@ export class ModelPricingStore {
           where provider = ?
             and model = ?
             and status = 'active'
-            and (valid_from is null or valid_from <= ?)
-            and (valid_until is null or valid_until >= ?)
-          order by valid_from desc, updated_at desc
           limit 1
         `,
       )
-      .get(provider, model, at, at);
+      .get(provider, model);
 
     return row ? modelPricingFromRow(row) : null;
-  }
-
-  private supersedeActivePricing(
-    provider: string,
-    model: string,
-    exceptPricingId: string,
-    updatedAt: string,
-  ): void {
-    this.database
-      .get()
-      .prepare(
-        `
-          update model_pricing
-          set status = 'superseded',
-              valid_until = coalesce(valid_until, ?),
-              updated_at = ?
-          where provider = ?
-            and model = ?
-            and status = 'active'
-            and id <> ?
-        `,
-      )
-      .run(updatedAt, updatedAt, provider, model, exceptPricingId);
   }
 }
 
@@ -264,8 +312,6 @@ function modelPricingFromRow(row: unknown): ModelPricingRecord {
     sourceUrl: readString(record, 'source_url'),
     sourceName: readOptionalString(record, 'source_name'),
     sourceRetrievedAt: readString(record, 'source_retrieved_at'),
-    validFrom: readOptionalString(record, 'valid_from'),
-    validUntil: readOptionalString(record, 'valid_until'),
     status: readString(record, 'status') as ModelPricingStatus,
     notes: readOptionalString(record, 'notes'),
     createdAt: readString(record, 'created_at'),
