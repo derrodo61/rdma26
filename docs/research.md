@@ -103,6 +103,31 @@ The project deliberately removed later experimental adaptive-depth budgets and
 dedicated time-zone/elapsed-time workflow tools. Those experiments made the
 researcher more rigid without solving the general flexibility problem.
 
+## Rejected Interpreter Experiment
+
+On 12 July 2026, an experiment added an isolated QuickJS interpreter inside the
+researcher with only search and page-reading tools available through
+programmatic tool calling. It was removed after controlled evaluation:
+
+- original `gpt-5.4-mini` baseline: 2 of 4 answers accepted at human review, 33
+  calls, 305,734 input tokens, and USD 0.1114491;
+- internal-interpreter `gpt-5.4-mini` run
+  `evaluation-2026-07-12T12-41-50-325Z-c4d81eb4`: 2 of 4 answers accepted, 32
+  calls, 324,664 input tokens, and USD 0.1241229;
+- internal-interpreter run with `gpt-5.4-mini` parent and `gpt-5.4` researcher
+  `evaluation-2026-07-12T12-36-07-265Z-9283c9b1`: 1 of 4 answers accepted, 23
+  calls, 205,264 input tokens, and USD 0.2909592.
+
+The experiment did not improve general reliability. The mini configuration
+slightly reduced calls but increased context and estimated cost. The stronger
+researcher solved one previously failed sports question in an isolated run, but
+the complete suite produced incorrect Angular and next-match answers and left
+the pricing question unresolved. No researcher runtime behavior from this
+experiment remains enabled.
+
+The evaluation runner retains independent chat and researcher model selection
+because that is useful for future controlled comparisons.
+
 ## Direction For The Architecture Rework
 
 The next implementation should be driven by the evaluation baseline. The

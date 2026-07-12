@@ -107,6 +107,17 @@ Select a model:
 ./bin/rdma26 evals:run --suite smoke --model gpt-5.4-mini
 ```
 
+Select chat and researcher models independently:
+
+```bash
+./bin/rdma26 evals:run \
+  --suite research \
+  --model gpt-5.4-mini \
+  --research-model gpt-5.4
+```
+
+Without `--research-model`, the researcher uses the selected chat model.
+
 Run selected cases:
 
 ```bash
@@ -138,7 +149,7 @@ Reports are written to:
 A report contains:
 
 - suite and case version;
-- model and timestamps;
+- chat model, researcher model, and timestamps;
 - overall and per-case status;
 - every prompt and response;
 - run, thread, and temporary agent ids;

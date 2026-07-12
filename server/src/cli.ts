@@ -249,6 +249,7 @@ async function main(): Promise<void> {
           suite: parseEvaluationSuite(options['suite']),
           caseIds: parseOptionalList(options['cases']),
           model: options['model'],
+          researchModel: options['research-model'],
           keepData: parseOptionalBooleanOption(options['keep-data'], 'keep-data'),
         }),
       );
@@ -767,6 +768,7 @@ Usage:
   rdma26 chat:send --agent scotty --thread <thread-id> --model gpt-4.1-mini --prompt "Hello"
   rdma26 evals:list
   rdma26 evals:run --suite smoke --model gpt-5.4-mini
+  rdma26 evals:run --suite research --model gpt-5.4-mini --research-model gpt-5.4
   rdma26 evals:run --cases direct-known-fact,thread-follow-up --keep-data true
   rdma26 optimizer:ask --prompt "Which agent cost the most this week?"
   rdma26 runs:context --run <run-id>

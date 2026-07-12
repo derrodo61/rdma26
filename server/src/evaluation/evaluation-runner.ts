@@ -22,6 +22,7 @@ export interface EvaluationRunOptions {
   readonly suite?: EvaluationSuiteId;
   readonly caseIds?: readonly string[];
   readonly model?: string;
+  readonly researchModel?: string;
   readonly keepData?: boolean;
 }
 
@@ -30,6 +31,7 @@ export interface EvaluationReport {
   readonly suiteVersion: string;
   readonly suite: EvaluationSuiteId;
   readonly model: string;
+  readonly researchModel: string;
   readonly startedAt: string;
   readonly finishedAt: string;
   readonly durationMs: number;
@@ -105,12 +107,19 @@ export async function runEvaluationSuite(
   const started = new Date();
   const reportId = `evaluation-${formatFileTimestamp(started)}-${crypto.randomUUID().slice(0, 8)}`;
   const model = options.model ?? runtime.modelsResponse().defaultModel;
+  const researchModel = options.researchModel ?? model;
   const requiredCapabilities = Array.from(
     new Set(definitions.flatMap((definition) => definition.requiredCapabilities)),
   );
 
   await assertRequirements(runtime, requiredCapabilities);
-  const agents = await createEvaluationAgents(runtime, reportId, model, requiredCapabilities);
+  const agents = await createEvaluationAgents(
+    runtime,
+    reportId,
+    model,
+    researchModel,
+    requiredCapabilities,
+  );
   const caseResults: EvaluationCaseResult[] = [];
   const retainedAgentIds = [agents.primary.id, agents.secondary.id];
 
@@ -134,6 +143,7 @@ export async function runEvaluationSuite(
     suiteVersion: evaluationSuiteVersion,
     suite,
     model,
+    researchModel,
     startedAt: started.toISOString(),
     finishedAt: finished.toISOString(),
     durationMs: finished.getTime() - started.getTime(),
@@ -174,6 +184,7 @@ async function createEvaluationAgents(
   runtime: AssistantRuntime,
   reportId: string,
   model: string,
+  researchModel: string,
   requiredCapabilities: readonly string[],
 ): Promise<EvaluationAgents> {
   const suffix = reportId.slice(-8);
@@ -203,7 +214,7 @@ async function createEvaluationAgents(
       memory: { canRead: true, canWrite: false },
       models: {
         chat: model,
-        research: { researcher: model },
+        research: { researcher: researchModel },
       },
     });
     await runtime.updateAgentSoul(agent.id, { content: soul });

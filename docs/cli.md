@@ -390,6 +390,15 @@ required capabilities, prompts, and assertions.
 rdma26 evals:run --suite smoke --model gpt-5.4-mini
 ```
 
+Select a stronger researcher model independently from the parent chat model:
+
+```bash
+rdma26 evals:run \
+  --suite research \
+  --model gpt-5.4-mini \
+  --research-model gpt-5.4
+```
+
 Suites are `smoke`, `research`, `memory`, and `core`. The default is `smoke`.
 The current `core` suite also contains a focused interpreter transformation
 case; list cases to see their required capabilities and assertions.
