@@ -373,6 +373,38 @@ The command appends the user message, runs the selected agent, stores the assist
 rdma26 runs:context --run <run-id>
 ```
 
+## Evaluation
+
+### List versioned evaluation cases
+
+```bash
+rdma26 evals:list
+```
+
+This command does not call a model. It returns the suite version, case metadata,
+required capabilities, prompts, and assertions.
+
+### Run an evaluation suite
+
+```bash
+rdma26 evals:run --suite smoke --model gpt-5.4-mini
+```
+
+Suites are `smoke`, `research`, `memory`, and `core`. The default is `smoke`.
+
+Run selected cases instead of a complete suite:
+
+```bash
+rdma26 evals:run --cases direct-known-fact,thread-follow-up
+```
+
+Use `--keep-data true` to preserve temporary evaluation agents, threads, run
+contexts, and LLM calls for debugging. Without it, temporary data is removed
+after the JSON report is written.
+
+Reports are stored under `.assistant-data/evaluations/`. Live evaluations
+require `OPENAI_API_KEY`; research cases also require `TAVILY_API_KEY`.
+
 The run id is included in `chat:send` output and in the API `run-started` event.
 
 Run context includes LLM calls, token usage, and estimated costs when active model pricing exists.

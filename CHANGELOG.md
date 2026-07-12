@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Added a versioned agent-evaluation harness with isolated temporary agents, direct, research, calculation, uncertainty, memory, and conversation cases, automatic assertions, human-review gates, CLI execution, and persisted baseline reports covering calls, tokens, context size, costs, and latency.
+- Added an authoritative product vision, current architecture overview, and documentation index that separate implemented behavior from long-term direction.
+- Added current-state storage, research, and observability references with explicit implementation boundaries and known limitations.
 - Added persistent Deep Agents thread state through the official LangGraph SQLite checkpointer.
 - Added scoped Markdown memory files for global user, agent-local user, and agent memory, mounted through Deep Agents backends.
 - Added bounded pinned startup memory and on-demand access to unpinned memory files.
@@ -29,10 +32,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Removed
 
+- Removed completed or superseded memory, research, observability, SQLite, and temporary context-optimization planning documents after consolidating their durable information into current-state documentation.
 - Removed the custom SQLite memory table, memory types/statuses, lexical and embedding scoring, embedding cache, conversation-summary memory generation, maintenance scheduler, and obsolete UI/API/CLI controls.
 
 ### Changed
 
+- Reorganized README and project documentation around product direction, implemented architecture, interfaces, and project history.
 - Replaced startup-time schema patching with ordered transactional SQLite migrations. Destructive migrations create a database backup; schema version 8 removes the obsolete memory table and schema version 9 adds a rebuildable semantic-memory vector cache while preserving threads and messages.
 - Replaced the custom memory system with a Deep Agents and LangGraph-aligned architecture that separates checkpointed threads, bounded file-backed long-term memory, on-demand recall, skills, identity, and past-conversation search.
 - Simplified the Memories page to scope, content, tags, pinning, generated timestamps, and direct CRUD with plain-language help.

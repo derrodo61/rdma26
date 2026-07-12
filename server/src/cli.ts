@@ -12,6 +12,12 @@ import type {
   TimeStylePreference,
 } from '../../shared/agent-contracts';
 import { AssistantRuntime } from './runtime';
+import {
+  evaluationSuiteVersion,
+  listEvaluationCases,
+  type EvaluationSuiteId,
+} from './evaluation/evaluation-cases';
+import { runEvaluationSuite } from './evaluation/evaluation-runner';
 
 config({ quiet: true });
 
@@ -231,6 +237,22 @@ async function main(): Promise<void> {
       printJson(result);
       return;
     }
+    case 'evals:list':
+      printJson({
+        suiteVersion: evaluationSuiteVersion,
+        cases: listEvaluationCases(),
+      });
+      return;
+    case 'evals:run':
+      printJson(
+        await runEvaluationSuite(runtime, {
+          suite: parseEvaluationSuite(options['suite']),
+          caseIds: parseOptionalList(options['cases']),
+          model: options['model'],
+          keepData: parseOptionalBooleanOption(options['keep-data'], 'keep-data'),
+        }),
+      );
+      return;
     case 'optimizer:ask':
       printJson(
         await runtime.runOptimizer({
@@ -649,6 +671,18 @@ function parseCostSummaryGroupBy(value: string | undefined): CostSummaryGroupBy 
   throw new Error('--group-by must be day, agent, model, or purpose.');
 }
 
+function parseEvaluationSuite(value: string | undefined): EvaluationSuiteId | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  if (value === 'smoke' || value === 'research' || value === 'memory' || value === 'core') {
+    return value;
+  }
+
+  throw new Error('--suite must be smoke, research, memory, or core.');
+}
+
 function parseTheme(value: string | undefined): ThemePreference | undefined {
   if (!value) {
     return undefined;
@@ -731,6 +765,9 @@ Usage:
   rdma26 threads:read --agent scotty --thread <thread-id>
   rdma26 threads:delete --agent scotty --thread <thread-id>
   rdma26 chat:send --agent scotty --thread <thread-id> --model gpt-4.1-mini --prompt "Hello"
+  rdma26 evals:list
+  rdma26 evals:run --suite smoke --model gpt-5.4-mini
+  rdma26 evals:run --cases direct-known-fact,thread-follow-up --keep-data true
   rdma26 optimizer:ask --prompt "Which agent cost the most this week?"
   rdma26 runs:context --run <run-id>
   rdma26 llm-calls:list --agent scotty --limit 20

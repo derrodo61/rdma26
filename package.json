@@ -9,7 +9,7 @@
     "server:start": "tsx server/src/index.ts",
     "server:lan": "HOST=0.0.0.0 npm run server:start",
     "server:typecheck": "tsc -p server/tsconfig.json --noEmit",
-    "server:test": "vitest run server/src/*.spec.ts server/src/agents/*.spec.ts server/src/capabilities/*.spec.ts server/src/llm/*.spec.ts server/src/memory/*.spec.ts server/src/profiles/*.spec.ts server/src/research/*.spec.ts server/src/runs/*.spec.ts server/src/storage/*.spec.ts server/src/threads/*.spec.ts",
+    "server:test": "vitest run server/src/*.spec.ts server/src/agents/*.spec.ts server/src/capabilities/*.spec.ts server/src/evaluation/*.spec.ts server/src/llm/*.spec.ts server/src/memory/*.spec.ts server/src/profiles/*.spec.ts server/src/research/*.spec.ts server/src/runs/*.spec.ts server/src/storage/*.spec.ts server/src/threads/*.spec.ts",
     "rdma26": "tsx server/src/cli.ts",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",

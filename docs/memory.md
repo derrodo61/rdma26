@@ -1,6 +1,30 @@
 # Memory System
 
-This document describes the implemented `rdma26` memory system. The design decisions and future boundaries are in [memory-spec.md](./memory-spec.md).
+This document describes the implemented rdma26 memory system. Product-level
+acceptance criteria are defined in [vision.md](./vision.md).
+
+## Design Decisions
+
+The implementation follows LangGraph thread persistence and Deep Agents
+filesystem-backed memory concepts:
+
+- identity, current conversation state, curated long-term memory, and past
+  conversations are different context layers;
+- Markdown files are the durable source for long-term memory;
+- only a bounded pinned subset enters every applicable run;
+- other memory and past conversations are retrieved on demand;
+- derived semantic vectors are rebuildable indexes, not authoritative records;
+- memory operations remain user-visible and use the same services through UI,
+  API, CLI, and agent tools;
+- automatic thread summaries, expiration, lifecycle states, and background
+  consolidation are intentionally absent until evaluation proves a need.
+
+Primary framework references:
+
+- [LangChain memory concepts](https://docs.langchain.com/oss/javascript/concepts/memory)
+- [LangGraph persistence](https://docs.langchain.com/oss/javascript/langgraph/persistence)
+- [Deep Agents memory](https://docs.langchain.com/oss/javascript/deepagents/memory)
+- [Deep Agents backends](https://docs.langchain.com/oss/javascript/deepagents/backends)
 
 ## The Four Context Layers
 
@@ -134,3 +158,19 @@ Deleting an agent deletes its agent directory, local memory files, threads, run 
 ## Schema Migration
 
 Schema version 8 removes the old `memory_records` table. Schema version 9 adds a rebuildable embedding-vector cache while keeping Markdown as the only authoritative long-term memory source. Startup also removes the obsolete JSON embedding cache and memory-maintenance settings file. These migrations do not delete threads or messages.
+
+## Current Limitations And Evaluation Needs
+
+The mechanisms are implemented, but the complete memory experience is not yet
+accepted as reliable. The stable evaluation set must still demonstrate:
+
+- relevant agent-local memory recall in a new thread;
+- global user memory recall by the intended agents;
+- cross-agent local-memory isolation;
+- exclusion of irrelevant memories;
+- correct handling of updated or contradictory information;
+- useful past-conversation recall;
+- bounded context and measurable embedding cost.
+
+These are quality requirements for the existing architecture, not a reason to
+add a new memory taxonomy.
