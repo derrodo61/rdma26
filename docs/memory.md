@@ -101,13 +101,18 @@ Every real embedding provider request is recorded in the same local LLM-call sto
 
 The call metadata also distinguishes newly indexed memory files from vectors reused from the SQLite cache. Cache reuse does not create a fake provider request: only work that actually reaches the embedding provider appears as a call. A semantic query still needs one query embedding even when every memory vector is cached. Exact-text matches avoid semantic search and therefore create no embedding call.
 
-Embedding calls are visible in the Usage and Run context pages. Estimated cost is calculated when an active pricing record exists for the configured embedding model. Without one, the call remains fully observable but is marked unpriced.
+Embedding calls are visible in the Usage and Run context pages. Estimated cost is calculated when an active pricing record exists for the configured embedding model. The OpenAI price update reads the configured model's official model page and creates its active pricing record when missing. Without an active record, the call remains fully observable but is marked unpriced.
 
 ## Past Conversations
 
 Past conversation recall uses two controlled tools when memory reading is enabled:
 
-- `search_past_conversations` searches titles and message text in earlier threads for the same agent and returns at most ten bounded excerpts.
+- `search_past_conversations` searches titles and message text in earlier threads
+  for the same agent and returns at most ten bounded excerpts. Topic searches
+  rank meaningful matching words before recency. Explicit requests for the
+  previous or last thread rank the newest prior thread first; conversation
+  navigation words such as `previous`, `message`, and `thread` do not inflate
+  topical relevance.
 - `read_past_conversation` reads at most fifty recent messages from one selected earlier thread.
 
 The current thread is excluded. Cross-agent thread access is not allowed. This keeps episodic conversation history separate from curated long-term memory and avoids loading old threads into ordinary runs.

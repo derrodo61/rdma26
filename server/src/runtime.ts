@@ -86,6 +86,7 @@ export class AssistantRuntime {
   private readonly modelPricingStore: ModelPricingStore;
   private readonly pricingSourceStore: PricingSourceStore;
   private readonly llmCallStore: LlmCallStore;
+  private readonly embeddingModel: string;
   private readonly threadCheckpointer: ThreadCheckpointer;
   private readonly threads: ThreadService;
   private readonly chatRuns: ChatRunService;
@@ -99,13 +100,13 @@ export class AssistantRuntime {
     this.userProfileStore = new UserProfileStore(options.dataDir);
     this.modelPricingStore = new ModelPricingStore(options.dataDir);
     this.llmCallStore = new LlmCallStore(options.dataDir, this.modelPricingStore);
-    const embeddingModel = process.env['OPENAI_EMBEDDING_MODEL'] ?? 'text-embedding-3-small';
+    this.embeddingModel = process.env['OPENAI_EMBEDDING_MODEL'] ?? 'text-embedding-3-small';
     const apiKey = process.env['OPENAI_API_KEY'];
     const semanticMemoryIndex = apiKey
       ? new SqliteSemanticMemoryIndex(
           options.dataDir,
-          new AccountingOpenAiEmbeddingClient(apiKey, embeddingModel, this.llmCallStore),
-          embeddingModel,
+          new AccountingOpenAiEmbeddingClient(apiKey, this.embeddingModel, this.llmCallStore),
+          this.embeddingModel,
         )
       : undefined;
     this.fileMemoryStore = new FileMemoryStore(options.dataDir, undefined, semanticMemoryIndex);
@@ -464,7 +465,10 @@ export class AssistantRuntime {
     });
 
     try {
-      const result = await syncOpenAiModelPricingFromSource(source, savedPricing);
+      const embeddingPricingUrl = `https://developers.openai.com/api/docs/models/${encodeURIComponent(this.embeddingModel)}`;
+      const result = await syncOpenAiModelPricingFromSource(source, savedPricing, [
+        { model: this.embeddingModel, url: embeddingPricingUrl },
+      ]);
       await this.pricingSourceStore.recordSourceCheck(source.id, result.source.retrievedAt);
 
       if (!apply) {
@@ -490,11 +494,39 @@ export class AssistantRuntime {
               ? null
               : official.cachedInputCostPerMillionTokens,
           outputCostPerMillionTokens: official.outputCostPerMillionTokens,
-          sourceUrl: result.source.url,
+          sourceUrl: comparison.official?.sourceUrl ?? result.source.url,
           sourceName: result.source.name,
           sourceRetrievedAt: result.source.retrievedAt,
         });
         updatedModels.push(comparison.model);
+      }
+
+      const allOpenAiPricing = await this.modelPricingStore.listPricing({ provider: 'openai' });
+      const configuredEmbeddingPricing = result.missingLocalPricing.find(
+        (pricing) => pricing.model === this.embeddingModel,
+      );
+      const embeddingRecordExists = allOpenAiPricing.some(
+        (pricing) => pricing.model === this.embeddingModel,
+      );
+
+      if (
+        configuredEmbeddingPricing?.shortContext.inputCostPerMillionTokens !== undefined &&
+        configuredEmbeddingPricing.shortContext.outputCostPerMillionTokens !== undefined &&
+        !embeddingRecordExists
+      ) {
+        await this.modelPricingStore.createPricing({
+          provider: 'openai',
+          model: this.embeddingModel,
+          inputCostPerMillionTokens:
+            configuredEmbeddingPricing.shortContext.inputCostPerMillionTokens,
+          outputCostPerMillionTokens:
+            configuredEmbeddingPricing.shortContext.outputCostPerMillionTokens,
+          sourceUrl: configuredEmbeddingPricing.sourceUrl ?? result.source.url,
+          sourceName: result.source.name,
+          sourceRetrievedAt: result.source.retrievedAt,
+          notes: 'Embedding token pricing synchronized from the official OpenAI model page.',
+        });
+        updatedModels.push(this.embeddingModel);
       }
 
       const remainingDifferences = result.different.filter(
@@ -504,14 +536,20 @@ export class AssistantRuntime {
       return {
         ...result,
         summary: updatedModels.length
-          ? `Updated ${updatedModels.length} saved OpenAI pricing records from the official source. Input, cached-input, and output prices are now current for: ${updatedModels.join(', ')}.`
+          ? `Synchronized ${updatedModels.length} OpenAI pricing records from official sources. Input, cached-input, and output prices are now current for: ${updatedModels.join(', ')}.`
           : 'All saved OpenAI input, cached-input, and output prices already match the official source.',
         matchedModels: [...new Set([...result.matchedModels, ...updatedModels])],
         updatedModels,
         different: remainingDifferences,
+        missingLocalModels: result.missingLocalModels.filter(
+          (model) => !updatedModels.includes(model),
+        ),
+        missingLocalPricing: result.missingLocalPricing.filter(
+          (pricing) => !updatedModels.includes(pricing.model),
+        ),
         notes: [
           ...result.notes.filter((note) => !note.startsWith('This tool only compares records.')),
-          'Apply mode updates existing records only. Official models missing locally are not created automatically.',
+          `Apply mode creates the configured embedding model (${this.embeddingModel}) when it is missing. Other official models missing locally are not created automatically.`,
         ],
       };
     } catch (error) {

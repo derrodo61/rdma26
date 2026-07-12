@@ -561,6 +561,7 @@ export interface SyncOpenAiModelPricingResult {
   readonly different: readonly OpenAiPricingComparison[];
   readonly missingOfficialModels: readonly string[];
   readonly missingLocalModels: readonly string[];
+  readonly missingLocalPricing: readonly OpenAiOfficialPricingRecord[];
   readonly metadataWarnings: readonly OpenAiPricingMetadataWarning[];
   readonly notes: readonly string[];
 }
@@ -591,6 +592,7 @@ export interface OpenAiSavedPricingSnapshot {
 export interface OpenAiOfficialPricingRecord {
   readonly model: string;
   readonly sourceLabel: string;
+  readonly sourceUrl?: string;
   readonly shortContext: OpenAiPricingTier;
   readonly longContext?: OpenAiPricingTier;
 }

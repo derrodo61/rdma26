@@ -307,21 +307,21 @@ was evaluated on 12 July 2026 with suite `2026-07-12-v5`.
 | -------- | ------------ | ---------------------------- | ----: | -----------: | ---------------: | -------------: | -------: |
 | Smoke    | gpt-5.4-mini | 4 passed                     |     5 |       38,711 |            7,788 |   USD 0.009978 |    5.4 s |
 | Research | gpt-5.4      | 1 failed, 4 review           |    12 |      224,296 |           35,998 |   USD 0.312703 |   55.9 s |
-| Memory   | gpt-5.4-mini | 4 passed, 1 review           |    18 |      101,686 |            8,105 |   USD 0.028934 |   17.3 s |
+| Memory   | gpt-5.4-mini | 4 passed, 1 review           |    18 |      102,126 |            8,154 |   USD 0.029189 |   15.9 s |
 | Core     | gpt-5.4-mini | 8 passed, 2 failed, 5 review |    29 |      400,411 |           25,139 |   USD 0.133458 |   61.4 s |
 
 Reports:
 
 - smoke: `evaluation-2026-07-12T21-53-02-240Z-5aab6d83`;
 - research: `evaluation-2026-07-12T21-53-40-364Z-c721e8ba`;
-- memory: `evaluation-2026-07-12T21-54-58-466Z-c656f189`;
+- memory: `evaluation-2026-07-12T22-30-54-098Z-4d35f0c0`;
 - core: `evaluation-2026-07-12T21-55-31-026Z-5ab9c666`.
 
 Smoke behavior was correct and did not perform unnecessary web searches. The
 isolated memory suite recalled agent-local and global memory, excluded
 irrelevant memory, preserved cross-agent isolation, and found the earlier
-conversation marker. Five embedding calls remained unpriced, so the memory and
-core estimates are incomplete.
+conversation marker. After adding official embedding pricing, all 18 calls in
+the repeated memory suite were priced.
 
 The `gpt-5.4` research run correctly identified Angular 22, the latest completed
 World Cup match, and the current GPT-5.4 prices and calculation. It nevertheless
@@ -371,6 +371,33 @@ The previously failing `multi-source-current-fact` case was repeated with
 This resolves the technical source-preservation failure. It does not resolve
 the separate same-day news, episodic-retrieval, embedding-pricing, or context
 cost findings.
+
+### Episodic Retrieval Follow-Up
+
+The core failure was reproduced with the thread-follow-up and
+past-conversation cases in sequence. The retained run showed that the older
+`ORBIT-742` thread scored higher because generic navigation words such as
+`previous` and `thread` counted as topic matches, while the newer
+`HISTORY-731` thread contained the actual subject term `historical`.
+
+Past-conversation search now excludes navigation words from relevance scoring
+and explicitly prioritizes the newest prior thread when the query asks for the
+previous or last thread. Ordinary topic searches continue to rank subject
+relevance first and use recency as a tie-breaker. This is deterministic and
+does not add embedding or LLM calls.
+
+The two-case sequence was repeated with `gpt-5.4-mini`:
+
+- report: `evaluation-2026-07-12T22-15-57-016Z-d828e321`;
+- result: both thread-follow-up and past-conversation recall passed;
+- recalled value: `HISTORY-731`;
+- LLM calls: 5 across four runs;
+- input tokens: 39,016;
+- maximum single-call context: 7,981 tokens;
+- estimated cost: USD 0.015199;
+- duration: 5.1 seconds.
+
+The retained diagnostic agents were deleted after inspection.
 
 ## Initial Memory Baseline
 

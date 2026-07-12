@@ -11,6 +11,7 @@ import type {
 export async function syncOpenAiModelPricingFromSource(
   source: PricingSourceRecord,
   savedPricing: readonly ModelPricingRecord[],
+  additionalModelPages: readonly { readonly model: string; readonly url: string }[] = [],
 ): Promise<SyncOpenAiModelPricingResult> {
   const fetchedAt = new Date().toISOString();
   const response = await fetch(source.url, {
@@ -23,12 +24,56 @@ export async function syncOpenAiModelPricingFromSource(
   }
 
   const html = await response.text();
+  const additionalPricing = await Promise.all(
+    additionalModelPages.map(async ({ model, url }) => {
+      const modelResponse = await fetch(url, {
+        redirect: 'follow',
+        signal: AbortSignal.timeout(15_000),
+      });
+
+      if (!modelResponse.ok) {
+        throw new Error(`OpenAI model pricing source returned HTTP ${modelResponse.status}.`);
+      }
+
+      return extractOpenAiModelPagePricing(await modelResponse.text(), model, url);
+    }),
+  );
+
   return compareOpenAiModelPricing({
     source,
     savedPricing,
-    officialPricing: extractOpenAiModelPricingFromHtml(html),
+    officialPricing: [...extractOpenAiModelPricingFromHtml(html), ...additionalPricing],
     retrievedAt: fetchedAt,
   });
+}
+
+export function extractOpenAiModelPagePricing(
+  html: string,
+  model: string,
+  sourceUrl: string,
+): OpenAiOfficialPricingRecord {
+  const $ = cheerio.load(html);
+  const priceLabel = $('div')
+    .toArray()
+    .find((candidate) => {
+      const directText = $(candidate).clone().children().remove().end().text().trim();
+      return directText === 'Price';
+    });
+  const price = priceLabel ? parsePrice($(priceLabel).parent().text()) : undefined;
+
+  if (price === undefined) {
+    throw new Error(`Could not find the official token price for ${model}.`);
+  }
+
+  return {
+    model,
+    sourceLabel: model,
+    sourceUrl,
+    shortContext: {
+      inputCostPerMillionTokens: price,
+      outputCostPerMillionTokens: 0,
+    },
+  };
 }
 
 export function extractOpenAiModelPricingFromHtml(
@@ -85,7 +130,7 @@ export function compareOpenAiModelPricing({
 
   for (const saved of savedOpenAi) {
     const official = officialByModel.get(saved.model);
-    const comparison = compareSavedPricing(saved, official, source.url);
+    const comparison = compareSavedPricing(saved, official, official?.sourceUrl ?? source.url);
 
     if (comparison.status === 'match') {
       matched.push(comparison);
@@ -100,6 +145,7 @@ export function compareOpenAiModelPricing({
   const missingLocalModels = officialPricing
     .map((record) => record.model)
     .filter((model) => !savedModels.has(model));
+  const missingLocalPricing = officialPricing.filter((record) => !savedModels.has(record.model));
 
   return {
     summary: [
@@ -128,6 +174,7 @@ export function compareOpenAiModelPricing({
     different,
     missingOfficialModels: missingOfficial.map((comparison) => comparison.model),
     missingLocalModels,
+    missingLocalPricing,
     metadataWarnings: [...matched, ...different, ...missingOfficial]
       .map((comparison) => ({
         model: comparison.model,

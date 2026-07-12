@@ -46,10 +46,8 @@ export class ThreadService {
     excludeThreadId?: string,
   ) {
     const storage = await this.registry.storageFor(agentId);
-    const terms = query
-      .toLocaleLowerCase()
-      .split(/\s+/)
-      .filter((term) => term.length > 1);
+    const terms = meaningfulSearchTerms(query);
+    const previousThreadRequested = requestsImmediatelyPreviousThread(query);
     const threads = await storage.listThreads();
     const matches = [];
 
@@ -60,10 +58,8 @@ export class ThreadService {
       const searchable =
         `${thread.title}\n${thread.messages.map((message) => message.content).join('\n')}`.toLocaleLowerCase();
       const score = terms.reduce((total, term) => total + (searchable.includes(term) ? 1 : 0), 0);
-      if (!score) continue;
-      const matchingMessage = thread.messages.find((message) =>
-        terms.some((term) => message.content.toLocaleLowerCase().includes(term)),
-      );
+      if (!score && !previousThreadRequested) continue;
+      const matchingMessage = bestMatchingMessage(thread, terms);
       matches.push({
         threadId: thread.id,
         title: thread.title,
@@ -71,15 +67,17 @@ export class ThreadService {
         messageCount: thread.messages.length,
         excerpt: matchingMessage?.content.slice(0, 400) ?? thread.title,
         score,
+        ranking: previousThreadRequested ? 'previous_thread' : 'relevance',
       });
     }
 
     return {
       query,
       results: matches
-        .sort(
-          (left, right) =>
-            right.score - left.score || right.updatedAt.localeCompare(left.updatedAt),
+        .sort((left, right) =>
+          previousThreadRequested
+            ? right.updatedAt.localeCompare(left.updatedAt) || right.score - left.score
+            : right.score - left.score || right.updatedAt.localeCompare(left.updatedAt),
         )
         .slice(0, Math.min(Math.max(limit, 1), 10)),
     };
@@ -127,4 +125,64 @@ export class ThreadService {
       threadId,
     };
   }
+}
+
+const conversationNavigationTerms = new Set([
+  'chat',
+  'conversation',
+  'conversations',
+  'earlier',
+  'last',
+  'latest',
+  'message',
+  'messages',
+  'previous',
+  'recent',
+  'search',
+  'thread',
+  'threads',
+  'unterhaltung',
+  'unterhaltungen',
+  'vorherige',
+  'vorherigen',
+  'vorheriger',
+  'letzte',
+  'letzten',
+  'letzter',
+  'nachricht',
+  'nachrichten',
+]);
+
+function meaningfulSearchTerms(query: string): readonly string[] {
+  const terms = query.toLocaleLowerCase().match(/[\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)*/gu) ?? [];
+  return [
+    ...new Set(terms.filter((term) => term.length > 1 && !conversationNavigationTerms.has(term))),
+  ];
+}
+
+function requestsImmediatelyPreviousThread(query: string): boolean {
+  const normalized = query.toLocaleLowerCase();
+  return (
+    /\b(previous|last|most recent)\s+(thread|conversation|chat)\b/.test(normalized) ||
+    /\b(vorherig(?:e|en|er|es)?|letzt(?:e|en|er|es)?)\s+(thread|chat|unterhaltung)\b/.test(
+      normalized,
+    )
+  );
+}
+
+function bestMatchingMessage(
+  thread: ChatThread,
+  terms: readonly string[],
+): ChatThread['messages'][number] | undefined {
+  if (!terms.length) return thread.messages.at(-1);
+
+  return thread.messages
+    .map((message) => ({
+      message,
+      score: terms.reduce(
+        (total, term) => total + (message.content.toLocaleLowerCase().includes(term) ? 1 : 0),
+        0,
+      ),
+    }))
+    .sort((left, right) => right.score - left.score)[0]?.message;
 }

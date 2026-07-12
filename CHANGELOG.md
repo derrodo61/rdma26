@@ -32,12 +32,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added a bounded `search_unpinned_memory` tool for on-demand recall that structurally excludes pinned startup memory.
 - Added multilingual semantic memory retrieval with OpenAI embeddings, exact-match preference, scoped results, and a content-hash SQLite vector cache that reuses unchanged memory embeddings.
 - Added embedding observability through the shared LLM-call accounting store, including actual provider token usage, model, duration, status, run ownership, estimated cost, operation type, and cache behavior in the Usage and Run context pages.
+- Added official OpenAI embedding-price synchronization for the configured embedding model so semantic-memory calls receive complete cost estimates automatically.
 - Added run-context visibility for the exact pinned memory files loaded at startup.
 - Added skill-use observability that records full `SKILL.md` reads during Deep
   Agents progressive disclosure and shows them separately in Run context.
 
 ### Fixed
 
+- Ranked an explicit previous-thread lookup by recency, excluded generic
+  conversation-navigation words from topical scoring, and selected excerpts
+  from the strongest matching message.
 - Preserved provider-reported hosted-search source URLs when final model prose
   omits citation annotations or Deep Agents places citations and search actions
   in different messages.

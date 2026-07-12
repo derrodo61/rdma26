@@ -98,8 +98,11 @@ needed by the current estimator, its currency, source URL, retrieval metadata,
 and active state.
 
 The OpenAI sync path reads the configured official pricing source and updates
-saved model prices. Updated records become active automatically; the user can
-deactivate a record manually.
+saved model prices. It also reads the official model page for the configured
+OpenAI embedding model and creates that pricing record when it is missing.
+Embedding records use the provider's input-token price and an output price of
+zero because embedding requests do not produce billed output tokens. Updated
+records become active automatically; the user can deactivate a record manually.
 
 Pricing sources are stored separately so official source URLs can be inspected,
 checked, changed, and extended for additional providers later.
