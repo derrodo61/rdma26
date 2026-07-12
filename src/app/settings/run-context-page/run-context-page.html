@@ -300,6 +300,9 @@
                         <p class="font-medium">{{ call.model }}</p>
                         <p class="mt-1 text-xs text-text-muted">
                           {{ call.provider }} · {{ call.purpose }}
+                          @if (embeddingOperation(call); as operation) {
+                            <span> · {{ operation }}</span>
+                          }
                         </p>
                       </div>
                       <span class="text-xs text-text-muted">{{ call.status }}</span>
@@ -330,6 +333,9 @@
                         <span> · pricing {{ call.pricingSnapshotId }}</span>
                       }
                     </p>
+                    @if (embeddingCacheDetails(call); as cacheDetails) {
+                      <p class="mt-2 text-xs text-text-muted">{{ cacheDetails }}</p>
+                    }
                     @if (call.errorMessage) {
                       <p class="mt-3 text-xs text-danger">{{ call.errorMessage }}</p>
                     }

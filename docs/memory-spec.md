@@ -192,11 +192,11 @@ Examples:
 
 ### On-Demand Memory
 
-Unpinned entries are stored as Markdown outside the startup memory list. Deep Agents can retrieve them through the controlled `search_memory` tool when needed.
+Unpinned entries are stored as Markdown outside the startup memory list. Deep Agents can retrieve them through the controlled `search_unpinned_memory` tool when needed. The tool cannot return pinned entries that are already loaded at startup.
 
 Evaluation showed that exact text search cannot reliably retrieve paraphrased or multilingual memories. The implemented search therefore combines exact matching with semantic similarity from a rebuildable embedding index. The Markdown files remain authoritative.
 
-Embedding vectors are cached by content hash so unchanged memories are not re-embedded. A query embedding is created only when `search_memory` performs semantic retrieval; it is not created for every chat message.
+Embedding vectors are cached by content hash so unchanged memories are not re-embedded. A query embedding is created only when `search_unpinned_memory` performs semantic retrieval; it is not created for every chat message.
 
 ## Memory Operations
 
@@ -331,7 +331,7 @@ The semantic index added after retrieval evaluation is:
 
 - rebuildable from memory files
 - configurable by provider and model
-- intended to become observable for embedding calls and cost
+- observable through the shared LLM-call store for provider usage, cost, run ownership, operation, and cache behavior
 - optional, with deterministic lexical search available
 
 ## Migration From The Current Implementation

@@ -21,6 +21,8 @@ The system should answer questions such as:
 
 The first implementation should focus on trustworthy raw accounting. Optimization agents and dashboards should build on top of that data, not replace it.
 
+Embedding requests follow the same accounting rule. Semantic memory indexing and query embeddings create `memory_retrieval` call records with provider-reported input tokens, duration, status, run ownership, and cache metadata. They use an active model-pricing record for cost estimates when one is available.
+
 ## Non-Goals
 
 The first version should not:
@@ -112,6 +114,10 @@ Links the call to the user-visible run context.
 `purpose`
 
 Explains why the call happened. See the purpose taxonomy below.
+
+`metadata`
+
+Carries request-specific structured details. Embedding records use `requestKind: "embedding"`, identify `memory_index` or `memory_query`, and report how many memory vectors were newly indexed, reused from cache, or searched as candidates.
 
 `pricingSnapshotId`
 

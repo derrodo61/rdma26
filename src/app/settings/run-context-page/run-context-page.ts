@@ -3,7 +3,7 @@ import { JsonPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 
-import type { RunContextDetails } from '../../../../shared/agent-contracts';
+import type { LlmCallRecord, RunContextDetails } from '../../../../shared/agent-contracts';
 import { AssistantApi } from '../../chat/assistant-api';
 
 @Component({
@@ -110,6 +110,42 @@ export class RunContextPage {
   protected formatCallCost(amount: number | undefined, currency: string | undefined): string {
     return amount === undefined || !currency ? 'unpriced' : formatCost(amount, currency);
   }
+
+  protected embeddingOperation(call: LlmCallRecord): string | null {
+    return getEmbeddingOperation(call);
+  }
+
+  protected embeddingCacheDetails(call: LlmCallRecord): string | null {
+    return getEmbeddingCacheDetails(call);
+  }
+}
+
+function getEmbeddingOperation(call: LlmCallRecord): string | null {
+  if (call.metadata?.['requestKind'] !== 'embedding') return null;
+
+  return call.metadata['operation'] === 'memory_index' ? 'Memory index' : 'Memory query';
+}
+
+function getEmbeddingCacheDetails(call: LlmCallRecord): string | null {
+  if (call.metadata?.['requestKind'] !== 'embedding') return null;
+  const indexed = readNonNegativeNumber(call.metadata, 'indexedMemoryCount');
+  const cached = readNonNegativeNumber(call.metadata, 'cachedMemoryCount');
+  const candidates = readNonNegativeNumber(call.metadata, 'candidateMemoryCount');
+  const details: string[] = [];
+
+  if (indexed !== null) details.push(`${indexed} newly indexed`);
+  if (cached !== null) details.push(`${cached} reused from cache`);
+  if (candidates !== null) details.push(`${candidates} candidates searched`);
+
+  return details.length ? details.join(' · ') : null;
+}
+
+function readNonNegativeNumber(
+  metadata: Readonly<Record<string, unknown>>,
+  key: string,
+): number | null {
+  const value = metadata[key];
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
 }
 
 function formatCost(amount: number, currency: string): string {

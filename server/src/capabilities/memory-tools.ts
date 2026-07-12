@@ -2,23 +2,32 @@ import { tool, type StructuredToolInterface } from '@langchain/core/tools';
 import { z } from 'zod';
 
 import type { AssistantRuntime } from '../runtime';
+import type { EmbeddingAccountingContext } from '../llm/openai-embedding-client';
 
 const memoryScopeSchema = z.enum(['agent', 'agent_user', 'user']);
 
 export function createMemoryReadTools(
   runtime: AssistantRuntime,
   agentId: string,
+  context: Pick<EmbeddingAccountingContext, 'runId' | 'threadId'> = {},
 ): readonly StructuredToolInterface[] {
   return [
-    tool(async ({ query, limit }) => await runtime.listMemories({ agentId, query, limit }), {
-      name: 'search_memory',
-      description:
-        "Search this agent's applicable long-term memory files by text. First use any relevant pinned memory already present in startup context. Call this tool only when the needed information is not already loaded, and before saying a remembered value is unavailable.",
-      schema: z.object({
-        query: z.string().trim().min(2).describe('Short meaningful words to find in memory.'),
-        limit: z.number().int().min(1).max(10).default(5),
-      }),
-    }),
+    tool(
+      async ({ query, limit }) =>
+        await runtime.listMemories(
+          { agentId, pinned: false, query, limit },
+          { ...context, agentId },
+        ),
+      {
+        name: 'search_unpinned_memory',
+        description:
+          "Search only this agent's applicable unpinned long-term memory. Pinned memory is already loaded in startup context and cannot be returned by this tool. Call it only when the needed information is not already present, and before saying an unpinned remembered value is unavailable.",
+        schema: z.object({
+          query: z.string().trim().min(2).describe('Short meaningful words to find in memory.'),
+          limit: z.number().int().min(1).max(10).default(5),
+        }),
+      },
+    ),
   ];
 }
 export function createMemoryTools(

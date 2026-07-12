@@ -28,7 +28,8 @@ describe('PersonalAgent bootloader prompt', () => {
     expect(enabledPrompt).toContain('Use the save_memory tool');
     expect(enabledPrompt).toContain('dauerhaft');
     expect(enabledPrompt).toContain('pinned=false');
-    expect(enabledPrompt).toContain('do not search for the same information again');
+    expect(enabledPrompt).toContain('search_unpinned_memory');
+    expect(enabledPrompt).toContain('never call a memory-search tool for pinned information');
     expect(enabledPrompt).toContain('Use agent_user for user preferences');
     expect(enabledPrompt).toContain('Use user only when the user clearly wants the memory shared');
     expect(enabledPrompt).toContain(

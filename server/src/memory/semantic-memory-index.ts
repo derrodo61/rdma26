@@ -1,8 +1,10 @@
 import { createHash } from 'node:crypto';
 
-import type { EmbeddingsInterface } from '@langchain/core/embeddings';
-
 import type { FileMemoryEntry } from './file-memory-store';
+import type {
+  EmbeddingAccountingContext,
+  ObservableEmbeddingClient,
+} from '../llm/openai-embedding-client';
 import { LocalDatabase } from '../storage/local-database';
 
 export interface SemanticMemoryMatch {
@@ -16,6 +18,7 @@ export interface MemorySemanticIndex {
     entries: readonly FileMemoryEntry[],
     query: string,
     limit: number,
+    context?: Omit<EmbeddingAccountingContext, 'operation'>,
   ): Promise<readonly SemanticMemoryMatch[]>;
   invalidate(memoryId: string): Promise<void>;
   delete(memoryId: string): Promise<void>;
@@ -33,7 +36,7 @@ export class SqliteSemanticMemoryIndex implements MemorySemanticIndex {
 
   constructor(
     dataDir: string,
-    private readonly embeddings: EmbeddingsInterface,
+    private readonly embeddings: ObservableEmbeddingClient,
     private readonly model: string,
     private readonly minimumScore = 0.25,
   ) {
@@ -61,10 +64,19 @@ export class SqliteSemanticMemoryIndex implements MemorySemanticIndex {
     entries: readonly FileMemoryEntry[],
     query: string,
     limit: number,
+    context: Omit<EmbeddingAccountingContext, 'operation'> = {},
   ): Promise<readonly SemanticMemoryMatch[]> {
     if (!entries.length) return [];
-    await this.ensureIndexed(entries);
-    const queryVector = await this.embeddings.embedQuery(query);
+    const indexStats = await this.ensureIndexed(entries, context);
+    const queryVector = await this.embeddings.embedQuery(query, {
+      ...context,
+      operation: 'memory_query',
+      metadata: {
+        indexedMemoryCount: indexStats.indexedMemoryCount,
+        cachedMemoryCount: indexStats.cachedMemoryCount,
+        candidateMemoryCount: entries.length,
+      },
+    });
     const rows = this.readRows(entries.map((entry) => entry.id));
 
     return rows
@@ -89,7 +101,10 @@ export class SqliteSemanticMemoryIndex implements MemorySemanticIndex {
       .run(memoryId);
   }
 
-  private async ensureIndexed(entries: readonly FileMemoryEntry[]): Promise<void> {
+  private async ensureIndexed(
+    entries: readonly FileMemoryEntry[],
+    context: Omit<EmbeddingAccountingContext, 'operation'>,
+  ): Promise<{ readonly indexedMemoryCount: number; readonly cachedMemoryCount: number }> {
     await this.database.ensureReady();
     const existing = new Map(
       this.readRows(entries.map((entry) => entry.id)).map((row) => [row.memory_id, row]),
@@ -99,8 +114,17 @@ export class SqliteSemanticMemoryIndex implements MemorySemanticIndex {
       return row?.content_hash !== contentHash(entry) || row.model !== this.model;
     });
 
-    if (!missing.length) return;
-    const vectors = await this.embeddings.embedDocuments(missing.map(memorySearchText));
+    if (!missing.length) {
+      return { indexedMemoryCount: 0, cachedMemoryCount: entries.length };
+    }
+    const vectors = await this.embeddings.embedDocuments(missing.map(memorySearchText), {
+      ...context,
+      operation: 'memory_index',
+      metadata: {
+        indexedMemoryCount: missing.length,
+        cachedMemoryCount: entries.length - missing.length,
+      },
+    });
     const upsert = this.database.get().prepare(`
       insert into memory_embedding_cache (
         memory_id, content_hash, model, dimensions, vector_json, updated_at
@@ -132,6 +156,10 @@ export class SqliteSemanticMemoryIndex implements MemorySemanticIndex {
     });
 
     write();
+    return {
+      indexedMemoryCount: missing.length,
+      cachedMemoryCount: entries.length - missing.length,
+    };
   }
 
   private readRows(memoryIds: readonly string[]): MemoryEmbeddingRow[] {

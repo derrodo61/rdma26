@@ -13,11 +13,15 @@ describe('memory tools', () => {
 
     await searchMemory.invoke({ query: 'verification planet', limit: 3 });
 
-    expect(listMemories).toHaveBeenCalledWith({
-      agentId: 'ronaldo',
-      query: 'verification planet',
-      limit: 3,
-    });
+    expect(listMemories).toHaveBeenCalledWith(
+      {
+        agentId: 'ronaldo',
+        pinned: false,
+        query: 'verification planet',
+        limit: 3,
+      },
+      { agentId: 'ronaldo' },
+    );
   });
 
   it('can save explicitly requested global user memory', async () => {

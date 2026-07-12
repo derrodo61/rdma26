@@ -11,8 +11,10 @@ import { SqliteSemanticMemoryIndex } from './semantic-memory-index';
 describe('semantic memory retrieval', () => {
   it('finds an English agent memory from a German query without crossing agent scope', async () => {
     const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-semantic-memory-'));
-    const embedDocuments = vi.fn(async (texts: string[]) => texts.map(vectorFor));
-    const embedQuery = vi.fn(async (text: string) => vectorFor(text));
+    const embedDocuments = vi.fn(async (texts: string[], _context?: unknown) =>
+      texts.map(vectorFor),
+    );
+    const embedQuery = vi.fn(async (text: string, _context?: unknown) => vectorFor(text));
     const embeddings = { embedDocuments, embedQuery } as unknown as EmbeddingsInterface;
     const index = new SqliteSemanticMemoryIndex(dataDir, embeddings, 'test-multilingual', 0.5);
     const store = new FileMemoryStore(dataDir, undefined, index);
@@ -45,6 +47,13 @@ describe('semantic memory retrieval', () => {
         }),
       ).resolves.toEqual([ronaldoMemory]);
       expect(embedDocuments).toHaveBeenCalledTimes(1);
+      expect(embedDocuments.mock.calls[0]?.[1]).toMatchObject({
+        operation: 'memory_index',
+        metadata: {
+          indexedMemoryCount: 1,
+          cachedMemoryCount: 0,
+        },
+      });
 
       await store.listEntries({
         agentId: 'ronaldo',
@@ -53,6 +62,14 @@ describe('semantic memory retrieval', () => {
       });
       expect(embedDocuments).toHaveBeenCalledTimes(1);
       expect(embedQuery).toHaveBeenCalledTimes(2);
+      expect(embedQuery.mock.calls[1]?.[1]).toMatchObject({
+        operation: 'memory_query',
+        metadata: {
+          indexedMemoryCount: 0,
+          cachedMemoryCount: 1,
+          candidateMemoryCount: 1,
+        },
+      });
     } finally {
       await rm(dataDir, { recursive: true, force: true });
     }
@@ -60,10 +77,12 @@ describe('semantic memory retrieval', () => {
 
   it('re-embeds changed memories and removes deleted memories from retrieval', async () => {
     const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-semantic-memory-update-'));
-    const embedDocuments = vi.fn(async (texts: string[]) => texts.map(vectorFor));
+    const embedDocuments = vi.fn(async (texts: string[], _context?: unknown) =>
+      texts.map(vectorFor),
+    );
     const embeddings = {
       embedDocuments,
-      embedQuery: async (text: string) => vectorFor(text),
+      embedQuery: async (text: string, _context?: unknown) => vectorFor(text),
     } as unknown as EmbeddingsInterface;
     const index = new SqliteSemanticMemoryIndex(dataDir, embeddings, 'test-multilingual', 0.5);
     const store = new FileMemoryStore(dataDir, undefined, index);

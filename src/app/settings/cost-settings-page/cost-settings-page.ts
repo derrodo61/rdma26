@@ -351,6 +351,26 @@ export class CostSettingsPage {
       : formatCost(call.estimatedTotalCost, call.estimatedCostCurrency);
   }
 
+  protected embeddingOperation(call: LlmCallRecord): string | null {
+    if (call.metadata?.['requestKind'] !== 'embedding') return null;
+
+    return call.metadata['operation'] === 'memory_index' ? 'Memory index' : 'Memory query';
+  }
+
+  protected embeddingCacheDetails(call: LlmCallRecord): string | null {
+    if (call.metadata?.['requestKind'] !== 'embedding') return null;
+    const indexed = readNonNegativeNumber(call.metadata, 'indexedMemoryCount');
+    const cached = readNonNegativeNumber(call.metadata, 'cachedMemoryCount');
+    const candidates = readNonNegativeNumber(call.metadata, 'candidateMemoryCount');
+    const details: string[] = [];
+
+    if (indexed !== null) details.push(`${indexed} newly indexed`);
+    if (cached !== null) details.push(`${cached} reused from cache`);
+    if (candidates !== null) details.push(`${candidates} candidates searched`);
+
+    return details.length ? details.join(' · ') : null;
+  }
+
   protected formatRowCost(row: CostSummaryRow): string {
     return row.estimatedTotalCost === undefined || !row.currency
       ? 'unpriced'
@@ -506,6 +526,14 @@ function formatCost(amount: number, currency: string): string {
   } catch {
     return `${amount.toFixed(6)} ${currency}`;
   }
+}
+
+function readNonNegativeNumber(
+  metadata: Readonly<Record<string, unknown>>,
+  key: string,
+): number | null {
+  const value = metadata[key];
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {

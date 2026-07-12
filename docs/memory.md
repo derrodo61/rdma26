@@ -65,11 +65,19 @@ The run-context page shows every pinned file loaded into a run, including its sc
 
 ## Unpinned Memory
 
-Unpinned files are not added to startup context. When a request depends on remembered information that was not pinned and is not already available in pinned startup memory, the agent can call the bounded `search_memory` tool. It searches the applicable global user, agent-user, and agent memory files and returns matching records through the same memory service used by the API and CLI.
+Unpinned files are not added to startup context. When a request depends on remembered information that is not already available in pinned startup memory, the agent can call the bounded `search_unpinned_memory` tool. It searches only applicable unpinned global user, agent-user, and agent memory files and returns matching records through the same memory service used by the API and CLI. Pinned memories cannot be returned by this tool.
 
 The search combines exact text matching with semantic similarity. Semantic search uses the configured embedding model, `text-embedding-3-small` by default, so queries can match memories with different wording or language. Memory content and tags are embedded lazily on the first semantic search and cached in SQLite by content hash. Unchanged memories are not embedded again; updates invalidate their cached vector and deletion removes it. Query embeddings are created for semantic searches but do not require a chat-model call.
 
 When `OPENAI_API_KEY` is not configured, memory search falls back to exact text matching. `OPENAI_EMBEDDING_MODEL` can select a different OpenAI embedding model. With OpenAI embeddings enabled, memory text used for indexing is sent to the configured OpenAI embedding service.
+
+### Embedding Observability
+
+Every real embedding provider request is recorded in the same local LLM-call store as chat and subagent requests. Embedding calls use the `memory_retrieval` purpose and identify whether they indexed memory files or embedded a search query. A call records its model, agent, thread and parent run when available, actual provider-reported input tokens, duration, status, and error details.
+
+The call metadata also distinguishes newly indexed memory files from vectors reused from the SQLite cache. Cache reuse does not create a fake provider request: only work that actually reaches the embedding provider appears as a call. A semantic query still needs one query embedding even when every memory vector is cached. Exact-text matches avoid semantic search and therefore create no embedding call.
+
+Embedding calls are visible in the Usage and Run context pages. Estimated cost is calculated when an active pricing record exists for the configured embedding model. Without one, the call remains fully observable but is marked unpriced.
 
 ## Past Conversations
 
@@ -84,7 +92,7 @@ The current thread is excluded. Cross-agent thread access is not allowed. This k
 
 Every agent has two independent settings:
 
-- `canRead`: enables pinned startup memory, `search_memory`, and past-conversation tools.
+- `canRead`: enables pinned startup memory, `search_unpinned_memory`, and past-conversation tools.
 - `canWrite`: enables the controlled `save_memory` tool.
 
 The user can still manage memory through UI, API, and CLI regardless of an agent's tool permissions.

@@ -4,6 +4,7 @@ import { parse, stringify } from 'yaml';
 
 import type { MemoryScope } from '../../../shared/agent-contracts';
 import { validateAgentId } from '../agents/agent-registry';
+import type { EmbeddingAccountingContext } from '../llm/openai-embedding-client';
 import type { MemorySemanticIndex } from './semantic-memory-index';
 
 export const defaultPinnedMemoryCharacterLimit = 3_000;
@@ -100,7 +101,10 @@ export class FileMemoryStore {
     await this.semanticIndex?.ensureReady(entries);
   }
 
-  async listEntries(request: FileMemoryListRequest = {}): Promise<FileMemoryEntry[]> {
+  async listEntries(
+    request: FileMemoryListRequest = {},
+    embeddingContext?: Omit<EmbeddingAccountingContext, 'operation'>,
+  ): Promise<FileMemoryEntry[]> {
     await this.ensureReady();
     const entries = await this.readCandidateEntries(request);
     const query = request.query?.trim();
@@ -120,7 +124,7 @@ export class FileMemoryStore {
         .slice(0, limit);
     }
 
-    return await this.searchEntries(filtered, query, limit);
+    return await this.searchEntries(filtered, query, limit, embeddingContext);
   }
 
   async readEntry(memoryId: string): Promise<FileMemoryEntry | null> {
@@ -242,6 +246,7 @@ export class FileMemoryStore {
     entries: readonly FileMemoryEntry[],
     query: string,
     limit: number,
+    embeddingContext?: Omit<EmbeddingAccountingContext, 'operation'>,
   ): Promise<FileMemoryEntry[]> {
     const normalizedQuery = query.toLocaleLowerCase();
     const exact = entries.filter((entry) =>
@@ -254,7 +259,7 @@ export class FileMemoryStore {
         .slice(0, limit);
     }
 
-    const semantic = await this.semanticIndex.search(entries, query, limit);
+    const semantic = await this.semanticIndex.search(entries, query, limit, embeddingContext);
     const entriesById = new Map(entries.map((entry) => [entry.id, entry]));
     const ordered = semantic
       .map((match) => entriesById.get(match.memoryId))

@@ -69,7 +69,8 @@ import { LlmCallStore } from './llm/llm-call-store';
 import { ModelPricingStore } from './llm/model-pricing-store';
 import { syncOpenAiModelPricingFromSource } from './llm/openai-pricing-sync';
 import { PricingSourceStore } from './llm/pricing-source-store';
-import { createOpenAiEmbeddings } from './llm/model-factory';
+import { AccountingOpenAiEmbeddingClient } from './llm/openai-embedding-client';
+import type { EmbeddingAccountingContext } from './llm/openai-embedding-client';
 import { readWebPage } from './research/web-page-reader';
 import { RunContextStore } from './runs/run-context-store';
 import { ThreadService } from './threads/thread-service';
@@ -96,19 +97,20 @@ export class AssistantRuntime {
       options.defaultAgentName,
     );
     this.userProfileStore = new UserProfileStore(options.dataDir);
+    this.modelPricingStore = new ModelPricingStore(options.dataDir);
+    this.llmCallStore = new LlmCallStore(options.dataDir, this.modelPricingStore);
     const embeddingModel = process.env['OPENAI_EMBEDDING_MODEL'] ?? 'text-embedding-3-small';
-    const semanticMemoryIndex = process.env['OPENAI_API_KEY']
+    const apiKey = process.env['OPENAI_API_KEY'];
+    const semanticMemoryIndex = apiKey
       ? new SqliteSemanticMemoryIndex(
           options.dataDir,
-          createOpenAiEmbeddings(embeddingModel),
+          new AccountingOpenAiEmbeddingClient(apiKey, embeddingModel, this.llmCallStore),
           embeddingModel,
         )
       : undefined;
     this.fileMemoryStore = new FileMemoryStore(options.dataDir, undefined, semanticMemoryIndex);
     this.runContextStore = new RunContextStore(options.dataDir);
-    this.modelPricingStore = new ModelPricingStore(options.dataDir);
     this.pricingSourceStore = new PricingSourceStore(options.dataDir);
-    this.llmCallStore = new LlmCallStore(options.dataDir, this.modelPricingStore);
     this.threadCheckpointer = new ThreadCheckpointer(options.dataDir);
     this.models = readModels();
     this.threads = new ThreadService(
@@ -316,13 +318,19 @@ export class AssistantRuntime {
     };
   }
 
-  async listMemories(request: MemoryListRequest = {}): Promise<MemoryListResponse> {
+  async listMemories(
+    request: MemoryListRequest = {},
+    embeddingContext?: Omit<EmbeddingAccountingContext, 'operation'>,
+  ): Promise<MemoryListResponse> {
     if (request.agentId) {
       await this.readAgent(request.agentId);
     }
 
     return {
-      memories: await this.fileMemoryStore.listEntries(request),
+      memories: await this.fileMemoryStore.listEntries(request, {
+        agentId: request.agentId,
+        ...embeddingContext,
+      }),
     };
   }
 

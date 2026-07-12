@@ -53,7 +53,12 @@ export class ChatRunService {
     const memoryWritesEnabled = storage.agent.memory.canWrite;
     const tools = [
       ...this.capabilities.createRunnableTools(storage.agent.enabledTools),
-      ...(memoryReadsEnabled ? createMemoryReadTools(this.runtime, storage.agent.id) : []),
+      ...(memoryReadsEnabled
+        ? createMemoryReadTools(this.runtime, storage.agent.id, {
+            runId,
+            threadId: request.threadId,
+          })
+        : []),
       ...(memoryReadsEnabled
         ? createConversationTools(this.runtime, storage.agent.id, request.threadId)
         : []),
@@ -197,9 +202,9 @@ export class ChatRunService {
     const conversationTools = canReadMemory
       ? [
           {
-            id: 'search_memory',
-            label: 'Search memory',
-            description: 'Search applicable long-term memory files on demand.',
+            id: 'search_unpinned_memory',
+            label: 'Search unpinned memory',
+            description: 'Search applicable unpinned long-term memory files on demand.',
             provider: 'rdma26-memory',
             controlled: true,
           },
