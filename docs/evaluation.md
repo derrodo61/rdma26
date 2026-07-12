@@ -231,6 +231,34 @@ This baseline establishes two architecture targets: improve evidence comparison
 and temporal ordering, and reduce the number of research calls and aggregate
 context without sacrificing verification quality.
 
+## Initial Memory Baseline
+
+The first memory baseline was recorded on 12 July 2026 with suite
+`2026-07-12-v1` and model `gpt-5.4-mini`:
+
+- report: `evaluation-2026-07-12T11-55-27-066Z-1a2e1903`;
+- result: 4 cases passed automatically and 1 case passed human review;
+- runs: 7;
+- recorded model and embedding calls: 18;
+- tokens: 101,102 input, 80,256 cached input, and 407 output;
+- largest single model input: 8,061 tokens;
+- partial estimated cost: USD 0.0234507;
+- end-to-end duration: 22,511 ms;
+- unpriced calls: 5;
+- temporary agents remaining after cleanup: 0.
+
+Agent-local semantic recall, shared global recall from both agents, irrelevant
+memory exclusion, cross-agent isolation, and past-conversation recall all
+behaved correctly. The isolation case did not reveal the other agent's local
+marker, although it searched unpinned memory and past conversations before
+answering. This is correct behavior with avoidable retrieval work.
+
+The estimated cost is incomplete because five embedding calls had no active
+pricing record. Embedding pricing must be configured before this result can be
+used as a complete cost baseline. The seed response in the past-conversation
+case also repeated its acknowledgement, which should be watched in later runs
+even though retrieval returned the correct historical marker.
+
 ## Adding A Case
 
 A new case should represent a reusable product behavior, not a patch for one
