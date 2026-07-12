@@ -1,4 +1,4 @@
-export const evaluationSuiteVersion = '2026-07-12-v3';
+export const evaluationSuiteVersion = '2026-07-12-v5';
 
 export type EvaluationCategory =
   'direct' | 'research' | 'calculation' | 'planning' | 'uncertainty' | 'memory' | 'conversation';
@@ -69,7 +69,7 @@ const cases: readonly EvaluationCaseDefinition[] = [
         prompt: 'What is the capital of France? Answer in one short sentence.',
         assertions: {
           containsAll: ['Paris'],
-          forbiddenToolCalls: ['task', 'research', 'internet_search'],
+          forbiddenToolCalls: ['web_search'],
         },
       },
     ],
@@ -80,7 +80,7 @@ const cases: readonly EvaluationCaseDefinition[] = [
     description: 'Find one current software fact from an official source.',
     scenario: 'single',
     suites: ['research', 'core'],
-    requiredCapabilities: ['research'],
+    requiredCapabilities: ['web_search'],
     steps: [
       {
         id: 'answer',
@@ -91,7 +91,7 @@ const cases: readonly EvaluationCaseDefinition[] = [
         assertions: {
           minimumSources: 1,
           sourceDomainsAny: ['angular.dev', 'blog.angular.dev', 'github.com'],
-          requiredToolCalls: ['task'],
+          requiredToolCalls: ['web_search'],
         },
       },
     ],
@@ -106,7 +106,7 @@ const cases: readonly EvaluationCaseDefinition[] = [
     description: 'Answer a current fact with independent source support.',
     scenario: 'single',
     suites: ['research', 'core'],
-    requiredCapabilities: ['research'],
+    requiredCapabilities: ['web_search'],
     steps: [
       {
         id: 'answer',
@@ -116,13 +116,40 @@ const cases: readonly EvaluationCaseDefinition[] = [
           'What was the most recently completed match of the 2026 FIFA World Cup, and what was the final result? Verify it with at least two directly relevant sources.',
         assertions: {
           minimumSources: 2,
-          requiredToolCalls: ['task'],
+          requiredToolCalls: ['web_search'],
         },
       },
     ],
     humanReview: [
       'The selected match was actually the latest completed match at run time.',
       'Both displayed sources support the match and final result.',
+    ],
+  },
+  {
+    id: 'current-regional-news',
+    category: 'research',
+    description: 'Find a current regional news event using recent and directly relevant sources.',
+    scenario: 'single',
+    suites: ['research', 'core'],
+    requiredCapabilities: ['web_search'],
+    steps: [
+      {
+        id: 'answer',
+        agent: 'primary',
+        thread: 'case',
+        prompt:
+          'What is the most important news reported today in Bremen, Germany? Summarize one event briefly, state when it happened, and cite the sources that directly report it.',
+        assertions: {
+          minimumSources: 1,
+          requiredToolCalls: ['web_search'],
+        },
+      },
+    ],
+    humanReview: [
+      'The cited reporting is current and directly describes the selected event.',
+      "The answer distinguishes the event date from the articles' publication dates.",
+      'The search considered German-language or regional sources where useful.',
+      "The answer does not present an older similar event as today's news.",
     ],
   },
   {
@@ -140,7 +167,7 @@ const cases: readonly EvaluationCaseDefinition[] = [
         prompt: 'Calculate (37 × 19) + 31. Return the result and the expression.',
         assertions: {
           containsAll: ['734'],
-          forbiddenToolCalls: ['task', 'research', 'internet_search'],
+          forbiddenToolCalls: ['web_search'],
         },
       },
     ],
@@ -151,7 +178,7 @@ const cases: readonly EvaluationCaseDefinition[] = [
     description: 'Combine source-backed current data with a derived calculation.',
     scenario: 'single',
     suites: ['research', 'core'],
-    requiredCapabilities: ['research'],
+    requiredCapabilities: ['web_search'],
     steps: [
       {
         id: 'answer',
@@ -162,7 +189,7 @@ const cases: readonly EvaluationCaseDefinition[] = [
         assertions: {
           minimumSources: 1,
           sourceDomainsAny: ['openai.com'],
-          requiredToolCalls: ['task'],
+          requiredToolCalls: ['web_search'],
         },
       },
     ],
@@ -189,7 +216,7 @@ const cases: readonly EvaluationCaseDefinition[] = [
         assertions: {
           containsAll: ['Atlas', 'Cedar', 'Birch', '82'],
           requiredToolCalls: ['eval'],
-          forbiddenToolCalls: ['task', 'research', 'internet_search'],
+          forbiddenToolCalls: ['web_search'],
         },
       },
     ],
@@ -200,7 +227,7 @@ const cases: readonly EvaluationCaseDefinition[] = [
     description: 'Complete a request with dependent research and synthesis steps.',
     scenario: 'single',
     suites: ['research', 'core'],
-    requiredCapabilities: ['research'],
+    requiredCapabilities: ['web_search'],
     steps: [
       {
         id: 'answer',
@@ -210,7 +237,7 @@ const cases: readonly EvaluationCaseDefinition[] = [
           'Find the next scheduled 2026 FIFA World Cup match, give its kickoff time in Europe/Berlin, and explain which sourced value you used before conversion. If the source time zone is unclear, say so instead of guessing.',
         assertions: {
           minimumSources: 1,
-          requiredToolCalls: ['task'],
+          requiredToolCalls: ['web_search'],
         },
       },
     ],
@@ -242,7 +269,7 @@ const cases: readonly EvaluationCaseDefinition[] = [
             'not possible to know',
             'unknown',
           ],
-          forbiddenToolCalls: ['task', 'research', 'internet_search'],
+          forbiddenToolCalls: ['web_search'],
         },
       },
     ],

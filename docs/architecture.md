@@ -18,7 +18,7 @@ flowchart LR
     RT --> DATA["Storage and observability services"]
     AG --> DA["Deep Agents runtime"]
     DA --> LLM["OpenAI models"]
-    DA --> CAP["Granted capabilities and subagents"]
+    DA --> CAP["Granted capabilities and skills"]
 ```
 
 The Angular frontend does not contain model credentials, filesystem access, or
@@ -70,7 +70,7 @@ includes:
 - the selected accounting-aware model;
 - the agent's generated system prompt and `soul.md` identity;
 - granted application tools;
-- enabled Deep Agents subagents;
+- enabled Deep Agents middleware and skills;
 - scoped memory backends and permissions;
 - skills;
 - the persistent LangGraph checkpointer.
@@ -109,16 +109,17 @@ sequenceDiagram
 LangGraph checkpoints preserve the Deep Agent state for a thread. The
 application database separately stores messages as a UI/API/CLI read model.
 
-## Capabilities And Subagents
+## Capabilities And Skills
 
 The capability registry owns application capabilities and their configuration
 requirements. Normal capabilities can be granted or revoked per agent.
 Protected capabilities are injected only for their system agent.
 
-The current `research` capability attaches a Deep Agents researcher subagent.
-That subagent has web-search and page-reading tools and returns structured
-source-backed findings. Its current limitations and planned simplification are
-documented in [research.md](./research.md).
+The `web_search` capability adds OpenAI's provider-hosted search tool to the
+selected agent model. A built-in `web-research` skill supplies reusable source,
+recency, and uncertainty guidance without introducing a second research model
+or custom orchestration layer. Details are documented in
+[research.md](./research.md).
 
 The assignable `interpreter` capability adds the official Deep Agents QuickJS
 middleware. It gives an agent an isolated `eval` tool for calculations and
@@ -145,8 +146,8 @@ Chat models and embedding requests are created through accounting-aware
 factories or adapters. Call records include model, purpose, agent, thread, run,
 tokens, timing, and pricing snapshots where available.
 
-This makes parent-agent, subagent, maintenance, and embedding work separately
-inspectable. See [observability.md](./observability.md).
+This makes chat, maintenance, and embedding work separately inspectable. See
+[observability.md](./observability.md).
 
 Behavioral changes to prompts, tools, memory retrieval, delegation, or context
 construction are measured with the versioned harness documented in
@@ -167,9 +168,7 @@ See [storage.md](./storage.md) for ownership and lifecycle details.
 
 - The backend is local-first and currently designed for one authenticated user.
 - OpenAI is the implemented model provider.
-- Tavily is the implemented search provider.
-- The researcher is useful but still too prescriptive and is scheduled for
-  redesign against the stable evaluation set.
+- OpenAI hosted web search is the implemented search provider.
 - The QuickJS interpreter is available as an agent capability; a general
   execution sandbox is not yet enabled.
 - Mobile access, multimodality, broad file work, and controlled script execution

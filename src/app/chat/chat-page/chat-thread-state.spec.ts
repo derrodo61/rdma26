@@ -138,7 +138,7 @@ describe('ChatThreadState', () => {
       assistantResponse: assistantMessage.content,
       toolCalls: [
         {
-          name: 'research',
+          name: 'web_search',
           result: JSON.stringify({
             answerSourceUrls: ['https://example.com/article'],
             sources: [{ url: 'https://example.com/article', title: 'Example article' }],

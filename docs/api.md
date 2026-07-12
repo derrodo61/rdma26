@@ -216,8 +216,7 @@ Cost Analyst can use configured pricing sources through controlled tools and its
 
 Returns registered tools and their availability.
 
-- `research` is the recommended Deep Agents researcher subagent capability. It is available when `TAVILY_API_KEY` and `OPENAI_API_KEY` are configured.
-- `internet_search` is a low-level Tavily search primitive and is available when `TAVILY_API_KEY` is configured.
+- `web_search` is OpenAI's provider-hosted search capability. It is available when `OPENAI_API_KEY` is configured and uses the model selected for the chat run.
 - `read_web_page` is a low-level public web page reader.
 - `read_web_page_structure` fetches a known public web page and returns structured content with focused modes: `overview`, `markdown`, `article`, `headings`, `links`, `lists`, `tables`, and `full`. Use a narrow mode and optional `query` when page structure matters.
 
@@ -236,7 +235,7 @@ Optional query parameters:
 - `runId`
 - `provider`
 - `model`
-- `purpose`: `chat`, `research_parent`, `research_subagent`, `research_verification`, `thread_summary`, `memory_retrieval`, `memory_maintenance`, `operator`, or `unknown`
+- `purpose`: `chat`, `thread_summary`, `memory_retrieval`, `memory_maintenance`, `operator`, or `unknown`
 - `status`: `success`, `error`, or `cancelled`
 - `startedFrom` and `startedTo`: ISO timestamp or `YYYY-MM-DD`
 - `limit`
@@ -262,7 +261,7 @@ Optional query parameters:
 
 ### `POST /api/optimizer-runs`
 
-Creates a hidden internal Cost Analyst thread and asks the protected optimization agent to inspect local LLM usage, pricing, run context, and model settings. The Cost Analyst has the `research` capability, a dedicated OpenAI pricing sync/compare tool, and controlled pricing tools. Pricing changes require explicit approval.
+Creates a hidden internal Cost Analyst thread and asks the protected optimization agent to inspect local LLM usage, pricing, run context, and model settings. The Cost Analyst has the `web_search` capability, a dedicated OpenAI pricing sync/compare tool, and controlled pricing tools. Pricing changes require explicit approval.
 
 Body:
 
@@ -387,15 +386,12 @@ The `models` object stores backend-owned model settings:
 ```json
 {
   "models": {
-    "chat": "gpt-4.1-mini",
-    "research": {
-      "researcher": "gpt-4.1"
-    }
+    "chat": "gpt-4.1-mini"
   }
 }
 ```
 
-`models.chat` is the normal chat model for the agent. `models.research.researcher` is used by the internal researcher subagent when the `research` capability is enabled.
+`models.chat` is the chat model for the agent and also powers hosted web search when that capability is enabled.
 
 ### `GET /api/agents/:agentId/soul`
 
@@ -431,15 +427,14 @@ Body:
 
 ```json
 {
-  "enabledTools": ["research"]
+  "enabledTools": ["web_search"]
 }
 ```
 
 Replaces the agent's enabled tool list.
 
-Use `research` for normal agents that need current external information. Use
-`internet_search`, `read_web_page`, and `read_web_page_structure` only when you
-explicitly want the lower-level primitives.
+Use `web_search` for agents that need current external information. Use
+`read_web_page` and `read_web_page_structure` only for known-URL inspection.
 
 ### `POST /api/agents/:agentId/tools/:toolId`
 
@@ -504,7 +499,7 @@ Streams Server-Sent Events:
 ```json
 {
   "type": "run-activity",
-  "label": "Researcher is searching the web",
+  "label": "Ronaldo is searching the web",
   "detail": "Angular latest stable version"
 }
 ```
@@ -535,6 +530,7 @@ The response includes:
 - pinned memory files loaded at startup, including scope, virtual path, tags, source metadata, and content
 - tools available in the run, including labels, providers, descriptions, and whether they were assigned or controlled
 - tool calls and tool results when returned by the Deep Agents run
+- skill files actually loaded through Deep Agents progressive disclosure; available but unread skills are not counted as used
 - token usage when returned by the model/runtime
 - LLM call records, including purpose, status, token usage, duration, pricing snapshot id, and estimated cost when active pricing exists
 - whether memory writes were enabled

@@ -1,165 +1,68 @@
-# Research
+# Web Research
 
-This document describes the current rdma26 internet-research capability. It is
-not the design for the upcoming architecture rework.
+rdma26 uses OpenAI's provider-hosted web search as its normal internet-search capability. There is no separate research agent or research model.
 
-## Capability Registration
+## Configuration
 
-Agents can be granted one or more web capabilities:
+Grant the `web_search` capability to an agent through the UI, API, or CLI. The capability requires `OPENAI_API_KEY` and uses the model selected for that chat run.
 
-- `research`: attaches a Deep Agents researcher subagent;
-- `internet_search`: exposes low-level Tavily search directly;
-- `read_web_page`: reads readable text from a known public URL;
-- `read_web_page_structure`: extracts focused tables, headings, links, lists,
-  Markdown, article text, or debugging output from a known public URL.
+```bash
+./bin/rdma26 agents:tools:grant --agent ronaldo --tool web_search
+```
 
-The high-level `research` capability requires `OPENAI_API_KEY` and
-`TAVILY_API_KEY`. The low-level tools remain available for specialized and
-debugging use, but normal agents should not need all of them simultaneously.
+Agents without this grant cannot search the internet. The grant is not enabled automatically for newly created agents.
 
-The separate `interpreter` capability provides an isolated QuickJS `eval` tool
-for deterministic calculations and structured transformations. It does not
-provide web access itself. An agent may combine research results with the
-interpreter, while sourced facts remain distinct from derived values.
+## Runtime Flow
 
-Capability grants are agent-specific and managed through the same runtime from
-UI, API, and CLI.
+```mermaid
+flowchart LR
+    U["User question"] --> A["Selected agent and model"]
+    A --> D{"Current external information needed?"}
+    D -->|No| R["Answer directly"]
+    D -->|Yes| W["OpenAI hosted web_search"]
+    W --> S["Search and open relevant pages"]
+    S --> A
+    A --> C["Answer with source citations"]
+```
 
-## Current Researcher
+OpenAI formulates search queries, searches, opens pages when needed, and returns citation annotations. rdma26 stores the search actions and cited URLs in the run context so the UI can show sources next to the matching assistant message.
 
-The `research` capability adds one Deep Agents subagent named `researcher`. It
-receives:
+## Skill Guidance
 
-- the configured researcher model;
-- the user's locale, time zone, and current date context;
-- `research_web_search` backed by Tavily;
-- `research_read_web_page` backed by the local public-page reader;
-- a structured response schema.
+Every agent receives the built-in `web-research` Deep Agents skill. It provides reusable guidance to:
 
-The parent agent delegates through Deep Agents' built-in `task` tool. Search and
-page outputs remain in the subagent context, while the parent receives the
-structured result.
+- identify the exact fact requested before searching;
+- distinguish publication, event, release, scheduled, live, and completed dates or states;
+- prefer primary and authoritative sources;
+- use local-language or regional sources when broad sources are incomplete;
+- continue only when evidence is stale, incomplete, ambiguous, or conflicting;
+- compare dated candidates for latest, last, and next questions;
+- preserve citations and state remaining uncertainty plainly;
+- handle news and developing events with explicit dates, event-date checks,
+  regional and local-language sources, and focused follow-up searches when broad
+  results are noisy. A request about today must not silently fall back to an
+  older recent story, and factual details should cite direct reports rather than
+  publisher homepages.
 
-## Result Shape
+This is reusable operating guidance, not a hardcoded workflow for one question type.
 
-The current structured result contains:
+Deep Agents first injects only the skill name and description. When the model
+decides the skill matches a request, it reads
+`/skills/web-research/SKILL.md` through progressive disclosure. Run context
+records that file read under `skillsUsed`; merely having the skill available is
+not reported as usage.
 
-- `status`: `verified`, `partial`, or `unresolved`;
-- an optional claim-checking status;
-- a concise answer;
-- URLs intended to support that answer;
-- structured findings;
-- unresolved fields;
-- source titles and excerpts;
-- executed search queries;
-- dated candidates for latest/last/current comparisons;
-- warnings and notes.
+## Known-URL Readers
 
-The frontend derives source controls from the run associated with an assistant
-message. Sources are not taken from an unrelated latest run.
+`read_web_page` and `read_web_page_structure` remain optional low-level tools for cases where the target URL is already known. They are not search providers:
 
-## Page Retrieval
+- `read_web_page` returns readable page text;
+- `read_web_page_structure` returns focused tables, headings, links, lists, Markdown, or article content.
 
-The page reader accepts only public HTTP or HTTPS URLs and rejects localhost and
-private-network targets. It fetches a page, extracts readable content, focuses
-the result when a query is supplied, and enforces output limits.
+These readers use local HTTP fetching and reject localhost and private-network URLs.
 
-The structured page reader is a separate low-level capability for known pages.
-It can return a selected representation instead of placing every available page
-form in model context.
+## Streaming And Observability
 
-## Current Guidance
+Chat still streams run activity and the final answer through SSE. The current Deep Agents event stream does not preserve all hosted-search citation metadata, so hosted-search runs use the final invocation result to capture search actions and citations reliably. LLM calls remain routed through the accounting-aware model factory.
 
-The researcher prompt currently tells the model to:
-
-- translate conversational requests into concise search queries;
-- resolve relative dates against the user profile;
-- prefer primary or authoritative sources where appropriate;
-- read source pages before trusting precise search snippets;
-- continue when evidence is stale, incomplete, contradictory, or off-topic;
-- use a focused follow-up query when a newer temporal candidate is missing a
-  required answer field, and remain partial or unresolved if it cannot be
-  verified;
-- consider local-language and regional sources when broad search is weak;
-- distinguish confirmed, reported, disputed, unsupported, false, and unclear
-  claims;
-- return partial or unresolved results rather than guess;
-- expose only sources that directly support its final answer.
-- include concrete supporting evidence text for every source exposed with the
-  final answer.
-
-These are current implementation facts, not proof that the behavior is reliable
-enough.
-
-Search discovery returns at most five candidates with bounded previews. The
-researcher can issue a more focused query or read a candidate page when those
-previews do not contain enough evidence. This keeps iterative context bounded
-without treating snippets as verified sources.
-
-## Known Limitations
-
-The researcher has produced both excellent and incorrect answers in manual
-testing. Current limitations include:
-
-- too many model turns and repeated context for some simple questions;
-- model-dependent adherence to source and uncertainty instructions;
-- a large prescriptive prompt that attempts to anticipate many failure modes;
-- structured output that can repeat more evidence than the parent needs;
-- the initial research evaluation accepting only two of four answers at human
-  review despite all four passing structural assertions;
-- Tavily and public-page extraction quality varying by source.
-
-The project deliberately removed later experimental adaptive-depth budgets and
-dedicated time-zone/elapsed-time workflow tools. Those experiments made the
-researcher more rigid without solving the general flexibility problem.
-
-## Rejected Interpreter Experiment
-
-On 12 July 2026, an experiment added an isolated QuickJS interpreter inside the
-researcher with only search and page-reading tools available through
-programmatic tool calling. It was removed after controlled evaluation:
-
-- original `gpt-5.4-mini` baseline: 2 of 4 answers accepted at human review, 33
-  calls, 305,734 input tokens, and USD 0.1114491;
-- internal-interpreter `gpt-5.4-mini` run
-  `evaluation-2026-07-12T12-41-50-325Z-c4d81eb4`: 2 of 4 answers accepted, 32
-  calls, 324,664 input tokens, and USD 0.1241229;
-- internal-interpreter run with `gpt-5.4-mini` parent and `gpt-5.4` researcher
-  `evaluation-2026-07-12T12-36-07-265Z-9283c9b1`: 1 of 4 answers accepted, 23
-  calls, 205,264 input tokens, and USD 0.2909592.
-
-The experiment did not improve general reliability. The mini configuration
-slightly reduced calls but increased context and estimated cost. The stronger
-researcher solved one previously failed sports question in an isolated run, but
-the complete suite produced incorrect Angular and next-match answers and left
-the pricing question unresolved. No researcher runtime behavior from this
-experiment remains enabled.
-
-The evaluation runner retains independent chat and researcher model selection
-because that is useful for future controlled comparisons.
-
-## Direction For The Architecture Rework
-
-The next implementation should be driven by the evaluation baseline. The
-intended direction is:
-
-- simplify research to source discovery, reading, evidence selection, and
-  uncertainty;
-- give agents a small set of general capabilities;
-- evaluate the new Deep Agents interpreter for general calculation and
-  structured transformation before connecting it to additional tools;
-- keep sourced facts separate from derived results;
-- avoid tools designed for individual questions;
-- retain accounting, source provenance, and inspectable activity;
-- compare accuracy, calls, context, latency, and cost before and after the
-  redesign.
-
-The concrete replacement behavior belongs in tested implementation and current
-architecture documentation, not another speculative workflow specification.
-
-## Primary References
-
-- [Deep Agents subagents](https://docs.langchain.com/oss/javascript/deepagents/subagents)
-- [Deep Agents interpreters](https://docs.langchain.com/oss/javascript/deepagents/interpreters)
-- [Deep Agents sandboxes](https://docs.langchain.com/oss/javascript/deepagents/sandboxes)
-- [Deep Agents skills](https://docs.langchain.com/oss/javascript/deepagents/skills)
+Research quality, calls, tokens, context size, cost, and latency are measured by the `research` evaluation suite described in [evaluation.md](./evaluation.md).

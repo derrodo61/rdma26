@@ -84,22 +84,6 @@ async function main(): Promise<void> {
         }),
       );
       return;
-    case 'agents:research-model:set': {
-      const agent = await runtime.readAgent(agentId(options));
-
-      printJson(
-        await runtime.updateAgent(agent.id, {
-          models: {
-            ...agent.models,
-            research: {
-              ...agent.models.research,
-              researcher: requiredOption(options, 'model'),
-            },
-          },
-        }),
-      );
-      return;
-    }
     case 'agents:soul:read':
       printJson(await runtime.readAgentSoul(agentId(options)));
       return;
@@ -255,7 +239,6 @@ async function main(): Promise<void> {
           suite: parseEvaluationSuite(options['suite']),
           caseIds: parseOptionalList(options['cases']),
           model: options['model'],
-          researchModel: options['research-model'],
           keepData: parseOptionalBooleanOption(options['keep-data'], 'keep-data'),
         }),
       );
@@ -639,9 +622,6 @@ function parseLlmCallPurpose(value: string | undefined): LlmCallPurpose | undefi
 
   if (
     value === 'chat' ||
-    value === 'research_parent' ||
-    value === 'research_subagent' ||
-    value === 'research_verification' ||
     value === 'thread_summary' ||
     value === 'memory_retrieval' ||
     value === 'memory_maintenance' ||
@@ -750,7 +730,6 @@ Usage:
   rdma26 agents:update --agent research --name "Researcher"
   rdma26 agents:memory:set --agent research --can-read true --can-write true
   rdma26 agents:model:set --agent research --model gpt-4.1-mini
-  rdma26 agents:research-model:set --agent research --model gpt-4.1-mini
   rdma26 agents:soul:read --agent research
   rdma26 agents:soul:write --agent research --file ./soul.md
   rdma26 agents:delete --agent research
@@ -764,9 +743,9 @@ Usage:
   rdma26 memories:update --memory <memory-id> --content "Updated memory" --pinned false
   rdma26 memories:delete --memory <memory-id>
   rdma26 agents:tools --agent research
-  rdma26 agents:tools:set --agent research --tools internet_search
-  rdma26 agents:tools:grant --agent research --tool internet_search
-  rdma26 agents:tools:revoke --agent research --tool internet_search
+  rdma26 agents:tools:set --agent research --tools web_search
+  rdma26 agents:tools:grant --agent research --tool web_search
+  rdma26 agents:tools:revoke --agent research --tool web_search
   rdma26 threads:list --agent scotty
   rdma26 threads:create --agent scotty --title "Planning"
   rdma26 threads:read --agent scotty --thread <thread-id>
@@ -774,7 +753,7 @@ Usage:
   rdma26 chat:send --agent scotty --thread <thread-id> --model gpt-4.1-mini --prompt "Hello"
   rdma26 evals:list
   rdma26 evals:run --suite smoke --model gpt-5.4-mini
-  rdma26 evals:run --suite research --model gpt-5.4-mini --research-model gpt-5.4
+  rdma26 evals:run --suite research --model gpt-5.4
   rdma26 evals:run --cases direct-known-fact,thread-follow-up --keep-data true
   rdma26 optimizer:ask --prompt "Which agent cost the most this week?"
   rdma26 runs:context --run <run-id>

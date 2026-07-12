@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Added OpenAI provider-hosted `web_search` with captured search actions, page
+  openings, citations, source URLs, model usage, cost, context, and latency.
+- Added a built-in `web-research` Deep Agents skill with reusable guidance for
+  source authority, recency, temporal ordering, regional sources, stopping, and
+  uncertainty.
+- Added news-specific web-research guidance for explicit date matching,
+  local-language and regional reporting, focused follow-up searches, developing
+  stories, and direct-report citations.
 - Added recursive run-context capture for subagent tool calls, including the
   responsible agent name, inputs, and outputs used during research.
 - Added an assignable Deep Agents QuickJS interpreter capability for isolated calculations and deterministic structured-data transformations without host filesystem, network, shell, package, credential, or clock access.
@@ -22,16 +30,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added multilingual semantic memory retrieval with OpenAI embeddings, exact-match preference, scoped results, and a content-hash SQLite vector cache that reuses unchanged memory embeddings.
 - Added embedding observability through the shared LLM-call accounting store, including actual provider token usage, model, duration, status, run ownership, estimated cost, operation type, and cache behavior in the Usage and Run context pages.
 - Added run-context visibility for the exact pinned memory files loaded at startup.
+- Added skill-use observability that records full `SKILL.md` reads during Deep
+  Agents progressive disclosure and shows them separately in Run context.
 
 ### Fixed
 
+- Preserved provider-hosted search actions and URL citations in run context so
+  sources remain attached to the assistant message that used them.
 - Prevented CLI `--help` requests from launching evaluations, and corrected the
   uncertainty case to accept the valid phrase "cannot be known".
-- Required every researcher answer source to carry concrete supporting evidence
-  text, excluding unreadable or merely related pages from final citations.
-- Required targeted follow-up searches for newer temporal candidates with
-  missing answer fields, preventing older candidates from being presented as
-  verified latest results.
 - Made omitted chat-run models resolve consistently across API and CLI from the saved per-agent user-profile setting, then the backend agent setting, and finally the application default. Explicit request model overrides still take precedence.
 - Prevented persistent LangGraph runs from resending the full UI thread after a checkpoint already exists.
 - Enforced agent memory permissions at the Deep Agents filesystem boundary so native tools cannot bypass disabled reads or controlled `save_memory` writes.
@@ -44,13 +51,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Removed completed or superseded memory, research, observability, SQLite, and temporary context-optimization planning documents after consolidating their durable information into current-state documentation.
 - Removed the custom SQLite memory table, memory types/statuses, lexical and embedding scoring, embedding cache, conversation-summary memory generation, maintenance scheduler, and obsolete UI/API/CLI controls.
+- Removed the custom Tavily researcher subagent, Tavily search and extraction
+  dependency, low-level `internet_search` capability, separate researcher model
+  setting, and search-mode compatibility paths.
 
 ### Changed
 
-- Bounded researcher search discovery to five candidates with shorter previews,
-  while retaining focused follow-up searches and full source-page reading for
-  verification.
-- Evaluation runs can now select and record chat and researcher models independently for controlled quality and cost comparisons.
+- Hosted web search now uses the model selected for the chat, while known-URL
+  page readers remain separate optional capabilities.
+- Evaluation research cases now exercise the same `web_search` path used by
+  normal agents.
 - Reorganized README and project documentation around product direction, implemented architecture, interfaces, and project history.
 - Replaced startup-time schema patching with ordered transactional SQLite migrations. Destructive migrations create a database backup; schema version 8 removes the obsolete memory table and schema version 9 adds a rebuildable semantic-memory vector cache while preserving threads and messages.
 - Replaced the custom memory system with a Deep Agents and LangGraph-aligned architecture that separates checkpointed threads, bounded file-backed long-term memory, on-demand recall, skills, identity, and past-conversation search.

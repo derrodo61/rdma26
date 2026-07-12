@@ -50,10 +50,9 @@ When memory reads are disabled, pinned memory, on-demand memory directories, and
 
 ```bash
 rdma26 agents:model:set --agent research --model gpt-4.1-mini
-rdma26 agents:research-model:set --agent research --model gpt-4.1
 ```
 
-`agents:model:set` changes the normal chat model. `agents:research-model:set` changes the model used by the internal researcher subagent when the `research` capability is enabled.
+`agents:model:set` changes the chat model. The same selected model powers hosted web search when `web_search` is enabled.
 
 ### Read an agent soul.md
 
@@ -203,7 +202,7 @@ Useful filters:
 - `--run <run-id>`
 - `--provider openai`
 - `--model gpt-4.1-mini`
-- `--purpose chat|research_parent|research_subagent|research_verification|thread_summary|memory_retrieval|memory_maintenance|operator|unknown`
+- `--purpose chat|thread_summary|memory_retrieval|memory_maintenance|operator|unknown`
 - `--status success|error|cancelled`
 - `--started-from <iso-timestamp-or-date>`
 - `--started-to <iso-timestamp-or-date>`
@@ -310,7 +309,7 @@ For protected system agents, the response also includes `controlledTools`, which
 ### Replace an agent's enabled tools
 
 ```bash
-rdma26 agents:tools:set --agent ronaldo --tools research
+rdma26 agents:tools:set --agent ronaldo --tools web_search
 ```
 
 Use a comma-separated list for multiple tools.
@@ -318,16 +317,16 @@ Use a comma-separated list for multiple tools.
 ### Grant one tool
 
 ```bash
-rdma26 agents:tools:grant --agent ronaldo --tool research
+rdma26 agents:tools:grant --agent ronaldo --tool web_search
 ```
 
 ### Revoke one tool
 
 ```bash
-rdma26 agents:tools:revoke --agent ronaldo --tool research
+rdma26 agents:tools:revoke --agent ronaldo --tool web_search
 ```
 
-`research` is the recommended Deep Agents researcher subagent capability for normal agents. `internet_search`, `read_web_page`, and `read_web_page_structure` are lower-level primitives for specialized or debugging workflows. `read_web_page_structure` preserves page structure through focused modes such as `tables`, `headings`, `links`, `lists`, `markdown`, and `full`.
+`web_search` is OpenAI's provider-hosted search capability and uses the selected chat model. `read_web_page` and `read_web_page_structure` are optional known-URL readers for specialized workflows. `read_web_page_structure` preserves page structure through focused modes such as `tables`, `headings`, `links`, `lists`, `markdown`, and `full`.
 
 ## Threads
 
@@ -390,13 +389,12 @@ required capabilities, prompts, and assertions.
 rdma26 evals:run --suite smoke --model gpt-5.4-mini
 ```
 
-Select a stronger researcher model independently from the parent chat model:
+Run the research suite with the selected agent model:
 
 ```bash
 rdma26 evals:run \
   --suite research \
-  --model gpt-5.4-mini \
-  --research-model gpt-5.4
+  --model gpt-5.4
 ```
 
 Suites are `smoke`, `research`, `memory`, and `core`. The default is `smoke`.
@@ -414,7 +412,7 @@ contexts, and LLM calls for debugging. Without it, temporary data is removed
 after the JSON report is written.
 
 Reports are stored under `.assistant-data/evaluations/`. Live evaluations
-require `OPENAI_API_KEY`; research cases also require `TAVILY_API_KEY`.
+require `OPENAI_API_KEY`.
 
 The run id is included in `chat:send` output and in the API `run-started` event.
 
@@ -435,4 +433,3 @@ The CLI reads the same `.env` configuration as the backend, including:
 - `ASSISTANT_AGENT_NAME`
 - `OPENAI_API_KEY`
 - `OPENAI_MODELS`
-- `TAVILY_API_KEY`

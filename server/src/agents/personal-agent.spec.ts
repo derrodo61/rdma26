@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { collectRunToolCalls, createMemoryFilesystemPermissions } from './personal-agent';
+import {
+  collectRunToolCalls,
+  createMemoryFilesystemPermissions,
+  extractSkillUsages,
+} from './personal-agent';
 
 describe('PersonalAgent memory filesystem permissions', () => {
   it('always blocks native memory writes while allowing reads for a readable agent', () => {
@@ -36,19 +40,19 @@ describe('collectRunToolCalls', () => {
         {
           callId: 'parent-call',
           name: 'task',
-          input: { subagent_type: 'researcher' },
-          output: Promise.resolve('research complete'),
+          input: { subagent_type: 'calculator' },
+          output: Promise.resolve('calculation complete'),
         },
       ]),
       subagents: asyncValues([
         {
-          name: 'researcher',
+          name: 'calculator',
           toolCalls: asyncValues([
             {
               callId: 'search-call',
-              name: 'research_web_search',
-              input: { query: 'latest result' },
-              output: Promise.resolve({ results: [{ url: 'https://example.com/result' }] }),
+              name: 'eval',
+              input: { code: '2 + 2' },
+              output: Promise.resolve({ result: 4 }),
             },
           ]),
           subagents: asyncValues([]),
@@ -61,15 +65,37 @@ describe('collectRunToolCalls', () => {
         id: 'parent-call',
         name: 'task',
         agentName: undefined,
-        args: { subagent_type: 'researcher' },
-        result: 'research complete',
+        args: { subagent_type: 'calculator' },
+        result: 'calculation complete',
       },
       {
         id: 'search-call',
-        name: 'research_web_search',
-        agentName: 'researcher',
-        args: { query: 'latest result' },
-        result: '{"results":[{"url":"https://example.com/result"}]}',
+        name: 'eval',
+        agentName: 'calculator',
+        args: { code: '2 + 2' },
+        result: '{"result":4}',
+      },
+    ]);
+  });
+});
+
+describe('extractSkillUsages', () => {
+  it('recognizes progressively loaded SKILL.md files', () => {
+    expect(
+      extractSkillUsages([
+        {
+          name: 'read_file',
+          args: { file_path: '/skills/web-research/SKILL.md', limit: 500 },
+        },
+        {
+          name: 'read_file',
+          args: { file_path: '/configuration/soul.md' },
+        },
+      ]),
+    ).toEqual([
+      {
+        name: 'web-research',
+        path: '/skills/web-research/SKILL.md',
       },
     ]);
   });

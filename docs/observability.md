@@ -7,13 +7,13 @@ and cost-accounting behavior.
 
 rdma26 records model work so the user can answer:
 
-- which agent, subagent, or internal job made a call;
+- which agent or internal job made a call;
 - which model and provider were used;
 - how many tokens were reported;
 - how long the call took;
 - what context was sent when prompt inspection is available;
 - what the call approximately cost;
-- how a parent run expanded into subagent or embedding work.
+- how a run expanded into model, tool, or embedding work.
 
 Cost values are estimates based on saved pricing, not provider invoices.
 
@@ -23,7 +23,7 @@ The central model factory and accounting adapters cover:
 
 - normal chat calls;
 - protected operator calls;
-- research subagent calls;
+- hosted web-search chat calls;
 - memory and thread maintenance calls where still applicable;
 - optimizer/cost-analysis calls;
 - OpenAI embedding requests used by semantic memory retrieval.
@@ -52,9 +52,9 @@ or fails. Failed and cancelled calls remain observable instead of disappearing.
 
 ## Purposes
 
-Purpose labels separate different kinds of work, including parent chat,
-operator work, researcher subagents, memory retrieval, optimization, and other
-internal jobs. Purpose is an accounting dimension, not an agent identity.
+Purpose labels separate different kinds of work, including chat, operator work,
+memory retrieval, optimization, and other internal jobs. Purpose is an
+accounting dimension, not an agent identity.
 
 ## Embedding Observability
 
@@ -79,11 +79,16 @@ needed for debugging and evaluation, including:
 - messages supplied to the run;
 - memory included or retrieved;
 - enabled tools and recorded tool calls;
+- skill files actually loaded through progressive disclosure;
 - token totals;
 - linked LLM and embedding calls.
 
 Run context may contain sensitive prompts, messages, memory, and tool data. It
 is local application data and should not be exposed without authentication.
+
+The `skillsUsed` list records a skill only when the agent reads its full
+`SKILL.md` file. Skill metadata advertised in the system prompt is not counted
+as use. The Run context page shows the loaded skill name and virtual path.
 
 ## Model Pricing
 
@@ -121,8 +126,8 @@ an older call.
 ### UI
 
 The Costs area provides Usage and Pricing views. Run context exposes the calls
-for an individual run. Agent settings allow chat and researcher models to be
-configured where supported.
+for an individual run. Agent settings control the chat model, which also powers
+hosted web search when that capability is granted.
 
 ### API
 
@@ -150,6 +155,6 @@ They should be added only when real data volume requires them.
   separately integrated.
 - Prompt/context inspection is intended for debugging and may not reconstruct
   every provider-internal transformation.
-- The current researcher can still create excessive calls and context; the
-  stable evaluation baseline must quantify this before redesign.
+- Hosted search quality and cost depend strongly on the user-selected model and
+  must be tracked with the stable evaluation suite.
 - Pricing synchronization currently targets OpenAI.

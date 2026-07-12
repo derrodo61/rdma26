@@ -19,7 +19,7 @@ features.
   boundaries.
 - [Memory](./memory.md): current thread state, long-term memory, semantic
   retrieval, and user controls.
-- [Research](./research.md): current researcher subagent and known limitations.
+- [Web research](./research.md): hosted search, source handling, and known-URL readers.
 - [Observability and costs](./observability.md): LLM and embedding accounting,
   pricing, run context, and cost estimates.
 - [Agent evaluation](./evaluation.md): versioned cases, reproducible live runs,

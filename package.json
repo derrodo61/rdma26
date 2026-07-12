@@ -39,7 +39,6 @@
     "@langchain/langgraph-checkpoint-sqlite": "^1.0.3",
     "@langchain/openai": "^1.5.3",
     "@langchain/quickjs": "^0.6.0",
-    "@langchain/tavily": "^1.2.0",
     "@ng-icons/core": "^33.3.0",
     "@ng-icons/lucide": "^33.3.0",
     "better-sqlite3": "^12.11.1",

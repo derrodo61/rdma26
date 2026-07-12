@@ -57,7 +57,7 @@ function extractResearchSources(
   const sources = new Map<string, ResearchSourceSummary>();
 
   for (const toolCall of toolCalls) {
-    if (toolCall.name !== 'research' && toolCall.name !== 'task') {
+    if (toolCall.name !== 'web_search') {
       continue;
     }
 

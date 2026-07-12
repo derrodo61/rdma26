@@ -75,11 +75,6 @@ export interface AgentMemorySettings {
 
 export interface AgentModelSettings {
   readonly chat?: string;
-  readonly research?: AgentResearchModelSettings;
-}
-
-export interface AgentResearchModelSettings {
-  readonly researcher?: string;
 }
 
 export interface AgentsResponse {
@@ -340,6 +335,11 @@ export interface RunContextToolCall {
   readonly result?: string;
 }
 
+export interface RunContextSkillUsage {
+  readonly name: string;
+  readonly path: string;
+}
+
 export interface RunContextTokenUsage {
   readonly inputTokens?: number;
   readonly outputTokens?: number;
@@ -353,15 +353,7 @@ export type ModelPricingStatus = 'active' | 'inactive';
 export type PricingSourceTrustLevel = 'official' | 'third_party' | 'user_added';
 
 export type LlmCallPurpose =
-  | 'chat'
-  | 'research_parent'
-  | 'research_subagent'
-  | 'research_verification'
-  | 'thread_summary'
-  | 'memory_retrieval'
-  | 'memory_maintenance'
-  | 'operator'
-  | 'unknown';
+  'chat' | 'thread_summary' | 'memory_retrieval' | 'memory_maintenance' | 'operator' | 'unknown';
 
 export interface LlmCallRecord {
   readonly id: string;
@@ -628,6 +620,7 @@ export interface RunContextDetails {
   readonly messages: readonly RunContextMessage[];
   readonly tools: readonly RunContextTool[];
   readonly toolCalls?: readonly RunContextToolCall[];
+  readonly skillsUsed?: readonly RunContextSkillUsage[];
   readonly tokenUsage?: RunContextTokenUsage;
   readonly llmCalls?: readonly LlmCallRecord[];
   readonly memoryReadsEnabled: boolean;

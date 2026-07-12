@@ -90,22 +90,6 @@ async function observeSubagentToolCalls(
   onActivity: AgentActivityCallback,
 ): Promise<void> {
   for await (const toolCall of subagent.toolCalls ?? []) {
-    if (toolCall.name === 'research_web_search') {
-      emitActivity(onActivity, {
-        label: 'Researcher is searching the web',
-        detail: readStringProperty(toolCall.input, 'query'),
-      });
-      continue;
-    }
-
-    if (toolCall.name === 'research_read_web_page') {
-      emitActivity(onActivity, {
-        label: 'Researcher is reading a source',
-        detail: readStringProperty(toolCall.input, 'url'),
-      });
-      continue;
-    }
-
     emitActivity(onActivity, {
       label: `${formatSubagentName(subagent.name)} is using ${formatToolName(toolCall.name)}`,
     });

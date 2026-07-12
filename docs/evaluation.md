@@ -109,16 +109,19 @@ Select a model:
 ./bin/rdma26 evals:run --suite smoke --model gpt-5.4-mini
 ```
 
-Select chat and researcher models independently:
+Run research cases with the selected model:
 
 ```bash
 ./bin/rdma26 evals:run \
   --suite research \
-  --model gpt-5.4-mini \
-  --research-model gpt-5.4
+  --model gpt-5.4
 ```
 
-Without `--research-model`, the researcher uses the selected chat model.
+Research cases use OpenAI's provider-hosted `web_search` tool. Generated search
+and page-opening actions are recorded as `web_search` calls and final URL
+citations are preserved. Hosted-search runs currently use final Deep Agents
+invocation results because the v3 stream projection removes provider-hosted
+tool metadata and citation annotations from the projected final message.
 
 Run selected cases:
 
@@ -137,8 +140,7 @@ Retain temporary agents and their run contexts for debugging:
   --keep-data true
 ```
 
-`OPENAI_API_KEY` is required for every live suite. Research cases also require
-`TAVILY_API_KEY`.
+`OPENAI_API_KEY` is required for every live suite.
 
 ## Reports
 
@@ -151,7 +153,7 @@ Reports are written to:
 A report contains:
 
 - suite and case version;
-- chat model, researcher model, and timestamps;
+- selected model and timestamps;
 - overall and per-case status;
 - every prompt and response;
 - run, thread, and temporary agent ids;
@@ -188,7 +190,7 @@ architectures.
 
 1. Run `smoke` with the intended default chat model.
 2. Record the report id and summary.
-3. Run `research` with the same chat and researcher model.
+3. Run `research` with the intended chat model.
 4. Review every current fact and displayed source.
 5. Run `memory` only after confirming embedding pricing and expected provider
    cost.
@@ -247,6 +249,50 @@ presence alone does not prove that the agent interpreted the source correctly.
 This baseline establishes two architecture targets: improve evidence comparison
 and temporal ordering, and reduce the number of research calls and aggregate
 context without sacrificing verification quality.
+
+## Hosted Search Experiment
+
+The finalized hosted-search architecture was checked on 12 July 2026 with suite
+`2026-07-12-v4` and model `gpt-5.4`:
+
+- report: `evaluation-2026-07-12T20-33-43-869Z-5af722b1`;
+- runs and LLM calls: 4 each;
+- tokens: 73,431 input, 34,944 cached input, and 1,357 output;
+- largest single model input: 20,667 tokens;
+- estimated cost: USD 0.1253085;
+- end-to-end duration: 22,368 ms;
+- unpriced calls: 0.
+
+Angular version, latest completed match, and OpenAI pricing answers were
+accepted on human review. The next-match answer was rejected: it selected the
+June opening match even though the evaluation ran on 12 July. This confirms
+that the architecture and source capture work with one model call per case, but
+that `gpt-5.4` is not consistently reliable for temporal ordering. Selecting a
+stronger model remains the user's quality and cost choice.
+
+On 12 July 2026, suite `2026-07-12-v3` compared the existing Tavily researcher
+with OpenAI hosted web search. These are live, time-dependent observations, not
+permanent quality guarantees.
+
+| Mode          | Model        | LLM calls | Input tokens | Estimated cost | Human review                                                                                           |
+| ------------- | ------------ | --------: | -----------: | -------------: | ------------------------------------------------------------------------------------------------------ |
+| Researcher    | gpt-5.4-mini |        32 |      278,758 |  USD 0.1036677 | Angular correct; latest match incomplete/wrong; pricing unresolved; next match wrong                   |
+| OpenAI hosted | gpt-5.4-mini |         4 |       79,086 |   USD 0.034434 | Angular and pricing correct; both time-sensitive football answers wrong                                |
+| OpenAI hosted | gpt-5.4      |         4 |       79,165 |  USD 0.1398325 | Angular, latest match, and pricing correct; next match omitted teams and inferred the source time zone |
+| OpenAI hosted | gpt-5.5      |         4 |      156,204 |    USD 0.76815 | All four answers accepted, including explicit FIFA schedule time-zone evidence                         |
+
+Relevant reports:
+
+- researcher: `evaluation-2026-07-12T19-53-40-704Z-9b482a2a`;
+- hosted gpt-5.4-mini: `evaluation-2026-07-12T19-49-24-971Z-ac353342`;
+- hosted gpt-5.4: `evaluation-2026-07-12T19-50-04-748Z-7700c266`;
+- hosted gpt-5.5: `evaluation-2026-07-12T19-51-05-697Z-887f12bf`.
+
+The experiment shows that provider-hosted search removes most orchestration
+calls and substantially reduces context compared with the custom researcher.
+Model capability still matters: hosted search did not make the mini model
+reliable on temporal ordering, while gpt-5.5 produced the best answers at a
+much higher token cost.
 
 ## Initial Memory Baseline
 

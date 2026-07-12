@@ -8,15 +8,15 @@ describe('evaluation assertions', () => {
       evaluateAssertions(
         'Paris is the capital of France.',
         ['https://example.com/article', 'https://docs.angular.dev/reference'],
-        ['task'],
+        ['web_search'],
         {
           containsAll: ['Paris'],
           containsAny: ['France', 'French'],
           excludesAll: ['Berlin'],
           minimumSources: 2,
           sourceDomainsAny: ['angular.dev'],
-          requiredToolCalls: ['task'],
-          forbiddenToolCalls: ['internet_search'],
+          requiredToolCalls: ['web_search'],
+          forbiddenToolCalls: ['read_web_page'],
         },
       ),
     ).toEqual([]);
@@ -24,17 +24,17 @@ describe('evaluation assertions', () => {
 
   it('returns actionable failures for unmet assertions', () => {
     expect(
-      evaluateAssertions('Berlin', [], ['internet_search'], {
+      evaluateAssertions('Berlin', [], ['read_web_page'], {
         containsAll: ['Paris'],
         minimumSources: 1,
-        requiredToolCalls: ['task'],
-        forbiddenToolCalls: ['internet_search'],
+        requiredToolCalls: ['web_search'],
+        forbiddenToolCalls: ['read_web_page'],
       }),
     ).toEqual([
       'Response does not contain required text: Paris',
       'Expected at least 1 sources, received 0.',
-      'Required tool was not called: task',
-      'Forbidden tool was called: internet_search',
+      'Required tool was not called: web_search',
+      'Forbidden tool was called: read_web_page',
     ]);
   });
 
