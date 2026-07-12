@@ -135,6 +135,31 @@ describe('PersonalAgent bootloader prompt', () => {
     expect(prompt).toContain('Do not convert official-source silence into "false"');
     expect(prompt).toContain('Do not manually start with internet_search or read_web_page');
   });
+
+  it('describes the interpreter boundary only when enabled', () => {
+    const withoutInterpreter = createBootloaderPromptForTest(
+      { name: 'Agent', soulVirtualPath: '/configuration/soul.md' },
+      testProfile(),
+      false,
+      '# soul',
+      true,
+      [],
+    );
+    const withInterpreter = createBootloaderPromptForTest(
+      { name: 'Agent', soulVirtualPath: '/configuration/soul.md' },
+      testProfile(),
+      false,
+      '# soul',
+      true,
+      ['interpreter'],
+    );
+
+    expect(withoutInterpreter).not.toContain('Interpreter guidance');
+    expect(withInterpreter).toContain('Interpreter guidance');
+    expect(withInterpreter).toContain('isolated JavaScript interpreter');
+    expect(withInterpreter).toContain('sorting, filtering, grouping');
+    expect(withInterpreter).toContain('no host filesystem, network, shell');
+  });
 });
 
 function testProfile() {

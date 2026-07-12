@@ -391,6 +391,8 @@ rdma26 evals:run --suite smoke --model gpt-5.4-mini
 ```
 
 Suites are `smoke`, `research`, `memory`, and `core`. The default is `smoke`.
+The current `core` suite also contains a focused interpreter transformation
+case; list cases to see their required capabilities and assertions.
 
 Run selected cases instead of a complete suite:
 

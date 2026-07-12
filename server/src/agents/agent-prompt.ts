@@ -20,6 +20,7 @@ You may use admin tools when they are available to create agents, rename agents,
   const hasInternetSearch = enabledToolNames.includes('internet_search');
   const hasWebPageReader = enabledToolNames.includes('read_web_page');
   const hasResearch = enabledToolNames.includes('research');
+  const hasInterpreter = enabledToolNames.includes('interpreter');
   const researchGuidance = hasResearch
     ? `
 Research guidance:
@@ -62,6 +63,15 @@ Web page reading guidance:
 - If a source page confirms only one item in a requested list, continue searching or reading until the remaining items are confirmed or explicitly mark them as unverified.
 - Do not use read_web_page for private, local, or internal URLs.`
     : '';
+  const interpreterGuidance = hasInterpreter
+    ? `
+Interpreter guidance:
+- An isolated JavaScript interpreter is available through the eval tool.
+- Use it for calculations and deterministic transformations such as sorting, filtering, grouping, comparing, validating, or aggregating structured data.
+- Prefer a direct answer for trivial arithmetic or one-step tasks where running code adds no value.
+- The interpreter has no host filesystem, network, shell, package, credential, or clock access. Do not claim that it does.
+- Return only the compact result needed for the answer; keep intermediate values inside the interpreter.`
+    : '';
 
   return `You are the configured local agent named "${agent.name}".
 
@@ -88,6 +98,7 @@ Use enabled tools when they are useful. Do not claim to have tools that are not 
 ${researchGuidance}
 ${internetSearchGuidance}
 ${webPageReaderGuidance}
+${interpreterGuidance}
 
 ${memoryWriteGuidance}
 

@@ -9,6 +9,7 @@ import { extractWebContent } from '../research/web-content-extractor';
 import { readWebPage } from '../research/web-page-reader';
 
 export const researchCapabilityId = 'research';
+export const interpreterCapabilityId = 'interpreter';
 const internetSearchToolId = 'internet_search';
 const readWebPageToolId = 'read_web_page';
 const readWebPageStructureToolId = 'read_web_page_structure';
@@ -35,6 +36,18 @@ export class CapabilityRegistry {
       unavailableReason: 'TAVILY_API_KEY and OPENAI_API_KEY are required.',
       create: () => {
         throw new Error('research is a Deep Agents subagent capability, not a direct tool.');
+      },
+    },
+    {
+      id: interpreterCapabilityId,
+      label: 'Code interpreter',
+      description:
+        'Isolated QuickJS workspace for calculations and deterministic structured-data transformations.',
+      provider: 'deepagents-quickjs',
+      isAvailable: () => true,
+      unavailableReason: 'The QuickJS interpreter is not available.',
+      create: () => {
+        throw new Error('interpreter is Deep Agents middleware, not a direct tool.');
       },
     },
     {
@@ -98,7 +111,10 @@ export class CapabilityRegistry {
     const registrations = this.registrationsById(capabilityIds);
 
     return registrations
-      .filter((registration) => registration.id !== researchCapabilityId)
+      .filter(
+        (registration) =>
+          registration.id !== researchCapabilityId && registration.id !== interpreterCapabilityId,
+      )
       .map((registration) => {
         if (!registration.isAvailable()) {
           throw new Error(

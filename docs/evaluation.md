@@ -23,8 +23,12 @@ It uses the same `AssistantRuntime` as the UI, API, and ordinary CLI commands.
 
 ## Case Version
 
-The initial case set is `2026-07-12-v1`. Definitions live in
+The current case set is `2026-07-12-v2`. Definitions live in
 `server/src/evaluation/evaluation-cases.ts` and are covered by unit tests.
+
+Version `2026-07-12-v2` adds an isolated interpreter transformation case. The
+initial smoke, research, and memory baselines below remain identified as
+`2026-07-12-v1` so their historical meaning does not change.
 
 Changing a prompt, expected result, setup, or assertion changes what the suite
 measures. Material changes should therefore create a new suite version rather
@@ -62,9 +66,9 @@ Long-term and episodic context checks:
 
 ### `core`
 
-Runs every case. This suite has real provider and search cost and should be used
-for deliberate baselines and release-quality comparisons, not on every local
-edit.
+Runs every case, including the focused QuickJS interpreter transformation case.
+This suite has real provider and search cost and should be used for deliberate
+baselines and release-quality comparisons, not on every local edit.
 
 ## Isolation And Cleanup
 
@@ -258,6 +262,28 @@ pricing record. Embedding pricing must be configured before this result can be
 used as a complete cost baseline. The seed response in the past-conversation
 case also repeated its acknowledgement, which should be watched in later runs
 even though retrieval returned the correct historical marker.
+
+## Initial Interpreter Check
+
+The focused interpreter case was recorded on 12 July 2026 with suite
+`2026-07-12-v2` and model `gpt-5.4-mini`:
+
+- report: `evaluation-2026-07-12T12-09-07-722Z-c0469a54`;
+- result: 1 of 1 case passed;
+- tool behavior: the agent called `eval` and did not delegate or research;
+- runs: 1;
+- LLM calls: 2;
+- tokens: 20,700 input, 9,856 cached input, and 136 output;
+- largest single model input: 10,430 tokens;
+- estimated cost: USD 0.0094842;
+- end-to-end duration: 3,461 ms;
+- unpriced calls: 0;
+- temporary agents remaining after cleanup: 0.
+
+The interpreter correctly sorted three structured records and calculated their
+average inside isolated QuickJS. The two-call and context overhead confirms that
+it should be used for meaningful multi-step transformations, not forced onto
+trivial arithmetic that the agent can answer directly.
 
 ## Adding A Case
 

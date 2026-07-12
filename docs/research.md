@@ -17,6 +17,11 @@ The high-level `research` capability requires `OPENAI_API_KEY` and
 `TAVILY_API_KEY`. The low-level tools remain available for specialized and
 debugging use, but normal agents should not need all of them simultaneously.
 
+The separate `interpreter` capability provides an isolated QuickJS `eval` tool
+for deterministic calculations and structured transformations. It does not
+provide web access itself. An agent may combine research results with the
+interpreter, while sourced facts remain distinct from derived values.
+
 Capability grants are agent-specific and managed through the same runtime from
 UI, API, and CLI.
 
@@ -90,8 +95,8 @@ testing. Current limitations include:
 - model-dependent adherence to source and uncertainty instructions;
 - a large prescriptive prompt that attempts to anticipate many failure modes;
 - structured output that can repeat more evidence than the parent needs;
-- no general interpreter for calculations and transformations;
-- no stable evaluation suite proving accuracy across different question types;
+- the initial research evaluation accepting only two of four answers at human
+  review despite all four passing structural assertions;
 - Tavily and public-page extraction quality varying by source.
 
 The project deliberately removed later experimental adaptive-depth budgets and
@@ -106,8 +111,8 @@ intended direction is:
 - simplify research to source discovery, reading, evidence selection, and
   uncertainty;
 - give agents a small set of general capabilities;
-- use a Deep Agents interpreter for general calculation and structured
-  transformation where evaluation supports it;
+- evaluate the new Deep Agents interpreter for general calculation and
+  structured transformation before connecting it to additional tools;
 - keep sourced facts separate from derived results;
 - avoid tools designed for individual questions;
 - retain accounting, source provenance, and inspectable activity;

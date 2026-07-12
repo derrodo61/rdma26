@@ -1,4 +1,4 @@
-export const evaluationSuiteVersion = '2026-07-12-v1';
+export const evaluationSuiteVersion = '2026-07-12-v2';
 
 export type EvaluationCategory =
   'direct' | 'research' | 'calculation' | 'planning' | 'uncertainty' | 'memory' | 'conversation';
@@ -170,6 +170,28 @@ const cases: readonly EvaluationCaseDefinition[] = [
       'The current official prices were extracted correctly.',
       'The calculation is reproducible from the displayed prices.',
       'Sourced facts and the derived result are clearly separated.',
+    ],
+  },
+  {
+    id: 'interpreter-structured-transformation',
+    category: 'calculation',
+    description: 'Use isolated code for a deterministic structured-data transformation.',
+    scenario: 'single',
+    suites: ['core'],
+    requiredCapabilities: ['interpreter'],
+    steps: [
+      {
+        id: 'answer',
+        agent: 'primary',
+        thread: 'case',
+        prompt:
+          'Use the interpreter to sort these records by score descending and calculate the average score: Atlas 91, Birch 73, Cedar 82. Return the ordered names and average.',
+        assertions: {
+          containsAll: ['Atlas', 'Cedar', 'Birch', '82'],
+          requiredToolCalls: ['eval'],
+          forbiddenToolCalls: ['task', 'research', 'internet_search'],
+        },
+      },
     ],
   },
   {

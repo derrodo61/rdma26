@@ -120,6 +120,13 @@ That subagent has web-search and page-reading tools and returns structured
 source-backed findings. Its current limitations and planned simplification are
 documented in [research.md](./research.md).
 
+The assignable `interpreter` capability adds the official Deep Agents QuickJS
+middleware. It gives an agent an isolated `eval` tool for calculations and
+deterministic structured-data transformations. Programmatic tool calling is not
+enabled, and the interpreter has no host filesystem, network, shell, package,
+credential, or clock access. It is not a replacement for a future sandbox used
+for file work or controlled application execution.
+
 ## Memory And Context
 
 The runtime keeps distinct context layers:
@@ -163,6 +170,7 @@ See [storage.md](./storage.md) for ownership and lifecycle details.
 - Tavily is the implemented search provider.
 - The researcher is useful but still too prescriptive and is scheduled for
   redesign against the stable evaluation set.
-- A general Deep Agents interpreter or sandbox is not yet enabled.
+- The QuickJS interpreter is available as an agent capability; a general
+  execution sandbox is not yet enabled.
 - Mobile access, multimodality, broad file work, and controlled script execution
   are long-term directions, not current features.

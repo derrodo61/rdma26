@@ -20,6 +20,7 @@ import {
 import { createBootloaderPromptForTest } from './agent-prompt';
 import { extractText } from './agent-result';
 import { createEnabledSubagents } from './agent-subagents';
+import { createEnabledAgentMiddleware } from './agent-middleware';
 import { LlmAccountingCallbackHandler } from '../llm/llm-accounting-callback';
 import type { LlmCallStore } from '../llm/llm-call-store';
 import { createOpenAiChatModel } from '../llm/model-factory';
@@ -106,6 +107,7 @@ export class PersonalAgent {
       permissions: createMemoryFilesystemPermissions(request.memoryReadsEnabled),
       skills: ['/skills/'],
       tools: request.tools,
+      middleware: await createEnabledAgentMiddleware(request.enabledToolIds),
       subagents: createEnabledSubagents(
         request.enabledToolIds,
         request.userProfile,
