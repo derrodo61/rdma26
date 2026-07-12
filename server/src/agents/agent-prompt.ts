@@ -63,6 +63,7 @@ User profile and display preferences:
 - Regional format: ${userProfile.locale}
 - Date style: ${userProfile.dateStyle}
 - Time style: ${userProfile.timeStyle}
+- Current local calendar date (authoritative for "today"): ${formatLocalCalendarDate(userProfile)}
 - Current local date/time: ${formatLocalDateTime(userProfile)}
 
 When presenting dates and times to the user, prefer the user profile's time zone, language, regional format, date style, and time style unless the user asks for a different format.
@@ -94,5 +95,21 @@ function formatLocalDateTime(userProfile: UserProfile): string {
     }).format(new Date());
   } catch {
     return new Date().toISOString();
+  }
+}
+
+function formatLocalCalendarDate(userProfile: UserProfile): string {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      timeZone: userProfile.timeZone,
+    }).formatToParts(new Date());
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+
+    return `${values['year']}-${values['month']}-${values['day']}`;
+  } catch {
+    return new Date().toISOString().slice(0, 10);
   }
 }

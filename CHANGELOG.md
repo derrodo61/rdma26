@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added news-specific web-research guidance for explicit date matching,
   local-language and regional reporting, focused follow-up searches, developing
   stories, and direct-report citations.
+- Required same-day news answers to verify the displayed date on a direct article or official statement instead of inferring freshness from search ranking, snippets, or topic pages.
 - Added recursive run-context capture for subagent tool calls, including the
   responsible agent name, inputs, and outputs used during research.
 - Added an assignable Deep Agents QuickJS interpreter capability for isolated calculations and deterministic structured-data transformations without host filesystem, network, shell, package, credential, or clock access.

@@ -36,6 +36,9 @@ describe('PersonalAgent bootloader prompt', () => {
       'If the user explicitly asks you to remember sensitive personal data',
     );
     expect(enabledPrompt).toContain('never save secrets or credentials');
+    expect(enabledPrompt).toMatch(
+      /Current local calendar date \(authoritative for "today"\): \d{4}-\d{2}-\d{2}/,
+    );
     expect(disabledPrompt).toContain('Memory writing is disabled for this agent');
     expect(disabledPrompt).not.toContain('Use the save_memory tool');
   });

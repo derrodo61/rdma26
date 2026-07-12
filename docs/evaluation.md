@@ -340,12 +340,12 @@ shows that past-conversation retrieval needs stronger recency and relevance
 handling, and that reusing one temporary agent across the complete suite can
 create realistic but important cross-case competition.
 
-The branch is therefore not ready to merge solely on the basis of the current
-evaluation. The next work should focus on source-citation preservation,
+The baseline identified follow-up work in source-citation preservation,
 same-day news compliance, episodic retrieval ranking, embedding pricing, and
-context/cost reduction. Model selection remains an explicit quality and cost
-tradeoff; hosted search alone does not make a smaller model reliable on
-time-sensitive research.
+context/cost reduction. The focused follow-ups below resolve the first four;
+context and cost reduction remains open. Model selection remains an explicit
+quality and cost tradeoff; hosted search alone does not make a smaller model
+reliable on time-sensitive research.
 
 ### Citation Preservation Follow-Up
 
@@ -368,9 +368,38 @@ The previously failing `multi-source-current-fact` case was repeated with
 - estimated cost: USD 0.080220;
 - duration: 13.9 seconds.
 
-This resolves the technical source-preservation failure. It does not resolve
-the separate same-day news, episodic-retrieval, embedding-pricing, or context
-cost findings.
+This resolves the technical source-preservation failure. It does not by itself
+resolve the separate news-date, episodic-retrieval, embedding-pricing, or
+context-cost findings.
+
+### Same-Day Regional News Follow-Up
+
+The first focused rerun exposed two distinct date failures: hosted search
+selected a 22 June article from a current topic page, and the final answer
+called it 12 July reporting even though the user's Berlin date was already 13
+July. Strengthening the skill to require a direct dated article was not enough;
+a second run still relabeled a 12 July story as today's news.
+
+The runtime now supplies an explicit ISO local calendar date as the
+authoritative meaning of "today", in addition to the localized date and time.
+The web-research skill requires same-day claims to confirm the displayed date
+on a direct article or official statement and forbids inferring freshness from
+search ranking, snippets, homepages, or topic pages.
+
+The final focused rerun with `gpt-5.4` behaved correctly:
+
+- report: `evaluation-2026-07-12T22-43-59-839Z-31df165e`;
+- result: automatic assertions passed and the case reached human review;
+- answer: explicitly stated that no 13 July Bremen lead story could be verified
+  because accessible local reporting was dated 12 July or earlier;
+- LLM calls: 2;
+- input tokens: 41,983;
+- maximum single-call context: 29,787 tokens;
+- estimated cost: USD 0.064488;
+- duration: 14.6 seconds.
+
+This resolves the incorrect substitution of an older story for same-day news.
+The large hosted-search context remains a cost-optimization target.
 
 ### Episodic Retrieval Follow-Up
 

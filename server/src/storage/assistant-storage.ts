@@ -295,12 +295,12 @@ Use the \`web_search\` capability when the answer depends on current or external
 
 For current news and developing events:
 
-1. Include the event, location, relevant names, and an explicit date or time window in the first search. Interpret relative terms such as "today" using the user's current date and time zone.
+1. Include the event, location, relevant names, and an explicit date or time window in the first search. Interpret relative terms such as "today" using the exact local calendar date in the runtime's user-profile context. Keep that date consistent in searches and the final answer.
 2. Prefer sources that actually report the requested event: official statements and reputable news organizations. For regional stories, search local-language and regional news sources instead of relying only on large international publishers.
-3. Check both the publication date and the event date. When the user asks about "today", accept only reporting or an event from that calendar date unless the answer clearly says that no reliable same-day result was found. Do not silently substitute an older recent story or an old article about a similar event.
+3. Check both the publication date and the event date. When the user asks about "today", open a direct article or official-statement page and confirm its displayed date before claiming that it is from today. Accept only reporting or an event from that calendar date unless the answer clearly says that no reliable same-day result was found. Do not infer freshness from search ranking, snippets, a topic page, or a publisher homepage. Do not silently substitute an older recent story or an old article about a similar event.
 4. If the first result does not match the requested date, location, or event, search again. Narrow the follow-up query with the exact date, location, local-language terms, or a relevant source domain. Do not restrict every news search to a fixed publisher list.
 5. For developing stories, distinguish confirmed facts from early reports and say when details may still change.
-6. Cite direct article or official-statement pages for factual event details. A publisher homepage, topic page, or search-results page may support that a story is prominent, but it is not sufficient evidence for the event details by itself.
+6. Cite direct article or official-statement pages for factual event details. A publisher homepage, topic page, or search-results page may support that a story is prominent, but it is not sufficient evidence for the event details or date by itself.
 7. Stop once the requested facts are supported by sufficiently recent and directly relevant evidence. Do not add extra searches merely to collect more headlines.
 `;
 
