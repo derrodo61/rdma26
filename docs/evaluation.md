@@ -23,12 +23,14 @@ It uses the same `AssistantRuntime` as the UI, API, and ordinary CLI commands.
 
 ## Case Version
 
-The current case set is `2026-07-12-v2`. Definitions live in
+The current case set is `2026-07-12-v3`. Definitions live in
 `server/src/evaluation/evaluation-cases.ts` and are covered by unit tests.
 
-Version `2026-07-12-v2` adds an isolated interpreter transformation case. The
-initial smoke, research, and memory baselines below remain identified as
-`2026-07-12-v1` so their historical meaning does not change.
+Version `2026-07-12-v3` corrects the explicit-uncertainty assertion to accept
+the equivalent wording "cannot be known". Version `2026-07-12-v2` added an
+isolated interpreter transformation case. The initial smoke, research, and
+memory baselines below remain identified as `2026-07-12-v1` so their historical
+meaning does not change.
 
 Changing a prompt, expected result, setup, or assertion changes what the suite
 measures. Material changes should therefore create a new suite version rather

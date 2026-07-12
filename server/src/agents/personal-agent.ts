@@ -1,6 +1,5 @@
 import { CompositeBackend, createDeepAgent, FilesystemBackend } from 'deepagents';
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
-import type { ToolCallStream } from '@langchain/langgraph';
 import type { StructuredToolInterface } from '@langchain/core/tools';
 
 import type {
@@ -143,7 +142,7 @@ export class PersonalAgent {
       },
     );
     const activityObserver = observeAgentRunActivity(run, request.onActivity);
-    const toolCallsPromise = collectCurrentToolCalls(run.toolCalls);
+    const toolCallsPromise = collectRunToolCalls(run);
     const result: unknown = await run.output;
     const toolCalls = await toolCallsPromise;
     await waitForActivityObserver(activityObserver);
@@ -179,8 +178,18 @@ export function createMemoryFilesystemPermissions(memoryReadsEnabled: boolean) {
   ];
 }
 
+export async function collectRunToolCalls(run: AgentRunToolStreams): Promise<RunContextToolCall[]> {
+  const [toolCalls, subagentToolCalls] = await Promise.all([
+    collectCurrentToolCalls(run.toolCalls),
+    collectSubagentToolCalls(run.subagents),
+  ]);
+
+  return [...toolCalls, ...subagentToolCalls];
+}
+
 async function collectCurrentToolCalls(
-  toolCalls: AsyncIterable<ToolCallStream> | undefined,
+  toolCalls: AsyncIterable<ToolCallStreamLike> | undefined,
+  agentName?: string,
 ): Promise<RunContextToolCall[]> {
   if (!toolCalls) return [];
   const collected: RunContextToolCall[] = [];
@@ -195,6 +204,7 @@ async function collectCurrentToolCalls(
     collected.push({
       id: call.callId,
       name: call.name,
+      agentName,
       args: call.input,
       result,
     });
@@ -203,6 +213,40 @@ async function collectCurrentToolCalls(
   return collected;
 }
 
+async function collectSubagentToolCalls(
+  subagents: AsyncIterable<SubagentToolStreams> | undefined,
+): Promise<RunContextToolCall[]> {
+  if (!subagents) return [];
+  const pending: Promise<RunContextToolCall[]>[] = [];
+
+  for await (const subagent of subagents) {
+    pending.push(
+      Promise.all([
+        collectCurrentToolCalls(subagent.toolCalls, subagent.name),
+        collectSubagentToolCalls(subagent.subagents),
+      ]).then(([toolCalls, nestedToolCalls]) => [...toolCalls, ...nestedToolCalls]),
+    );
+  }
+
+  return (await Promise.all(pending)).flat();
+}
+
 function stringifyToolOutput(output: unknown): string {
   return typeof output === 'string' ? output : JSON.stringify(output);
+}
+
+interface AgentRunToolStreams {
+  readonly toolCalls?: AsyncIterable<ToolCallStreamLike>;
+  readonly subagents?: AsyncIterable<SubagentToolStreams>;
+}
+
+interface SubagentToolStreams extends AgentRunToolStreams {
+  readonly name: string;
+}
+
+interface ToolCallStreamLike {
+  readonly callId?: string;
+  readonly name: string;
+  readonly input: unknown;
+  readonly output: Promise<unknown>;
 }

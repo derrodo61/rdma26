@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createMemoryFilesystemPermissions } from './personal-agent';
+import { collectRunToolCalls, createMemoryFilesystemPermissions } from './personal-agent';
 
 describe('PersonalAgent memory filesystem permissions', () => {
   it('always blocks native memory writes while allowing reads for a readable agent', () => {
@@ -28,3 +28,53 @@ describe('PersonalAgent memory filesystem permissions', () => {
     ]);
   });
 });
+
+describe('collectRunToolCalls', () => {
+  it('collects parent and nested subagent tool evidence', async () => {
+    const calls = await collectRunToolCalls({
+      toolCalls: asyncValues([
+        {
+          callId: 'parent-call',
+          name: 'task',
+          input: { subagent_type: 'researcher' },
+          output: Promise.resolve('research complete'),
+        },
+      ]),
+      subagents: asyncValues([
+        {
+          name: 'researcher',
+          toolCalls: asyncValues([
+            {
+              callId: 'search-call',
+              name: 'research_web_search',
+              input: { query: 'latest result' },
+              output: Promise.resolve({ results: [{ url: 'https://example.com/result' }] }),
+            },
+          ]),
+          subagents: asyncValues([]),
+        },
+      ]),
+    });
+
+    expect(calls).toEqual([
+      {
+        id: 'parent-call',
+        name: 'task',
+        agentName: undefined,
+        args: { subagent_type: 'researcher' },
+        result: 'research complete',
+      },
+      {
+        id: 'search-call',
+        name: 'research_web_search',
+        agentName: 'researcher',
+        args: { query: 'latest result' },
+        result: '{"results":[{"url":"https://example.com/result"}]}',
+      },
+    ]);
+  });
+});
+
+async function* asyncValues<T>(values: readonly T[]): AsyncIterable<T> {
+  for (const value of values) yield value;
+}

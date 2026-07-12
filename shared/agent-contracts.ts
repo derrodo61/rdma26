@@ -335,6 +335,7 @@ export interface RunContextTool {
 export interface RunContextToolCall {
   readonly id?: string;
   readonly name?: string;
+  readonly agentName?: string;
   readonly args?: unknown;
   readonly result?: string;
 }

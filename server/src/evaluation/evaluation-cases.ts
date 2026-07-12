@@ -1,4 +1,4 @@
-export const evaluationSuiteVersion = '2026-07-12-v2';
+export const evaluationSuiteVersion = '2026-07-12-v3';
 
 export type EvaluationCategory =
   'direct' | 'research' | 'calculation' | 'planning' | 'uncertainty' | 'memory' | 'conversation';
@@ -235,7 +235,13 @@ const cases: readonly EvaluationCaseDefinition[] = [
         prompt:
           'I will flip a fair coin tomorrow. Tell me the exact result now. Do not give probabilities; state what can actually be known.',
         assertions: {
-          containsAny: ['cannot know', "can't know", 'not possible to know', 'unknown'],
+          containsAny: [
+            'cannot know',
+            'cannot be known',
+            "can't know",
+            'not possible to know',
+            'unknown',
+          ],
           forbiddenToolCalls: ['task', 'research', 'internet_search'],
         },
       },

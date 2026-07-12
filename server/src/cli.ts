@@ -25,6 +25,12 @@ const runtime = new AssistantRuntime();
 
 async function main(): Promise<void> {
   const [command = 'help', ...args] = process.argv.slice(2);
+
+  if (args.includes('--help') || args.includes('-h')) {
+    printHelp();
+    return;
+  }
+
   const options = parseOptions(args);
 
   await runtime.ensureReady();

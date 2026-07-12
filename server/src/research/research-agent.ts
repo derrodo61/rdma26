@@ -28,7 +28,7 @@ const researchFindingSchema = z.object({
 const researchSourceSchema = z.object({
   url: z.string(),
   title: z.string().optional(),
-  excerpt: z.string().optional(),
+  excerpt: z.string().min(1),
   extractionProvider: z.string().optional(),
   extractionWarning: z.string().optional(),
 });
@@ -100,7 +100,7 @@ function createResearcherTools(searchProvider: SearchProvider) {
     }) => {
       const rawResult = await searchProvider.search({
         query,
-        maxResults: clampInteger(maxResults, 1, 10),
+        maxResults: clampInteger(maxResults, 1, 5),
         topic,
         includeRawContent: false,
       });
@@ -108,7 +108,7 @@ function createResearcherTools(searchProvider: SearchProvider) {
       const compactResults = results.map((result) => ({
         title: result.title,
         url: result.url,
-        content: clipText(result.content ?? result.raw_content ?? '', 700),
+        content: clipText(result.content ?? result.raw_content ?? '', 450),
         score: result.score,
         publishedDate: result.published_date,
       }));
@@ -125,7 +125,7 @@ function createResearcherTools(searchProvider: SearchProvider) {
         'Search the public web for candidate sources. Use short, keyword-rich search queries instead of full conversational prompts.',
       schema: z.object({
         query: z.string().describe('A concise web search query.'),
-        maxResults: z.number().min(1).max(10).optional().default(5),
+        maxResults: z.number().min(1).max(5).optional().default(5),
         topic: z.enum(['general', 'news', 'finance']).optional().default('general'),
       }),
     },
@@ -197,6 +197,8 @@ Rules:
   - collect all dated candidate events/items that may answer the question;
   - put them in temporalCandidates with source URLs;
   - compare their dates before naming anything as latest/last/current/next;
+  - when a newer candidate is missing a required answer field, run a focused follow-up search using that candidate's identifying details plus the missing field;
+  - if the newer candidate still cannot be verified, return partial or unresolved instead of presenting an older candidate as the verified answer;
   - never return status "verified" if a dated candidate contradicts your chosen answer.
 - For claim-checking or rumor questions:
   - separate official facts, reputable media reports, social posts, denials/corrections, and missing evidence;
@@ -210,6 +212,7 @@ Rules:
 - Keep the final answer in the user's language.
 - Put only URLs that directly support the final answer in answerSourceUrls.
 - Put only source details for answerSourceUrls in sources.
+- Every source must include a concrete excerpt from the search or page-reading evidence that supports the final answer. If no supporting excerpt was returned, do not cite that URL.
 - Do not put rejected candidate pages, stale pages, unrelated pages, or diagnostic comparison pages in answerSourceUrls or sources. Mention those only in warnings, unresolved, temporalCandidates, or notes.
 
 Return the structured result required by the schema.`;

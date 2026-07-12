@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Added recursive run-context capture for subagent tool calls, including the
+  responsible agent name, inputs, and outputs used during research.
 - Added an assignable Deep Agents QuickJS interpreter capability for isolated calculations and deterministic structured-data transformations without host filesystem, network, shell, package, credential, or clock access.
 - Added a versioned agent-evaluation harness with isolated temporary agents, direct, research, calculation, uncertainty, memory, and conversation cases, automatic assertions, human-review gates, CLI execution, and persisted baseline reports covering calls, tokens, context size, costs, and latency.
 - Added an authoritative product vision, current architecture overview, and documentation index that separate implemented behavior from long-term direction.
@@ -23,6 +25,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Prevented CLI `--help` requests from launching evaluations, and corrected the
+  uncertainty case to accept the valid phrase "cannot be known".
+- Required every researcher answer source to carry concrete supporting evidence
+  text, excluding unreadable or merely related pages from final citations.
+- Required targeted follow-up searches for newer temporal candidates with
+  missing answer fields, preventing older candidates from being presented as
+  verified latest results.
 - Made omitted chat-run models resolve consistently across API and CLI from the saved per-agent user-profile setting, then the backend agent setting, and finally the application default. Explicit request model overrides still take precedence.
 - Prevented persistent LangGraph runs from resending the full UI thread after a checkpoint already exists.
 - Enforced agent memory permissions at the Deep Agents filesystem boundary so native tools cannot bypass disabled reads or controlled `save_memory` writes.
@@ -38,6 +47,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Bounded researcher search discovery to five candidates with shorter previews,
+  while retaining focused follow-up searches and full source-page reading for
+  verification.
 - Evaluation runs can now select and record chat and researcher models independently for controlled quality and cost comparisons.
 - Reorganized README and project documentation around product direction, implemented architecture, interfaces, and project history.
 - Replaced startup-time schema patching with ordered transactional SQLite migrations. Destructive migrations create a database backup; schema version 8 removes the obsolete memory table and schema version 9 adds a rebuildable semantic-memory vector cache while preserving threads and messages.

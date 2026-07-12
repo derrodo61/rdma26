@@ -34,6 +34,34 @@ describe('research subagent capability', () => {
     expect(subagents[0]?.responseFormat).toBeDefined();
   });
 
+  it('keeps search discovery bounded before evidence enters model context', async () => {
+    const search = vi.fn().mockResolvedValue({
+      results: Array.from({ length: 5 }, (_, index) => ({
+        title: `Result ${index + 1}`,
+        url: `https://example.com/${index + 1}`,
+        content: 'x'.repeat(1_000),
+      })),
+    });
+    const subagents = createResearchSubagents({ search }, testUserProfile);
+    const searchTool = subagents[0]?.tools?.find(
+      (candidate) => candidate.name === 'research_web_search',
+    );
+
+    const result = (await searchTool?.invoke({
+      query: 'bounded evidence',
+      maxResults: 5,
+    })) as { readonly results: readonly { readonly content: string }[] };
+
+    expect(search).toHaveBeenCalledWith({
+      query: 'bounded evidence',
+      maxResults: 5,
+      topic: 'general',
+      includeRawContent: false,
+    });
+    expect(result.results).toHaveLength(5);
+    expect(result.results.every((item) => item.content.length <= 453)).toBe(true);
+  });
+
   it('validates the structured research result shape', () => {
     const result = researchResponseSchema.parse({
       status: 'verified',
@@ -54,6 +82,7 @@ describe('research subagent capability', () => {
         {
           url: 'https://blog.angular.dev/angular-v22',
           title: 'Announcing Angular v22',
+          excerpt: 'Angular v22 is available today.',
         },
       ],
       searches: [
@@ -79,6 +108,17 @@ describe('research subagent capability', () => {
     expect(result.temporalCandidates[0]?.date).toBe('2026-06-03');
   });
 
+  it('rejects declared answer sources without supporting evidence text', () => {
+    expect(() =>
+      researchResponseSchema.parse({
+        status: 'verified',
+        answer: 'A precise factual answer.',
+        answerSourceUrls: ['https://example.com/report'],
+        sources: [{ url: 'https://example.com/report', title: 'Related report' }],
+      }),
+    ).toThrow();
+  });
+
   it('instructs the researcher to compare temporal candidates before claiming latest facts', () => {
     const searchProvider: SearchProvider = {
       search: vi.fn(),
@@ -92,6 +132,12 @@ describe('research subagent capability', () => {
     );
     expect(systemPrompt).toContain('put them in temporalCandidates');
     expect(systemPrompt).toContain('compare their dates before naming anything as latest');
+    expect(systemPrompt).toContain(
+      "run a focused follow-up search using that candidate's identifying details plus the missing field",
+    );
+    expect(systemPrompt).toContain(
+      'return partial or unresolved instead of presenting an older candidate as the verified answer',
+    );
     expect(systemPrompt).toContain(
       'never return status "verified" if a dated candidate contradicts',
     );

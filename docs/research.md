@@ -77,14 +77,24 @@ The researcher prompt currently tells the model to:
 - prefer primary or authoritative sources where appropriate;
 - read source pages before trusting precise search snippets;
 - continue when evidence is stale, incomplete, contradictory, or off-topic;
+- use a focused follow-up query when a newer temporal candidate is missing a
+  required answer field, and remain partial or unresolved if it cannot be
+  verified;
 - consider local-language and regional sources when broad search is weak;
 - distinguish confirmed, reported, disputed, unsupported, false, and unclear
   claims;
 - return partial or unresolved results rather than guess;
 - expose only sources that directly support its final answer.
+- include concrete supporting evidence text for every source exposed with the
+  final answer.
 
 These are current implementation facts, not proof that the behavior is reliable
 enough.
+
+Search discovery returns at most five candidates with bounded previews. The
+researcher can issue a more focused query or read a candidate page when those
+previews do not contain enough evidence. This keeps iterative context bounded
+without treating snippets as verified sources.
 
 ## Known Limitations
 
