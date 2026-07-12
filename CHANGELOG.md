@@ -20,6 +20,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   responsible agent name, inputs, and outputs used during research.
 - Added an assignable Deep Agents QuickJS interpreter capability for isolated calculations and deterministic structured-data transformations without host filesystem, network, shell, package, credential, or clock access.
 - Added a versioned agent-evaluation harness with isolated temporary agents, direct, research, calculation, uncertainty, memory, and conversation cases, automatic assertions, human-review gates, CLI execution, and persisted baseline reports covering calls, tokens, context size, costs, and latency.
+- Recorded the `2026-07-12-v5` post-rework smoke, research, memory, and core
+  baselines, including factual review findings, citation failures, episodic
+  retrieval competition, context size, latency, and estimated cost.
 - Added an authoritative product vision, current architecture overview, and documentation index that separate implemented behavior from long-term direction.
 - Added current-state storage, research, and observability references with explicit implementation boundaries and known limitations.
 - Added persistent Deep Agents thread state through the official LangGraph SQLite checkpointer.
@@ -35,6 +38,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Preserved provider-reported hosted-search source URLs when final model prose
+  omits citation annotations or Deep Agents places citations and search actions
+  in different messages.
 - Preserved provider-hosted search actions and URL citations in run context so
   sources remain attached to the assistant message that used them.
 - Prevented CLI `--help` requests from launching evaluations, and corrected the

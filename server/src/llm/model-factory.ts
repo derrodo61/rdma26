@@ -14,9 +14,17 @@ export function createOpenAiChatModel(
     apiKey,
     model,
     temperature: options.temperature,
+    ...(options.includeWebSearchSources
+      ? {
+          modelKwargs: {
+            include: ['web_search_call.action.sources'],
+          },
+        }
+      : {}),
   });
 }
 
 interface OpenAiChatModelOptions {
   readonly temperature?: number;
+  readonly includeWebSearchSources?: boolean;
 }

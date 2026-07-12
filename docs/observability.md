@@ -79,6 +79,7 @@ needed for debugging and evaluation, including:
 - messages supplied to the run;
 - memory included or retrieved;
 - enabled tools and recorded tool calls;
+- hosted-search actions, provider-reported source URLs, and final citations;
 - skill files actually loaded through progressive disclosure;
 - token totals;
 - linked LLM and embedding calls.

@@ -25,7 +25,11 @@ flowchart LR
     A --> C["Answer with source citations"]
 ```
 
-OpenAI formulates search queries, searches, opens pages when needed, and returns citation annotations. rdma26 stores the search actions and cited URLs in the run context so the UI can show sources next to the matching assistant message.
+OpenAI formulates search queries, searches, opens pages when needed, and returns
+citation annotations. rdma26 requests provider-reported search sources as
+response metadata and stores them together with final-answer citations. This
+preserves source URLs in run context and the UI even when a model omits citation
+annotations from its final prose.
 
 ## Skill Guidance
 

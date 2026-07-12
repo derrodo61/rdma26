@@ -23,14 +23,17 @@ It uses the same `AssistantRuntime` as the UI, API, and ordinary CLI commands.
 
 ## Case Version
 
-The current case set is `2026-07-12-v3`. Definitions live in
+The current case set is `2026-07-12-v5`. Definitions live in
 `server/src/evaluation/evaluation-cases.ts` and are covered by unit tests.
 
-Version `2026-07-12-v3` corrects the explicit-uncertainty assertion to accept
-the equivalent wording "cannot be known". Version `2026-07-12-v2` added an
-isolated interpreter transformation case. The initial smoke, research, and
-memory baselines below remain identified as `2026-07-12-v1` so their historical
-meaning does not change.
+Version `2026-07-12-v5` adds a regional-news case covering same-day event
+matching, local-language sources, direct-report citations, and explicit human
+review of freshness. Version `2026-07-12-v4` records the hosted-search
+architecture. Version `2026-07-12-v3` corrects the explicit-uncertainty
+assertion to accept the equivalent wording "cannot be known". Version
+`2026-07-12-v2` added an isolated interpreter transformation case. The initial
+smoke, research, and memory baselines below remain identified as
+`2026-07-12-v1` so their historical meaning does not change.
 
 Changing a prompt, expected result, setup, or assertion changes what the suite
 measures. Material changes should therefore create a new suite version rather
@@ -53,6 +56,7 @@ Live external-information checks:
 
 - current Angular major version from an official source;
 - current sports result supported by multiple sources;
+- current regional news with same-day and direct-source checks;
 - official pricing plus a derived calculation;
 - a multi-step fixture and local-time question.
 
@@ -293,6 +297,80 @@ calls and substantially reduces context compared with the custom researcher.
 Model capability still matters: hosted search did not make the mini model
 reliable on temporal ordering, while gpt-5.5 produced the best answers at a
 much higher token cost.
+
+## Post-Rework Evaluation
+
+The completed hosted-search, interpreter, memory, and observability architecture
+was evaluated on 12 July 2026 with suite `2026-07-12-v5`.
+
+| Suite    | Model        | Result                       | Calls | Input tokens | Max call context | Estimated cost | Duration |
+| -------- | ------------ | ---------------------------- | ----: | -----------: | ---------------: | -------------: | -------: |
+| Smoke    | gpt-5.4-mini | 4 passed                     |     5 |       38,711 |            7,788 |   USD 0.009978 |    5.4 s |
+| Research | gpt-5.4      | 1 failed, 4 review           |    12 |      224,296 |           35,998 |   USD 0.312703 |   55.9 s |
+| Memory   | gpt-5.4-mini | 4 passed, 1 review           |    18 |      101,686 |            8,105 |   USD 0.028934 |   17.3 s |
+| Core     | gpt-5.4-mini | 8 passed, 2 failed, 5 review |    29 |      400,411 |           25,139 |   USD 0.133458 |   61.4 s |
+
+Reports:
+
+- smoke: `evaluation-2026-07-12T21-53-02-240Z-5aab6d83`;
+- research: `evaluation-2026-07-12T21-53-40-364Z-c721e8ba`;
+- memory: `evaluation-2026-07-12T21-54-58-466Z-c656f189`;
+- core: `evaluation-2026-07-12T21-55-31-026Z-5ab9c666`.
+
+Smoke behavior was correct and did not perform unnecessary web searches. The
+isolated memory suite recalled agent-local and global memory, excluded
+irrelevant memory, preserved cross-agent isolation, and found the earlier
+conversation marker. Five embedding calls remained unpriced, so the memory and
+core estimates are incomplete.
+
+The `gpt-5.4` research run correctly identified Angular 22, the latest completed
+World Cup match, and the current GPT-5.4 prices and calculation. It nevertheless
+failed the sports assertion because the final response did not preserve any
+source URLs. The regional-news answer substituted an event from 10 July for a
+request about 12 July. The next-match response did not identify the now-known
+teams and could not support its time-zone conversion. The pricing values were
+correct, but the response cited a general OpenAI API page rather than the
+canonical developer pricing page.
+
+The complete `gpt-5.4-mini` core run was not reliable for live research. It
+reported Angular 20 instead of Angular 22, selected an older World Cup result,
+and used a 2 July event as news for 12 July. It also returned `ORBIT-742` from a
+different evaluation thread instead of the newer `HISTORY-731` marker. This
+shows that past-conversation retrieval needs stronger recency and relevance
+handling, and that reusing one temporary agent across the complete suite can
+create realistic but important cross-case competition.
+
+The branch is therefore not ready to merge solely on the basis of the current
+evaluation. The next work should focus on source-citation preservation,
+same-day news compliance, episodic retrieval ranking, embedding pricing, and
+context/cost reduction. Model selection remains an explicit quality and cost
+tradeoff; hosted search alone does not make a smaller model reliable on
+time-sensitive research.
+
+### Citation Preservation Follow-Up
+
+After the baseline, hosted-search requests were configured to include OpenAI's
+provider-reported `web_search_call.action.sources` metadata. Source extraction
+now combines that metadata with citation annotations across the complete Deep
+Agents result instead of requiring citations to appear in the same message as
+the search action.
+
+The previously failing `multi-source-current-fact` case was repeated with
+`gpt-5.4`:
+
+- report: `evaluation-2026-07-12T22-06-01-140Z-90b2004b`;
+- result: automatic assertions passed and the case reached human review;
+- sources: direct AP match reporting and the FIFA schedule/results page;
+- answer: Argentina 3-1 Switzerland after extra time;
+- LLM calls: 2;
+- input tokens: 39,084;
+- maximum single-call context: 26,922 tokens;
+- estimated cost: USD 0.080220;
+- duration: 13.9 seconds.
+
+This resolves the technical source-preservation failure. It does not resolve
+the separate same-day news, episodic-retrieval, embedding-pricing, or context
+cost findings.
 
 ## Initial Memory Baseline
 

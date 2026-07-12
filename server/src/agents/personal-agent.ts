@@ -90,7 +90,9 @@ export class PersonalAgent {
       virtualMode: true,
     });
     const agent = createDeepAgent({
-      model: createOpenAiChatModel(request.model),
+      model: createOpenAiChatModel(request.model, {
+        includeWebSearchSources: request.enabledToolIds.includes('web_search'),
+      }),
       backend: new CompositeBackend(defaultBackend, {
         '/memory/global/': new FilesystemBackend({
           rootDir: request.memoryDirectories.global,
