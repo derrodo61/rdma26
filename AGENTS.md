@@ -2,7 +2,24 @@
 
 ## Goal
 
-This repository is a test Angular application for evaluating the LangChain Deep Agents SDK from TypeScript. Treat it as a real Angular app, not a throwaway script: keep the implementation small, idiomatic, testable, and easy to evolve.
+rdma26 is a local-first, multi-agent personal AI assistant. Agents have configurable identities, job descriptions, models, capabilities, and scoped memory. They should flexibly plan tasks using general-purpose capabilities, provide reliable answers with appropriate sources and uncertainty, remember relevant information across conversations, and make model usage and costs transparent. Core functionality must be available consistently through the UI, API, and CLI.
+
+`docs/vision.md` is the authoritative product-direction document. Architecture and implementation decisions must support it.
+
+## Product And Agent Design Principles
+
+- Prefer general capabilities over tools designed for individual questions or examples.
+- Let agents plan how capabilities are combined. Encode fixed workflows only when the product genuinely requires deterministic orchestration.
+- Use skills for reusable workflow guidance, domain knowledge, and operating constraints.
+- Use deterministic code for calculations, validation, and structured transformations. Do not rely on an LLM for work that ordinary code can perform reliably.
+- Prefer documented LangChain, LangGraph, and Deep Agents mechanisms before creating custom runtime behavior.
+- Keep agent identities, conversations, models, capabilities, and memory correctly scoped. Do not leak one agent's local context or memory into another agent.
+- Do not present unsupported claims as verified. Preserve source provenance and communicate uncertainty plainly.
+- Keep memory relevant, inspectable, and cost-conscious. Long-term memory should reduce repeated explanations without flooding the context window.
+- Route every LLM and embedding request through the central accounting-aware factories so usage, timing, context, and cost remain observable.
+- Evaluate real agent behavior with stable cases covering accuracy, sources, uncertainty, memory, calls, tokens, cost, context size, and latency.
+- UI, API, and CLI must use the same application services rather than reimplementing behavior independently.
+- During this early development phase, remove superseded behavior instead of accumulating legacy or compatibility paths that have no users.
 
 ## Angular Standards
 
@@ -23,7 +40,7 @@ This repository is a test Angular application for evaluating the LangChain Deep 
 
 ## Project Intent
 
-This repository is a focused Angular test app for evaluating the LangChain Deep Agents SDK from TypeScript. Keep the app oriented around a practical SDK test harness rather than a marketing page.
+Build the actual personal-assistant experience, not a marketing page or an SDK demonstration. Keep the architecture small enough to understand, but treat reliability, flexibility, memory quality, cost control, and observability as product requirements.
 
 ## App Architecture
 
@@ -45,9 +62,8 @@ This repository is a focused Angular test app for evaluating the LangChain Deep 
 - When unsure about Deep Agents, LangChain, or LangGraph TypeScript APIs, check the official SDK documentation or package metadata before writing code.
 - Do not invent SDK imports, method names, event names, stream shapes, tool schemas, or configuration options.
 - Prefer the documented TypeScript APIs and examples over inferred Python equivalents.
-- Use the browser-safe Deep Agents entrypoint for Angular browser code when the SDK documentation requires it.
-- Keep Node-only SDK behavior, filesystem access, model credentials, and privileged tools outside the Angular browser bundle.
-- Create all backend LLM instances through the central accounting-aware model factory/registry once it exists. When adding a new agent, subagent, capability, tool workflow, summary job, or maintenance job that needs an LLM, do not instantiate provider models directly in feature code. This pattern is required so parent-agent and subagent requests can be measured consistently for token usage, cost, timing, and context inspection.
+- Keep Deep Agents runtime behavior, filesystem access, model credentials, and privileged tools outside the Angular browser bundle.
+- Create all backend LLM instances through the central accounting-aware model factory/registry. When adding a new agent, subagent, capability, tool workflow, summary job, or maintenance job that needs an LLM, do not instantiate provider models directly in feature code. This pattern is required so parent-agent and subagent requests can be measured consistently for token usage, cost, timing, and context inspection.
 - Wrap SDK calls in a small typed adapter or Angular service so UI components do not depend directly on SDK internals.
 - Model agent state, run state, streamed output, tool events, and errors with explicit TypeScript types.
 - Validate tool input and output schemas at the boundary where application code calls the agent.
@@ -67,10 +83,10 @@ This repository is a focused Angular test app for evaluating the LangChain Deep 
 - Use npm as the package manager.
 - Use the Angular CLI for project creation and code generation.
 - Use strict TypeScript, standalone Angular APIs, routing, and Tailwind during bootstrap.
-- Add formatting and linting early.
 - Use the Angular CLI default unit test runner, currently Vitest for new projects.
 - Run tests through Angular CLI commands such as `ng test`, not direct custom runner scripts unless needed.
 - Add focused tests for adapter/service behavior and for user-visible component states.
+- Add or update stable behavioral evaluations when changing agent prompts, tools, skills, memory retrieval, delegation, or context construction. A single successful example is not sufficient evidence of general reliability.
 - Run formatting, linting, type checking, and tests before considering implementation complete.
 - For UI work, run the app locally and verify it in a browser at desktop and mobile widths.
 
