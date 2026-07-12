@@ -202,6 +202,35 @@ The report is local runtime data under `.assistant-data/evaluations/` and is not
 part of the repository. These numbers are a comparison point, not a performance
 budget or a guarantee about future provider latency and pricing.
 
+## Initial Research Baseline
+
+The first research baseline was recorded on 12 July 2026 with suite
+`2026-07-12-v1` and model `gpt-5.4-mini`:
+
+- report: `evaluation-2026-07-12T11-48-12-802Z-4d151ae0`;
+- automatic result: 4 cases reached human review with no assertion failures;
+- human review: 2 answers accepted and 2 answers rejected as unreliable;
+- runs: 4;
+- LLM calls: 33;
+- tokens: 305,734 input, 223,488 cached input, and 7,334 output;
+- largest single model input: 15,643 tokens;
+- estimated cost: USD 0.1114491;
+- end-to-end duration: 110,347 ms;
+- unpriced calls: 0;
+- temporary agents remaining after cleanup: 0.
+
+The Angular-version and OpenAI-pricing answers were supported by authoritative
+sources and their calculations were correct. The current-sports answer selected
+a match even though the cited FIFA schedule contained a later match on the same
+day. The next-fixture answer identified the teams but reported a source kickoff
+of `19:00` while FIFA's schedule listed `15:00` at Dallas Stadium. These findings
+show why current-fact cases remain `review` until a person verifies them; source
+presence alone does not prove that the agent interpreted the source correctly.
+
+This baseline establishes two architecture targets: improve evidence comparison
+and temporal ordering, and reduce the number of research calls and aggregate
+context without sacrificing verification quality.
+
 ## Adding A Case
 
 A new case should represent a reusable product behavior, not a patch for one
