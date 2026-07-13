@@ -33,6 +33,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added a bounded `search_unpinned_memory` tool for on-demand recall that structurally excludes pinned startup memory.
 - Added multilingual semantic memory retrieval with OpenAI embeddings, exact-match preference, scoped results, and a content-hash SQLite vector cache that reuses unchanged memory embeddings.
 - Added embedding observability through the shared LLM-call accounting store, including actual provider token usage, model, duration, status, run ownership, estimated cost, operation type, and cache behavior in the Usage and Run context pages.
+- Added privacy-conscious context-composition metrics for each model request, including aggregate message sizes by role, structured block counts, and tool-definition size without duplicating raw prompts.
 - Added official OpenAI embedding-price synchronization for the configured embedding model so semantic-memory calls receive complete cost estimates automatically.
 - Added run-context visibility for the exact pinned memory files loaded at startup.
 - Added skill-use observability that records full `SKILL.md` reads during Deep

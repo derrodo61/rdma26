@@ -45,10 +45,16 @@ Each provider request can record:
 - input, cached-input, output, reasoning, and total tokens when reported;
 - error details;
 - selected metadata;
+- aggregate request-context composition: message counts and serialized sizes by
+  role, structured content-block counts, and per-tool definition sizes;
 - the pricing snapshot and estimated cost components.
 
 Calls begin in a non-success state and are finalized after the provider returns
 or fails. Failed and cancelled calls remain observable instead of disappearing.
+Context-composition metadata contains counts and character sizes, not another
+copy of raw prompt or message text. Provider-reported input tokens remain the
+authoritative total; the aggregate sizes help identify which category caused
+growth between calls.
 
 ## Purposes
 

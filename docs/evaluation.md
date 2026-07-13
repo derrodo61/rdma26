@@ -401,6 +401,39 @@ The final focused rerun with `gpt-5.4` behaved correctly:
 This resolves the incorrect substitution of an older story for same-day news.
 The large hosted-search context remains a cost-optimization target.
 
+### Context Composition Baseline
+
+Aggregate context-composition accounting was added before changing prompts or
+tools. It records message and tool-definition counts and character sizes, not
+raw prompt copies. Provider input tokens remain the authoritative total.
+
+A retained `gpt-5.4` regional-news run showed:
+
+- report: `evaluation-2026-07-13T04-31-41-026Z-8b4ffbe2`;
+- first call: 12,198 input tokens, 11,035 system-message characters, 202
+  user-message characters, and 27,639 characters across 12 tool definitions;
+- second call: 24,298 input tokens, adding 157 visible assistant characters and
+  3,605 visible tool-result characters;
+- the provider-side hosted-search expansion is therefore substantially larger
+  than the compact visible tool result captured by the application.
+
+A separate direct-known-fact run with `gpt-5.4-mini` established the fixed
+baseline without web search:
+
+- report: `evaluation-2026-07-13T04-32-55-632Z-5788c6fd`;
+- result: correct direct answer with no tool calls;
+- input tokens: 7,758;
+- system-message characters: 10,746;
+- tool definitions: 11 definitions totaling 27,575 characters;
+- largest definitions: `write_todos` at 12,175 characters and `task` at 7,483
+  characters;
+- estimated cost: USD 0.005864.
+
+The two Deep Agents orchestration definitions account for about 71 percent of
+the serialized tool-definition characters in the direct run. The next
+optimization decision is whether agents that do not need planning or
+delegation should receive these built-ins on every request.
+
 ### Episodic Retrieval Follow-Up
 
 The core failure was reproduced with the thread-follow-up and
