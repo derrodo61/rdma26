@@ -20,6 +20,7 @@ import { AssistantApi } from '../../chat/assistant-api';
 import { AppDialog } from '../../shared/app-dialog/app-dialog';
 import { AppSelect, type SelectOption } from '../../shared/app-select/app-select';
 import {
+  defaultCustomCostDateRange,
   resolveCostDateRange,
   type CostDateRange,
   type CostDateRangeFilter,
@@ -173,9 +174,14 @@ export class CostSettingsPage {
   protected selectDateRange(dateRange: CostDateRange): void {
     this.selectedDateRange.set(dateRange);
 
-    if (dateRange !== 'custom') {
-      void this.loadObservability();
+    if (dateRange === 'custom') {
+      if (!this.startedFrom() && !this.startedTo()) {
+        this.applyDefaultCustomDateRange();
+      }
+      return;
     }
+
+    void this.loadObservability();
   }
 
   protected updateStartedFrom(value: string): void {
@@ -190,7 +196,7 @@ export class CostSettingsPage {
     this.selectedAgentId.set('');
     this.selectedGroupBy.set('day');
     this.selectedPurpose.set('');
-    this.selectedDateRange.set('custom');
+    this.selectedDateRange.set('month');
     this.startedFrom.set('');
     this.startedTo.set('');
     void this.loadObservability();
@@ -452,6 +458,7 @@ export class CostSettingsPage {
       const [agentsResponse, profile] = await Promise.all([this.api.agents(), this.api.profile()]);
       this.agents.set(agentsResponse.agents);
       this.userTimeZone.set(profile.timeZone);
+      this.applyDefaultCustomDateRange();
       await this.loadObservability();
     });
     this.isLoading.set(false);
@@ -498,6 +505,12 @@ export class CostSettingsPage {
       customFrom: this.startedFrom(),
       customTo: this.startedTo(),
     });
+  }
+
+  private applyDefaultCustomDateRange(): void {
+    const defaults = defaultCustomCostDateRange(this.userTimeZone());
+    this.startedFrom.set(defaults.from);
+    this.startedTo.set(defaults.to);
   }
 
   private resetPricingDraft(): void {
@@ -549,12 +562,12 @@ function formatCost(amount: number, currency: string): string {
   try {
     return new Intl.NumberFormat(undefined, {
       currency,
-      maximumFractionDigits: 6,
+      maximumFractionDigits: 3,
       minimumFractionDigits: 0,
       style: 'currency',
     }).format(amount);
   } catch {
-    return `${amount.toFixed(6)} ${currency}`;
+    return `${amount.toFixed(3)} ${currency}`;
   }
 }
 

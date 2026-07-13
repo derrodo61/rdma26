@@ -1,17 +1,31 @@
 import { describe, expect, it } from 'vitest';
 
-import { localDateTimeToIso, resolveCostDateRange } from './cost-date-range';
+import {
+  defaultCustomCostDateRange,
+  localDateToIso,
+  resolveCostDateRange,
+} from './cost-date-range';
 
-describe('localDateTimeToIso', () => {
-  it('converts a local date-time value to the equivalent UTC timestamp', () => {
-    const value = '2026-07-13T14:30';
+describe('defaultCustomCostDateRange', () => {
+  it('uses today from midnight through the current minute in the configured time zone', () => {
+    expect(
+      defaultCustomCostDateRange('Europe/Berlin', new Date('2026-07-13T08:07:45.000Z')),
+    ).toEqual({
+      from: '2026-07-13',
+      to: '2026-07-13',
+    });
+  });
+});
 
-    expect(localDateTimeToIso(value, 'Europe/Berlin')).toBe('2026-07-13T12:30:00.000Z');
+describe('localDateToIso', () => {
+  it('converts a local date to its complete UTC range', () => {
+    expect(localDateToIso('2026-07-13', 'Europe/Berlin', 'start')).toBe('2026-07-12T22:00:00.000Z');
+    expect(localDateToIso('2026-07-13', 'Europe/Berlin', 'end')).toBe('2026-07-13T21:59:59.999Z');
   });
 
   it('omits empty and invalid values', () => {
-    expect(localDateTimeToIso('', 'Europe/Berlin')).toBeUndefined();
-    expect(localDateTimeToIso('not-a-date', 'Europe/Berlin')).toBeUndefined();
+    expect(localDateToIso('', 'Europe/Berlin', 'start')).toBeUndefined();
+    expect(localDateToIso('not-a-date', 'Europe/Berlin', 'end')).toBeUndefined();
   });
 });
 
@@ -44,12 +58,12 @@ describe('resolveCostDateRange', () => {
       resolveCostDateRange({
         range: 'custom',
         timeZone: 'Europe/Berlin',
-        customFrom: '2026-07-13T09:15',
-        customTo: '2026-07-13T18:45',
+        customFrom: '2026-07-13',
+        customTo: '2026-07-15',
       }),
     ).toEqual({
-      startedFrom: '2026-07-13T07:15:00.000Z',
-      startedTo: '2026-07-13T16:45:00.000Z',
+      startedFrom: '2026-07-12T22:00:00.000Z',
+      startedTo: '2026-07-15T21:59:59.999Z',
     });
   });
 });

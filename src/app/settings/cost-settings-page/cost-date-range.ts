@@ -5,27 +5,52 @@ export interface CostDateRangeFilter {
   readonly startedTo?: string;
 }
 
-export function localDateTimeToIso(value: string, timeZone: string): string | undefined {
+export function defaultCustomCostDateRange(
+  timeZone: string,
+  now = new Date(),
+): { readonly from: string; readonly to: string } {
+  const localNow = datePartsInTimeZone(now, timeZone);
+  const date = `${localNow.year}-${padDatePart(localNow.month)}-${padDatePart(localNow.day)}`;
+
+  return {
+    from: date,
+    to: date,
+  };
+}
+
+export function localDateToIso(
+  value: string,
+  timeZone: string,
+  boundary: 'start' | 'end',
+): string | undefined {
   if (!value) {
     return undefined;
   }
 
-  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
 
   if (!match) {
     return undefined;
   }
 
-  return zonedDateTimeToIso(
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+
+  if (boundary === 'end') {
+    date.setUTCDate(date.getUTCDate() + 1);
+  }
+
+  const timestamp = zonedDateTimeToIso(
     {
-      year: Number(match[1]),
-      month: Number(match[2]),
-      day: Number(match[3]),
-      hour: Number(match[4]),
-      minute: Number(match[5]),
+      year: date.getUTCFullYear(),
+      month: date.getUTCMonth() + 1,
+      day: date.getUTCDate(),
+      hour: 0,
+      minute: 0,
     },
     timeZone,
   );
+
+  return boundary === 'end' ? new Date(Date.parse(timestamp) - 1).toISOString() : timestamp;
 }
 
 export function resolveCostDateRange(options: {
@@ -37,8 +62,8 @@ export function resolveCostDateRange(options: {
 }): CostDateRangeFilter {
   if (options.range === 'custom') {
     return {
-      startedFrom: localDateTimeToIso(options.customFrom ?? '', options.timeZone),
-      startedTo: localDateTimeToIso(options.customTo ?? '', options.timeZone),
+      startedFrom: localDateToIso(options.customFrom ?? '', options.timeZone, 'start'),
+      startedTo: localDateToIso(options.customTo ?? '', options.timeZone, 'end'),
     };
   }
 
@@ -84,6 +109,10 @@ function datePartsInTimeZone(
     month: datePart(parts, 'month'),
     day: datePart(parts, 'day'),
   };
+}
+
+function padDatePart(value: number): string {
+  return String(value).padStart(2, '0');
 }
 
 function zonedDateTimeToIso(
