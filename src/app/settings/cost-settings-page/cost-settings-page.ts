@@ -19,6 +19,11 @@ import type {
 import { AssistantApi } from '../../chat/assistant-api';
 import { AppDialog } from '../../shared/app-dialog/app-dialog';
 import { AppSelect, type SelectOption } from '../../shared/app-select/app-select';
+import {
+  resolveCostDateRange,
+  type CostDateRange,
+  type CostDateRangeFilter,
+} from './cost-date-range';
 
 @Component({
   selector: 'app-cost-settings-page',
@@ -41,6 +46,10 @@ export class CostSettingsPage {
   protected readonly selectedAgentId = signal('');
   protected readonly selectedGroupBy = signal<CostSummaryGroupBy>('day');
   protected readonly selectedPurpose = signal<LlmCallPurpose | ''>('');
+  protected readonly selectedDateRange = signal<CostDateRange>('month');
+  protected readonly userTimeZone = signal(
+    Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+  );
   protected readonly startedFrom = signal('');
   protected readonly startedTo = signal('');
   protected readonly draftProvider = signal('openai');
@@ -74,6 +83,12 @@ export class CostSettingsPage {
     { value: 'memory_retrieval', label: 'Memory retrieval' },
     { value: 'memory_maintenance', label: 'Memory maintenance' },
     { value: 'unknown', label: 'Unknown' },
+  ];
+  protected readonly dateRanges: readonly { value: CostDateRange; label: string }[] = [
+    { value: 'today', label: 'Today' },
+    { value: 'week', label: 'This week' },
+    { value: 'month', label: 'This month' },
+    { value: 'custom', label: 'Custom' },
   ];
   protected readonly agentOptions = computed<readonly SelectOption[]>(() => [
     { value: '', label: 'All agents' },
@@ -155,6 +170,14 @@ export class CostSettingsPage {
     void this.loadObservability();
   }
 
+  protected selectDateRange(dateRange: CostDateRange): void {
+    this.selectedDateRange.set(dateRange);
+
+    if (dateRange !== 'custom') {
+      void this.loadObservability();
+    }
+  }
+
   protected updateStartedFrom(value: string): void {
     this.startedFrom.set(value);
   }
@@ -167,6 +190,7 @@ export class CostSettingsPage {
     this.selectedAgentId.set('');
     this.selectedGroupBy.set('day');
     this.selectedPurpose.set('');
+    this.selectedDateRange.set('custom');
     this.startedFrom.set('');
     this.startedTo.set('');
     void this.loadObservability();
@@ -425,34 +449,34 @@ export class CostSettingsPage {
 
   private async load(): Promise<void> {
     await this.handleAsync(async () => {
-      const [agentsResponse] = await Promise.all([this.api.agents()]);
+      const [agentsResponse, profile] = await Promise.all([this.api.agents(), this.api.profile()]);
       this.agents.set(agentsResponse.agents);
+      this.userTimeZone.set(profile.timeZone);
       await this.loadObservability();
     });
     this.isLoading.set(false);
   }
 
   private async loadObservability(): Promise<void> {
-    await Promise.all([this.loadSummary(), this.loadCalls(), this.loadPricing()]);
+    const dateRange = this.resolveSelectedDateRange();
+    await Promise.all([this.loadSummary(dateRange), this.loadCalls(dateRange), this.loadPricing()]);
   }
 
-  private async loadSummary(): Promise<void> {
+  private async loadSummary(dateRange = this.resolveSelectedDateRange()): Promise<void> {
     const response = await this.api.costSummary({
       agentId: this.selectedAgentId() || undefined,
       purpose: this.selectedPurpose() || undefined,
-      startedFrom: this.startedFrom() || undefined,
-      startedTo: this.startedTo() || undefined,
+      ...dateRange,
       groupBy: this.selectedGroupBy(),
     });
     this.summaryRows.set(response.rows);
   }
 
-  private async loadCalls(): Promise<void> {
+  private async loadCalls(dateRange: CostDateRangeFilter): Promise<void> {
     const response = await this.api.llmCalls({
       agentId: this.selectedAgentId() || undefined,
       purpose: this.selectedPurpose() || undefined,
-      startedFrom: this.startedFrom() || undefined,
-      startedTo: this.startedTo() || undefined,
+      ...dateRange,
       limit: 25,
     });
     this.llmCalls.set(response.calls);
@@ -465,6 +489,15 @@ export class CostSettingsPage {
     ]);
     this.pricing.set(pricingResponse.pricing);
     this.pricingSources.set(sourceResponse.sources);
+  }
+
+  private resolveSelectedDateRange(): CostDateRangeFilter {
+    return resolveCostDateRange({
+      range: this.selectedDateRange(),
+      timeZone: this.userTimeZone(),
+      customFrom: this.startedFrom(),
+      customTo: this.startedTo(),
+    });
   }
 
   private resetPricingDraft(): void {

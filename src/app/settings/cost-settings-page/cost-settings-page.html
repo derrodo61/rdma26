@@ -51,8 +51,8 @@
       </nav>
 
       @if (selectedTab() === 'usage') {
-        <section class="mt-5 grid gap-3 border border-border bg-surface p-4 lg:grid-cols-5">
-          <div class="lg:col-span-1">
+        <section class="mt-5 grid gap-4 border border-border bg-surface p-4 lg:grid-cols-3">
+          <div>
             <span class="mb-1 block text-sm font-medium text-text-muted">Agent</span>
             <app-select
               label="Agent"
@@ -62,7 +62,7 @@
             />
           </div>
 
-          <div class="lg:col-span-1">
+          <div>
             <span class="mb-1 block text-sm font-medium text-text-muted">Group by</span>
             <app-select
               label="Group by"
@@ -72,7 +72,7 @@
             />
           </div>
 
-          <div class="lg:col-span-1">
+          <div>
             <span class="mb-1 block text-sm font-medium text-text-muted">Purpose</span>
             <app-select
               label="Purpose"
@@ -82,29 +82,56 @@
             />
           </div>
 
-          <label class="block text-sm font-medium text-text-muted">
-            <span>From</span>
-            <input
-              class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-              [ngModel]="startedFrom()"
-              name="startedFrom"
-              placeholder="2026-07-01"
-              (ngModelChange)="updateStartedFrom($event)"
-            />
-          </label>
+          <fieldset class="lg:col-span-3">
+            <legend class="mb-1 text-sm font-medium text-text-muted">Date range</legend>
+            <div class="flex flex-wrap gap-1" aria-label="Date range">
+              @for (dateRange of dateRanges; track dateRange.value) {
+                <button
+                  type="button"
+                  class="h-10 px-3 text-sm font-medium text-text-muted hover:bg-surface-muted hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                  [class.bg-surface-active]="selectedDateRange() === dateRange.value"
+                  [class.text-text]="selectedDateRange() === dateRange.value"
+                  [attr.aria-pressed]="selectedDateRange() === dateRange.value"
+                  (click)="selectDateRange(dateRange.value)"
+                >
+                  {{ dateRange.label }}
+                </button>
+              }
+            </div>
+          </fieldset>
 
-          <label class="block text-sm font-medium text-text-muted">
-            <span>To</span>
-            <input
-              class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-              [ngModel]="startedTo()"
-              name="startedTo"
-              placeholder="2026-07-31"
-              (ngModelChange)="updateStartedTo($event)"
-            />
-          </label>
+          @if (selectedDateRange() === 'custom') {
+            <div class="grid gap-3 sm:grid-cols-2 lg:col-span-3">
+              <label class="block text-sm font-medium text-text-muted">
+                <span>From</span>
+                <input
+                  type="datetime-local"
+                  step="60"
+                  class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                  [ngModel]="startedFrom()"
+                  name="startedFrom"
+                  (ngModelChange)="updateStartedFrom($event)"
+                />
+              </label>
 
-          <div class="flex flex-wrap gap-2 lg:col-span-5">
+              <label class="block text-sm font-medium text-text-muted">
+                <span>To</span>
+                <input
+                  type="datetime-local"
+                  step="60"
+                  class="mt-1 h-10 w-full border border-border bg-surface px-3 text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                  [ngModel]="startedTo()"
+                  name="startedTo"
+                  (ngModelChange)="updateStartedTo($event)"
+                />
+              </label>
+              <p class="text-xs text-text-muted sm:col-span-2">
+                Date and time use {{ userTimeZone() }}.
+              </p>
+            </div>
+          }
+
+          <div class="flex flex-wrap gap-2 lg:col-span-3">
             <button
               type="button"
               class="h-10 bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-hover focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
