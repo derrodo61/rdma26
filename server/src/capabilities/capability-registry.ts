@@ -2,14 +2,11 @@ import { tool, type StructuredToolInterface } from '@langchain/core/tools';
 import { z } from 'zod';
 
 import type { ToolDefinition } from '../../../shared/agent-contracts';
-import type { SearchProvider, SearchTopic } from '../research/search-provider';
-import { withSearchQualityHints } from '../research/search-quality';
-import { TavilySearchProvider } from '../research/tavily-search-provider';
 import { extractWebContent } from '../research/web-content-extractor';
 import { readWebPage } from '../research/web-page-reader';
 
-export const researchCapabilityId = 'research';
-const internetSearchToolId = 'internet_search';
+export const webSearchCapabilityId = 'web_search';
+export const interpreterCapabilityId = 'interpreter';
 const readWebPageToolId = 'read_web_page';
 const readWebPageStructureToolId = 'read_web_page_structure';
 
@@ -26,25 +23,28 @@ interface CapabilityRegistration {
 export class CapabilityRegistry {
   private readonly registrations: readonly CapabilityRegistration[] = [
     {
-      id: researchCapabilityId,
-      label: 'Research',
+      id: webSearchCapabilityId,
+      label: 'Web search',
       description:
-        'Deep Agents researcher subagent capability with source reading and verification.',
-      provider: 'rdma26-research',
-      isAvailable: () => Boolean(process.env['TAVILY_API_KEY'] && process.env['OPENAI_API_KEY']),
-      unavailableReason: 'TAVILY_API_KEY and OPENAI_API_KEY are required.',
+        'Provider-hosted internet search with page opening and source citations, using the agent-selected OpenAI model.',
+      provider: 'openai',
+      isAvailable: () => Boolean(process.env['OPENAI_API_KEY']),
+      unavailableReason: 'OPENAI_API_KEY is required.',
       create: () => {
-        throw new Error('research is a Deep Agents subagent capability, not a direct tool.');
+        throw new Error('web_search is an OpenAI hosted server tool, not a locally runnable tool.');
       },
     },
     {
-      id: internetSearchToolId,
-      label: 'Internet search',
-      description: 'Low-level Tavily search primitive for specialized or debugging workflows.',
-      provider: 'tavily',
-      isAvailable: () => Boolean(process.env['TAVILY_API_KEY']),
-      unavailableReason: 'TAVILY_API_KEY is not configured.',
-      create: () => createInternetSearchTool(readTavilySearchProvider()),
+      id: interpreterCapabilityId,
+      label: 'Code interpreter',
+      description:
+        'Isolated QuickJS workspace for calculations and deterministic structured-data transformations.',
+      provider: 'deepagents-quickjs',
+      isAvailable: () => true,
+      unavailableReason: 'The QuickJS interpreter is not available.',
+      create: () => {
+        throw new Error('interpreter is Deep Agents middleware, not a direct tool.');
+      },
     },
     {
       id: readWebPageToolId,
@@ -98,7 +98,10 @@ export class CapabilityRegistry {
     const registrations = this.registrationsById(capabilityIds);
 
     return registrations
-      .filter((registration) => registration.id !== researchCapabilityId)
+      .filter(
+        (registration) =>
+          registration.id !== webSearchCapabilityId && registration.id !== interpreterCapabilityId,
+      )
       .map((registration) => {
         if (!registration.isAvailable()) {
           throw new Error(
@@ -162,7 +165,7 @@ function createExtractWebContentTool(): StructuredToolInterface {
     {
       name: readWebPageStructureToolId,
       description:
-        'Fetch a known public HTTP/HTTPS URL and return focused page structure. Use this when you already know the target URL and need structured content. Do not use it to discover sources; use research or search first when the source URL is unknown. Use mode="tables" with a query for pricing/comparison pages, mode="headings" for headlines, mode="markdown" or "article" for prose, and mode="full" only for debugging. Rejects localhost and private-network URLs.',
+        'Fetch a known public HTTP/HTTPS URL and return focused page structure. Use this when you already know the target URL and need structured content. Do not use it to discover sources; use web search first when the source URL is unknown. Use mode="tables" with a query for pricing/comparison pages, mode="headings" for headlines, mode="markdown" or "article" for prose, and mode="full" only for debugging. Rejects localhost and private-network URLs.',
       schema: z.object({
         url: z.string().url().describe('The public HTTP or HTTPS URL to extract.'),
         mode: z
@@ -202,15 +205,8 @@ function createExtractWebContentTool(): StructuredToolInterface {
 
 function createReadWebPageTool(): StructuredToolInterface {
   return tool(
-    async ({
-      url,
-      maxCharacters = 12_000,
-      query,
-    }: {
-      url: string;
-      maxCharacters?: number;
-      query?: string;
-    }) => readWebPage(url, { maxCharacters, query }),
+    async ({ url, maxCharacters = 12_000 }: { url: string; maxCharacters?: number }) =>
+      readWebPage(url, { maxCharacters }),
     {
       name: readWebPageToolId,
       description:
@@ -224,73 +220,9 @@ function createReadWebPageTool(): StructuredToolInterface {
           .optional()
           .default(12_000)
           .describe('Maximum number of readable text characters to return.'),
-        query: z
-          .string()
-          .optional()
-          .describe('Optional user intent query to focus extraction on the needed evidence.'),
       }),
     },
   );
-}
-
-function createInternetSearchTool(searchProvider: SearchProvider): StructuredToolInterface {
-  return tool(
-    async ({
-      query,
-      maxResults = 5,
-      topic = 'general',
-      includeRawContent = false,
-    }: {
-      query: string;
-      maxResults?: number;
-      topic?: SearchTopic;
-      includeRawContent?: boolean;
-    }) => {
-      const request = {
-        query,
-        maxResults,
-        topic,
-        includeRawContent,
-      };
-      const result = await searchProvider.search(request);
-
-      return withSearchQualityHints(result, request);
-    },
-    {
-      name: internetSearchToolId,
-      description: 'Run a web search when current internet information would help.',
-      schema: z.object({
-        query: z.string().describe('The search query.'),
-        maxResults: z
-          .number()
-          .min(1)
-          .max(10)
-          .optional()
-          .default(5)
-          .describe('Maximum number of results to return.'),
-        topic: z
-          .enum(['general', 'news', 'finance'])
-          .optional()
-          .default('general')
-          .describe('Search topic category.'),
-        includeRawContent: z
-          .boolean()
-          .optional()
-          .default(false)
-          .describe('Whether to include raw page content when available.'),
-      }),
-    },
-  );
-}
-
-function readTavilySearchProvider(): TavilySearchProvider {
-  const apiKey = process.env['TAVILY_API_KEY'];
-
-  if (!apiKey) {
-    throw new Error('TAVILY_API_KEY is required to use internet_search.');
-  }
-
-  return new TavilySearchProvider(apiKey);
 }
 
 function normalizeCapabilityIds(capabilityIds: readonly string[]): readonly string[] {

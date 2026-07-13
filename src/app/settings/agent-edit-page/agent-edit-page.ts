@@ -73,7 +73,6 @@ export class AgentEditPage {
   protected readonly soulContent = signal('');
   protected readonly draftSoulContent = signal('');
   protected readonly selectedModel = signal('');
-  protected readonly selectedResearcherModel = signal('');
   protected readonly enabledToolIds = signal<readonly string[]>([]);
   protected readonly canReadMemory = signal(true);
   protected readonly canWriteMemory = signal(true);
@@ -194,25 +193,6 @@ export class AgentEditPage {
     });
   }
 
-  protected updateResearcherModel(value: string): void {
-    const agent = this.agent();
-
-    this.selectedResearcherModel.set(value);
-
-    if (!agent || !this.isAvailableModel(value)) {
-      this.savedMessage.set(null);
-      return;
-    }
-
-    void this.saveAgentModels({
-      ...agent.models,
-      research: {
-        ...agent.models.research,
-        researcher: value,
-      },
-    });
-  }
-
   protected updateTool(toolId: string, isEnabled: boolean): void {
     this.enabledToolIds.update((toolIds) => {
       const nextToolIds = isEnabled
@@ -321,14 +301,6 @@ export class AgentEditPage {
       this.agentSettingsStorage.replaceAll(profile.agentSettings);
       this.selectedModel.set(
         this.initialModel(agent.id, agent.models.chat, models.defaultModel, models.models),
-      );
-      this.selectedResearcherModel.set(
-        this.initialModel(
-          agent.id,
-          agent.models.research?.researcher,
-          models.defaultModel,
-          models.models,
-        ),
       );
     });
     this.isLoading.set(false);

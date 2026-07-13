@@ -100,7 +100,7 @@ You are Cost Analyst, an internal rdma26 LLM usage and cost optimization agent.
 - First inspect configured pricing sources. Prefer active official provider sources and include source URL, source name, and retrieval date.
 - For OpenAI model-price comparison, use the pricing-source-analysis skill and call \`admin_sync_openai_model_pricing\` first. It fetches the official OpenAI pricing page, extracts model prices, and compares them with saved active OpenAI pricing records without changing data.
 - Use \`read_web_page_structure\` only when the dedicated OpenAI pricing sync cannot answer the question, when the user asks for page-structure debugging, or when the provider is not OpenAI.
-- Use research only when no configured source exists, a configured source cannot be read, or the user asks you to find a new source.
+- Use web search only when no configured source exists, a configured source cannot be read, or the user asks you to find a new source.
 - Keep one pricing record per provider and model. Creating or updating prices makes that record active.
 - Do not create, update, deactivate, or delete pricing unless the user explicitly approves that specific change.
 
@@ -258,6 +258,10 @@ async function writeBuiltinSkills(rootDir: string, agent: AgentProfile): Promise
   const skillsDir = join(rootDir, 'skills');
   await mkdir(skillsDir, { recursive: true });
 
+  const webResearchSkillDir = join(skillsDir, 'web-research');
+  await mkdir(webResearchSkillDir, { recursive: true });
+  await writeFile(join(webResearchSkillDir, 'SKILL.md'), webResearchSkill, 'utf8');
+
   if (agent.id !== 'cost-analyst') {
     return;
   }
@@ -266,6 +270,39 @@ async function writeBuiltinSkills(rootDir: string, agent: AgentProfile): Promise
   await mkdir(skillDir, { recursive: true });
   await writeFile(join(skillDir, 'SKILL.md'), pricingSourceAnalysisSkill, 'utf8');
 }
+
+const webResearchSkill = `---
+name: web-research
+description: "Use this skill before calling web_search for current, changing, uncertain, or externally verifiable information. It defines source selection, recency, stopping, citation, and uncertainty guidance."
+---
+
+# Web research
+
+Use the \`web_search\` capability when the answer depends on current or external information. Do not search for stable facts you can answer confidently without the internet.
+
+## Guidance
+
+1. Identify the exact fact or decision the user needs before searching.
+2. Distinguish dates and states carefully: publication date, event date, release date, scheduled event, live event, and completed result are different facts.
+3. Prefer primary and authoritative sources. For regional events, consider local-language and regional sources when broad sources are incomplete.
+4. Inspect more results only when the first evidence is stale, incomplete, ambiguous, or conflicting. Stop when the requested facts are sufficiently supported.
+5. For "latest", "last", or "next" questions, compare dated candidates before choosing one.
+6. Use more than one independent source for high-stakes or rapidly changing claims when practical.
+7. Preserve the hosted search citations in the answer. Cite only sources that support the claims you make.
+8. State uncertainty plainly when reliable evidence is missing or conflicts remain.
+
+## News requests
+
+For current news and developing events:
+
+1. Include the event, location, relevant names, and an explicit date or time window in the first search. Interpret relative terms such as "today" using the exact local calendar date in the runtime's user-profile context. Keep that date consistent in searches and the final answer.
+2. Prefer sources that actually report the requested event: official statements and reputable news organizations. For regional stories, search local-language and regional news sources instead of relying only on large international publishers.
+3. Check both the publication date and the event date. When the user asks about "today", open a direct article or official-statement page and confirm its displayed date before claiming that it is from today. Accept only reporting or an event from that calendar date unless the answer clearly says that no reliable same-day result was found. Do not infer freshness from search ranking, snippets, a topic page, or a publisher homepage. Do not silently substitute an older recent story or an old article about a similar event.
+4. If the first result does not match the requested date, location, or event, search again. Narrow the follow-up query with the exact date, location, local-language terms, or a relevant source domain. Do not restrict every news search to a fixed publisher list.
+5. For developing stories, distinguish confirmed facts from early reports and say when details may still change.
+6. Cite direct article or official-statement pages for factual event details. A publisher homepage, topic page, or search-results page may support that a story is prominent, but it is not sufficient evidence for the event details or date by itself.
+7. Stop once the requested facts are supported by sufficiently recent and directly relevant evidence. Do not add extra searches merely to collect more headlines.
+`;
 
 const pricingSourceAnalysisSkill = `---
 name: pricing-source-analysis
@@ -289,7 +326,7 @@ Use this skill when the user asks whether saved model prices are correct, asks y
 5. Do not call \`admin_list_model_pricing\` before \`admin_sync_openai_model_pricing\` for normal OpenAI comparison questions. The sync tool already reads the saved active OpenAI pricing records internally.
 6. Use \`admin_list_model_pricing\` only when the user asks for record ids, full local metadata, or a pricing mutation/update plan. Do not use it merely to answer whether saved OpenAI prices match the official page.
 7. Use \`admin_read_pricing_source_page\` only as fallback context when the dedicated sync and structured page reader are incomplete.
-8. Use general research only when there is no configured source, the configured source cannot be extracted/read, or the user asks you to find a new source.
+8. Use web search only when there is no configured source, the configured source cannot be extracted/read, or the user asks you to find a new source.
 
 ## Price dimensions
 

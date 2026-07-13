@@ -1,12 +1,12 @@
 import { CompositeBackend, createDeepAgent, FilesystemBackend } from 'deepagents';
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
-import type { ToolCallStream } from '@langchain/langgraph';
-import type { StructuredToolInterface } from '@langchain/core/tools';
+import type { ServerTool, StructuredToolInterface } from '@langchain/core/tools';
+import { tools as openAiTools } from '@langchain/openai';
 
 import type {
   ChatMessage,
-  AgentModelSettings,
   RunContextTokenUsage,
+  RunContextSkillUsage,
   RunContextToolCall,
   UserProfile,
 } from '../../../shared/agent-contracts';
@@ -19,17 +19,18 @@ import {
 } from './agent-activity';
 import { createBootloaderPromptForTest } from './agent-prompt';
 import { extractText } from './agent-result';
-import { createEnabledSubagents } from './agent-subagents';
+import { createEnabledAgentMiddleware } from './agent-middleware';
 import { LlmAccountingCallbackHandler } from '../llm/llm-accounting-callback';
 import type { LlmCallStore } from '../llm/llm-call-store';
 import { createOpenAiChatModel } from '../llm/model-factory';
+import { extractOpenAiHostedWebToolCallsFromAgentResult } from '../llm/openai-hosted-web-search';
 import type { AgentMemoryDirectories } from '../memory/file-memory-store';
+import { ToolCallObserver } from './tool-call-observer';
 
 interface PersonalAgentRequest {
   readonly runId: string;
   readonly threadId: string;
   readonly model: string;
-  readonly agentModels: AgentModelSettings;
   readonly tools: readonly StructuredToolInterface[];
   readonly enabledToolIds: readonly string[];
   readonly isOperatorAgent: boolean;
@@ -49,6 +50,7 @@ export interface PersonalAgentResponse {
   readonly content: string;
   readonly usedFallback: boolean;
   readonly toolCalls: readonly RunContextToolCall[];
+  readonly skillsUsed: readonly RunContextSkillUsage[];
   readonly tokenUsage?: RunContextTokenUsage;
 }
 
@@ -71,6 +73,7 @@ export class PersonalAgent {
         ].join('\n'),
         usedFallback: true,
         toolCalls: [],
+        skillsUsed: [],
       };
     }
 
@@ -87,7 +90,9 @@ export class PersonalAgent {
       virtualMode: true,
     });
     const agent = createDeepAgent({
-      model: createOpenAiChatModel(request.model),
+      model: createOpenAiChatModel(request.model, {
+        includeWebSearchSources: request.enabledToolIds.includes('web_search'),
+      }),
       backend: new CompositeBackend(defaultBackend, {
         '/memory/global/': new FilesystemBackend({
           rootDir: request.memoryDirectories.global,
@@ -105,12 +110,8 @@ export class PersonalAgent {
       memory: [...request.memoryPaths],
       permissions: createMemoryFilesystemPermissions(request.memoryReadsEnabled),
       skills: ['/skills/'],
-      tools: request.tools,
-      subagents: createEnabledSubagents(
-        request.enabledToolIds,
-        request.userProfile,
-        request.agentModels,
-      ),
+      tools: createAgentTools(request.tools, request.enabledToolIds),
+      middleware: await createEnabledAgentMiddleware(request.enabledToolIds),
       checkpointer: this.checkpointer,
       systemPrompt: createBootloaderPromptForTest(
         this.storage.agent,
@@ -125,23 +126,51 @@ export class PersonalAgent {
     emitActivity(request.onActivity, {
       label: `${this.storage.agent.name} is preparing the run`,
     });
-    const run = await agent.streamEvents(
-      {
-        messages: request.messages.map((message) => ({
-          role: message.role,
-          content: message.content,
-        })),
+    const agentInput = {
+      messages: request.messages.map((message) => ({
+        role: message.role,
+        content: message.content,
+      })),
+    };
+    const agentConfig = {
+      callbacks: [llmAccounting],
+      configurable: {
+        thread_id: request.threadId,
       },
-      {
-        version: 'v3',
-        callbacks: [llmAccounting],
-        configurable: {
-          thread_id: request.threadId,
-        },
-      },
-    );
+    };
+
+    if (request.enabledToolIds.includes('web_search')) {
+      const toolCallObserver = new ToolCallObserver();
+      emitActivity(request.onActivity, {
+        label: `${this.storage.agent.name} is searching the web`,
+      });
+      const result: unknown = await agent.invoke(agentInput, {
+        ...agentConfig,
+        callbacks: [...agentConfig.callbacks, toolCallObserver],
+      });
+      const toolCalls = [
+        ...toolCallObserver.collected(),
+        ...extractOpenAiHostedWebToolCallsFromAgentResult(result),
+      ];
+
+      emitActivity(request.onActivity, {
+        label: `${this.storage.agent.name} is writing the answer`,
+      });
+
+      return {
+        content: extractText(result),
+        usedFallback: false,
+        toolCalls,
+        skillsUsed: extractSkillUsages(toolCalls),
+      };
+    }
+
+    const run = await agent.streamEvents(agentInput, {
+      ...agentConfig,
+      version: 'v3',
+    });
     const activityObserver = observeAgentRunActivity(run, request.onActivity);
-    const toolCallsPromise = collectCurrentToolCalls(run.toolCalls);
+    const toolCallsPromise = collectRunToolCalls(run);
     const result: unknown = await run.output;
     const toolCalls = await toolCallsPromise;
     await waitForActivityObserver(activityObserver);
@@ -154,8 +183,44 @@ export class PersonalAgent {
       content: extractText(result),
       usedFallback: false,
       toolCalls,
+      skillsUsed: extractSkillUsages(toolCalls),
     };
   }
+}
+
+export function extractSkillUsages(
+  toolCalls: readonly RunContextToolCall[],
+): readonly RunContextSkillUsage[] {
+  const skills = new Map<string, RunContextSkillUsage>();
+
+  for (const toolCall of toolCalls) {
+    if (toolCall.name !== 'read_file' || !isRecord(toolCall.args)) continue;
+    const path = toolCall.args['file_path'];
+    if (typeof path !== 'string') continue;
+    const match = path.match(/^\/skills\/([^/]+)\/SKILL\.md$/);
+    if (!match?.[1]) continue;
+    skills.set(match[1], { name: match[1], path });
+  }
+
+  return [...skills.values()];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function createAgentTools(
+  runnableTools: readonly StructuredToolInterface[],
+  enabledToolIds: readonly string[],
+): readonly (StructuredToolInterface | ServerTool)[] {
+  return enabledToolIds.includes('web_search')
+    ? [
+        ...runnableTools,
+        openAiTools.webSearch({
+          search_context_size: 'medium',
+        }),
+      ]
+    : runnableTools;
 }
 
 export function createMemoryFilesystemPermissions(memoryReadsEnabled: boolean) {
@@ -177,8 +242,18 @@ export function createMemoryFilesystemPermissions(memoryReadsEnabled: boolean) {
   ];
 }
 
+export async function collectRunToolCalls(run: AgentRunToolStreams): Promise<RunContextToolCall[]> {
+  const [toolCalls, subagentToolCalls] = await Promise.all([
+    collectCurrentToolCalls(run.toolCalls),
+    collectSubagentToolCalls(run.subagents),
+  ]);
+
+  return [...toolCalls, ...subagentToolCalls];
+}
+
 async function collectCurrentToolCalls(
-  toolCalls: AsyncIterable<ToolCallStream> | undefined,
+  toolCalls: AsyncIterable<ToolCallStreamLike> | undefined,
+  agentName?: string,
 ): Promise<RunContextToolCall[]> {
   if (!toolCalls) return [];
   const collected: RunContextToolCall[] = [];
@@ -193,6 +268,7 @@ async function collectCurrentToolCalls(
     collected.push({
       id: call.callId,
       name: call.name,
+      agentName,
       args: call.input,
       result,
     });
@@ -201,6 +277,40 @@ async function collectCurrentToolCalls(
   return collected;
 }
 
+async function collectSubagentToolCalls(
+  subagents: AsyncIterable<SubagentToolStreams> | undefined,
+): Promise<RunContextToolCall[]> {
+  if (!subagents) return [];
+  const pending: Promise<RunContextToolCall[]>[] = [];
+
+  for await (const subagent of subagents) {
+    pending.push(
+      Promise.all([
+        collectCurrentToolCalls(subagent.toolCalls, subagent.name),
+        collectSubagentToolCalls(subagent.subagents),
+      ]).then(([toolCalls, nestedToolCalls]) => [...toolCalls, ...nestedToolCalls]),
+    );
+  }
+
+  return (await Promise.all(pending)).flat();
+}
+
 function stringifyToolOutput(output: unknown): string {
   return typeof output === 'string' ? output : JSON.stringify(output);
+}
+
+interface AgentRunToolStreams {
+  readonly toolCalls?: AsyncIterable<ToolCallStreamLike>;
+  readonly subagents?: AsyncIterable<SubagentToolStreams>;
+}
+
+interface SubagentToolStreams extends AgentRunToolStreams {
+  readonly name: string;
+}
+
+interface ToolCallStreamLike {
+  readonly callId?: string;
+  readonly name: string;
+  readonly input: unknown;
+  readonly output: Promise<unknown>;
 }

@@ -5,7 +5,7 @@ import type {
 } from '../../../../shared/agent-contracts';
 import type { ResearchSourceSummary } from './chat-page.types';
 
-interface ResearchToolResult {
+interface ResearchToolResult extends Record<string, unknown> {
   readonly answerSourceUrls?: readonly unknown[];
   readonly findings?: readonly {
     readonly item?: unknown;
@@ -57,35 +57,40 @@ function extractResearchSources(
   const sources = new Map<string, ResearchSourceSummary>();
 
   for (const toolCall of toolCalls) {
-    if (toolCall.name !== 'research' && toolCall.name !== 'task') {
+    if (toolCall.name !== 'web_search') {
       continue;
     }
 
-    const result = parseResearchToolResult(toolCall.result);
-    const answerSourceUrls = readAnswerSourceUrls(result);
+    const payloads = parseStructuredPayloads(toolCall.result);
+    const results = payloads.filter(isResearchToolResult);
 
-    for (const url of answerSourceUrls) {
-      sources.set(url, {
-        url,
-        title: readUrlDomain(url),
-        domain: readUrlDomain(url),
-      });
-    }
+    for (const result of results) {
+      const answerSourceUrls = readAnswerSourceUrls(result);
 
-    for (const source of result?.sources ?? []) {
-      if (typeof source.url !== 'string' || !source.url) {
-        continue;
+      for (const url of answerSourceUrls) {
+        sources.set(url, {
+          url,
+          title: readUrlDomain(url),
+          domain: readUrlDomain(url),
+        });
       }
 
-      if (answerSourceUrls.size > 0 && !answerSourceUrls.has(source.url)) {
-        continue;
-      }
+      for (const source of result.sources ?? []) {
+        if (typeof source.url !== 'string' || !source.url) {
+          continue;
+        }
 
-      sources.set(source.url, {
-        url: source.url,
-        title: typeof source.title === 'string' && source.title.trim() ? source.title : source.url,
-        domain: readUrlDomain(source.url),
-      });
+        if (answerSourceUrls.size > 0 && !answerSourceUrls.has(source.url)) {
+          continue;
+        }
+
+        sources.set(source.url, {
+          url: source.url,
+          title:
+            typeof source.title === 'string' && source.title.trim() ? source.title : source.url,
+          domain: readUrlDomain(source.url),
+        });
+      }
     }
   }
 
@@ -164,18 +169,50 @@ function isRejectedResearchFinding(item: unknown): boolean {
   );
 }
 
-function parseResearchToolResult(result: string | undefined): ResearchToolResult | null {
+function parseStructuredPayloads(result: string | undefined): readonly Record<string, unknown>[] {
   if (!result) {
-    return null;
+    return [];
   }
 
-  try {
-    const parsed = JSON.parse(result) as unknown;
+  const payloads: Record<string, unknown>[] = [];
+  visitStructuredPayload(result, payloads, 0);
+  return payloads;
+}
 
-    return typeof parsed === 'object' && parsed !== null ? (parsed as ResearchToolResult) : null;
-  } catch {
-    return null;
+function visitStructuredPayload(
+  value: unknown,
+  payloads: Record<string, unknown>[],
+  depth: number,
+): void {
+  if (depth > 10 || value === null || value === undefined) return;
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return;
+
+    try {
+      visitStructuredPayload(JSON.parse(trimmed) as unknown, payloads, depth + 1);
+    } catch {
+      return;
+    }
+    return;
   }
+
+  if (Array.isArray(value)) {
+    for (const item of value) visitStructuredPayload(item, payloads, depth + 1);
+    return;
+  }
+
+  if (typeof value !== 'object') return;
+  const record = value as Record<string, unknown>;
+  payloads.push(record);
+  for (const candidate of Object.values(record)) {
+    visitStructuredPayload(candidate, payloads, depth + 1);
+  }
+}
+
+function isResearchToolResult(value: Record<string, unknown>): value is ResearchToolResult {
+  return 'answerSourceUrls' in value || 'findings' in value || 'sources' in value;
 }
 
 function readUrlDomain(url: string): string {

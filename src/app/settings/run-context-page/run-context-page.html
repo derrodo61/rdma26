@@ -68,6 +68,28 @@
 
           <section class="border border-border bg-surface">
             <div class="border-b border-border px-4 py-3">
+              <h2 class="text-sm font-semibold text-text-muted">Skills used</h2>
+            </div>
+            @if (!run.skillsUsed?.length) {
+              <p class="p-4 text-sm text-text-muted">
+                No skill file was loaded through progressive disclosure during this run.
+              </p>
+            } @else {
+              <div class="divide-y divide-border">
+                @for (skill of run.skillsUsed; track skill.path) {
+                  <article class="p-4">
+                    <p class="text-sm font-medium text-text">{{ skill.name }}</p>
+                    <p class="mt-1 break-all font-mono text-xs text-text-muted">
+                      {{ skill.path }}
+                    </p>
+                  </article>
+                }
+              </div>
+            }
+          </section>
+
+          <section class="border border-border bg-surface">
+            <div class="border-b border-border px-4 py-3">
               <h2 class="text-sm font-semibold text-text-muted">Run exchange</h2>
             </div>
             <div class="divide-y divide-border">

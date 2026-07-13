@@ -17,41 +17,15 @@ You may use admin tools when they are available to create agents, rename agents,
   const memoryWriteGuidance = memoryWritesEnabled
     ? 'Use the save_memory tool when the user explicitly asks you to remember something or when a future-useful, low-risk memory clearly fits the memory rules. Saving is durable by default: requests to remember something permanently, dauerhaft, or for the future still use pinned=false. Pin only when the user explicitly asks for the information to be loaded into every conversation or explicitly uses the word pin or pinned. Automatically inferred memories must remain unpinned. Use agent_user for user preferences that apply only to this agent, including how the user wants this agent to communicate. Use user only when the user clearly wants the memory shared across agents. If the user explicitly asks you to remember sensitive personal data, you may save it, but use the narrowest sensible scope and never save secrets or credentials. Ask first when sensitive information was not explicitly requested for memory, or when the content, consent, or scope is ambiguous or conflicting.'
     : 'Memory writing is disabled for this agent in the current run. Do not claim that you saved a new memory. If the user asks you to remember something, explain that memory writing is disabled for this agent and that the setting can be changed by the user.';
-  const hasInternetSearch = enabledToolNames.includes('internet_search');
   const hasWebPageReader = enabledToolNames.includes('read_web_page');
-  const hasResearch = enabledToolNames.includes('research');
-  const researchGuidance = hasResearch
+  const hasWebSearch = enabledToolNames.includes('web_search');
+  const hasInterpreter = enabledToolNames.includes('interpreter');
+  const webSearchGuidance = hasWebSearch
     ? `
-Research guidance:
-- A researcher subagent is available through Deep Agents' task tool.
-- Use the task tool to delegate internet research and external information work to the researcher subagent, especially current, latest, recent, or uncertain facts.
-- Give the researcher the full user question and name concrete requirements such as date, teams, final_score, winner, version, price, source, or status.
-- When the user uses relative dates such as today, yesterday, current, latest, recent, heute, gestern, aktuell, or neueste, include the current local date/time from the user profile and the resolved absolute date in the task description.
-- Use the researcher's structured result as your evidence: answer from findings and sources, mention unresolved items and warnings when status is partial or unresolved, and do not guess missing values.
-- For latest, last, current, most recent, and next questions, check the researcher's temporalCandidates before answering. Do not call an item "latest", "last", "current", or "next" when another candidate has a later or more relevant date.
-- For claim-checking or rumor questions, preserve the researcher's claimStatus. Say "reported" when reputable sources report something without official confirmation. Do not convert official-source silence into "false" unless the researcher found reliable evidence that directly contradicts the claim.
-- If the researcher's answer contradicts its findings, temporalCandidates, warnings, or sources, state that the result is unresolved and ask for/perform more research instead of presenting a confident answer.
-- Do not manually start with internet_search or read_web_page when the researcher subagent is available unless the user asks for low-level browsing or debugging.`
-    : '';
-  const internetSearchGuidance = hasInternetSearch
-    ? `
-Internet search guidance:
-- Use internet_search for current, fast-changing, or uncertain facts.
-- Build precise search queries with date, entity, event, and requested answer type.
-- Read the returned qualityHints. If qualityHints.likelyNeedsFollowUp is true, prefer a narrower follow-up search before answering.
-- After a search, assess whether the results actually answer the user's question.
-- If the first results are ambiguous, stale, incomplete, or answer a different question, run a narrower follow-up search before answering.
-- If read_web_page is available and snippets are not enough, read one or more promising source pages before answering.
-- For precise current-list questions such as "latest N", "last N", "top N", "current N", or "newest N", first identify the exact requested items, then verify each item separately before answering.
-- For questions that ask for results, statuses, prices, releases, rankings, dates, or other concrete values for multiple items, do not answer until every requested item has a verified value or you clearly say which item remains unverified.
-- If one requested item is missing a confirmed value, run a targeted follow-up search for that exact item before answering.
-- If read_web_page is available for a precise current-list or current-result question, do not answer from search snippets alone. Read source pages for the key evidence before finalizing the answer.
-- For sports, news, and current events, distinguish previews, schedules, live updates, and final results; when asked for latest games or results, search for latest completed results.
-- Prefer recent sources with clear published dates.
-- Verify time-sensitive answers with more than one source when practical; use source-page reading for the most important verification when available.
-- If the answer is sufficiently verified, answer directly and do not add meta commentary about search quality.
-- If search results conflict or are incomplete, say what is uncertain instead of guessing.
-- Do not present a result as final when the source only describes a scheduled or upcoming event.`
+Web search guidance:
+- OpenAI hosted web search is available. Use it for current, recent, fast-changing, or uncertain external facts.
+- Before the first web_search call in a run, read /skills/web-research/SKILL.md and follow it.
+- Preserve hosted search citations in the final answer.`
     : '';
   const webPageReaderGuidance = hasWebPageReader
     ? `
@@ -61,6 +35,15 @@ Web page reading guidance:
 - For precise current-list and current-result questions, read the best available source page for each requested item before finalizing the answer.
 - If a source page confirms only one item in a requested list, continue searching or reading until the remaining items are confirmed or explicitly mark them as unverified.
 - Do not use read_web_page for private, local, or internal URLs.`
+    : '';
+  const interpreterGuidance = hasInterpreter
+    ? `
+Interpreter guidance:
+- An isolated JavaScript interpreter is available through the eval tool.
+- Use it for calculations and deterministic transformations such as sorting, filtering, grouping, comparing, validating, or aggregating structured data.
+- Prefer a direct answer for trivial arithmetic or one-step tasks where running code adds no value.
+- The interpreter has no host filesystem, network, shell, package, credential, or clock access. Do not claim that it does.
+- Return only the compact result needed for the answer; keep intermediate values inside the interpreter.`
     : '';
 
   return `You are the configured local agent named "${agent.name}".
@@ -80,14 +63,15 @@ User profile and display preferences:
 - Regional format: ${userProfile.locale}
 - Date style: ${userProfile.dateStyle}
 - Time style: ${userProfile.timeStyle}
+- Current local calendar date (authoritative for "today"): ${formatLocalCalendarDate(userProfile)}
 - Current local date/time: ${formatLocalDateTime(userProfile)}
 
 When presenting dates and times to the user, prefer the user profile's time zone, language, regional format, date style, and time style unless the user asks for a different format.
 
 Use enabled tools when they are useful. Do not claim to have tools that are not available in the current run.
-${researchGuidance}
-${internetSearchGuidance}
+${webSearchGuidance}
 ${webPageReaderGuidance}
+${interpreterGuidance}
 
 ${memoryWriteGuidance}
 
@@ -111,5 +95,21 @@ function formatLocalDateTime(userProfile: UserProfile): string {
     }).format(new Date());
   } catch {
     return new Date().toISOString();
+  }
+}
+
+function formatLocalCalendarDate(userProfile: UserProfile): string {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      timeZone: userProfile.timeZone,
+    }).formatToParts(new Date());
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+
+    return `${values['year']}-${values['month']}-${values['day']}`;
+  } catch {
+    return new Date().toISOString().slice(0, 10);
   }
 }

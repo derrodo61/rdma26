@@ -1,9 +1,8 @@
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
-import { TavilyExtract } from '@langchain/tavily';
 import * as cheerio from 'cheerio';
 
-type WebPageExtractionProvider = 'tavily_extract' | 'local_fetch';
+type WebPageExtractionProvider = 'local_fetch';
 
 interface WebPageReadResult {
   readonly url: string;
@@ -22,9 +21,6 @@ interface WebPageReaderOptions {
   readonly maxBytes?: number;
   readonly maxCharacters?: number;
   readonly maxRedirects?: number;
-  readonly query?: string;
-  readonly tavilyApiKey?: string;
-  readonly tavilyExtract?: TavilyExtractFunction;
 }
 
 interface ReadBodyResult {
@@ -46,21 +42,6 @@ export interface WebPageFetchResult {
   readonly truncated: boolean;
   readonly fetchedAt: string;
 }
-
-interface TavilyExtractResultLike {
-  readonly url?: string;
-  readonly raw_content?: string;
-}
-
-interface TavilyExtractResponseLike {
-  readonly results?: readonly TavilyExtractResultLike[];
-  readonly failed_results?: readonly { readonly url?: string; readonly error?: string }[];
-}
-
-type TavilyExtractFunction = (request: {
-  readonly url: string;
-  readonly query?: string;
-}) => Promise<unknown>;
 
 const defaultTimeoutMs = 10_000;
 const defaultMaxBytes = 1_000_000;
@@ -87,16 +68,6 @@ export async function readWebPage(
   const maxBytes = options.maxBytes ?? defaultMaxBytes;
   const maxCharacters = options.maxCharacters ?? defaultMaxCharacters;
   const maxRedirects = options.maxRedirects ?? defaultMaxRedirects;
-  const tavilyApiKey = options.tavilyApiKey ?? process.env['TAVILY_API_KEY'];
-
-  if (tavilyApiKey || options.tavilyExtract) {
-    const tavilyResult = await tryReadWithTavilyExtract(parsedUrl.toString(), options);
-
-    if (tavilyResult) {
-      return tavilyResult;
-    }
-  }
-
   try {
     return await readWebPageLocally(parsedUrl.toString(), {
       timeoutMs,
@@ -118,16 +89,13 @@ async function readWebPageLocally(
   options: Required<
     Pick<WebPageReaderOptions, 'timeoutMs' | 'maxBytes' | 'maxCharacters' | 'maxRedirects'>
   >,
-  extractionWarning?: string,
 ): Promise<WebPageReadResult> {
   const fetched = await fetchWebPageBody(url, options);
   const readable = extractReadableText(fetched.body, fetched.contentType);
   const clipped = clipText(readable.text, options.maxCharacters);
-  const warning =
-    extractionWarning ??
-    (clipped.text
-      ? undefined
-      : 'No readable page text could be extracted. The page may be JavaScript-rendered or block extraction.');
+  const warning = clipped.text
+    ? undefined
+    : 'No readable page text could be extracted. The page may be JavaScript-rendered or block extraction.';
 
   return {
     url,
@@ -140,77 +108,6 @@ async function readWebPageLocally(
     extractionProvider: 'local_fetch',
     extractionWarning: warning,
   };
-}
-
-async function tryReadWithTavilyExtract(
-  url: string,
-  options: WebPageReaderOptions,
-): Promise<WebPageReadResult | null> {
-  const extract = options.tavilyExtract ?? createTavilyExtractFunction(options.tavilyApiKey);
-
-  if (!extract) {
-    return null;
-  }
-
-  try {
-    const rawResult = await extract({
-      url,
-      query: options.query,
-    });
-    const extracted = parseTavilyExtractResult(rawResult, url);
-
-    if (!extracted.text) {
-      return await readWebPageLocallySafely(
-        url,
-        options,
-        extracted.warning ?? 'Tavily Extract returned no readable content; used local fallback.',
-      );
-    }
-
-    const clipped = clipText(extracted.text, options.maxCharacters ?? defaultMaxCharacters);
-
-    return {
-      url,
-      finalUrl: extracted.url ?? url,
-      contentType: 'text/markdown',
-      text: clipped.text,
-      truncated: clipped.truncated,
-      fetchedAt: new Date().toISOString(),
-      extractionProvider: 'tavily_extract',
-      extractionWarning: extracted.warning,
-    };
-  } catch (error) {
-    return await readWebPageLocallySafely(
-      url,
-      options,
-      `Tavily Extract failed; used local fallback. ${readErrorMessage(error)}`,
-    );
-  }
-}
-
-async function readWebPageLocallySafely(
-  url: string,
-  options: WebPageReaderOptions,
-  extractionWarning: string,
-): Promise<WebPageReadResult> {
-  try {
-    return await readWebPageLocally(
-      url,
-      {
-        timeoutMs: options.timeoutMs ?? defaultTimeoutMs,
-        maxBytes: options.maxBytes ?? defaultMaxBytes,
-        maxCharacters: options.maxCharacters ?? defaultMaxCharacters,
-        maxRedirects: options.maxRedirects ?? defaultMaxRedirects,
-      },
-      extractionWarning,
-    );
-  } catch (error) {
-    return failedReadResult(
-      url,
-      'local_fetch',
-      `${extractionWarning} Local fallback also failed. ${readErrorMessage(error)}`,
-    );
-  }
 }
 
 export async function fetchWebPageBody(
@@ -274,83 +171,6 @@ function failedReadResult(
     extractionProvider,
     extractionWarning,
   };
-}
-
-function createTavilyExtractFunction(
-  apiKey: string | undefined,
-): TavilyExtractFunction | undefined {
-  if (!apiKey) {
-    return undefined;
-  }
-
-  return async ({ url, query }) => {
-    const tavilyExtract = new TavilyExtract({
-      tavilyApiKey: apiKey,
-      extractDepth: 'advanced',
-      format: 'markdown',
-      includeImages: false,
-      query,
-    });
-
-    return await tavilyExtract._call({
-      urls: [url],
-      extractDepth: 'advanced',
-      query,
-    });
-  };
-}
-
-export function parseTavilyExtractResult(
-  rawResult: unknown,
-  fallbackUrl: string,
-): { readonly url?: string; readonly text: string; readonly warning?: string } {
-  if (isTavilyExtractError(rawResult)) {
-    return {
-      text: '',
-      warning: `Tavily Extract failed. ${rawResult.error}`,
-    };
-  }
-
-  if (!isTavilyExtractResponseLike(rawResult)) {
-    return {
-      text: '',
-      warning: 'Tavily Extract returned an unexpected response shape.',
-    };
-  }
-
-  const result =
-    rawResult.results?.find((candidate) => candidate.url === fallbackUrl) ?? rawResult.results?.[0];
-  const text = normalizeWhitespace(result?.raw_content ?? '');
-  const failedResult = rawResult.failed_results?.[0];
-
-  return {
-    url: result?.url,
-    text,
-    warning:
-      text || !failedResult?.error
-        ? undefined
-        : `Tavily Extract failed for ${failedResult.url ?? fallbackUrl}. ${failedResult.error}`,
-  };
-}
-
-function isTavilyExtractError(value: unknown): value is { readonly error: string } {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'error' in value &&
-    typeof (value as { readonly error?: unknown }).error === 'string'
-  );
-}
-
-function isTavilyExtractResponseLike(value: unknown): value is TavilyExtractResponseLike {
-  const candidate = value as TavilyExtractResponseLike;
-
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    (!('results' in value) || Array.isArray(candidate.results)) &&
-    (!('failed_results' in value) || Array.isArray(candidate.failed_results))
-  );
 }
 
 export async function assertAllowedWebUrl(url: string): Promise<URL> {

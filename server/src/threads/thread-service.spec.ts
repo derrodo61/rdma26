@@ -40,6 +40,57 @@ describe('ThreadService conversation history', () => {
       'current thread',
     );
   });
+
+  it('prioritizes the newest thread when the query asks for the previous thread', async () => {
+    const older = thread(
+      'older',
+      'Evaluation thread follow-up',
+      [
+        message('user', 'Remember the temporary marker ORBIT-742.'),
+        message('assistant', 'I will remember it for the previous message in this thread.'),
+      ],
+      '2026-07-02T10:00:00.000Z',
+    );
+    const newest = thread(
+      'newest',
+      'Historical marker',
+      [message('user', 'The temporary historical marker is HISTORY-731.')],
+      '2026-07-03T10:00:00.000Z',
+    );
+    const service = createService(storageFor([older, newest]));
+
+    const result = await service.searchPastConversations(
+      'ronaldo',
+      'temporary historical marker previous thread',
+      5,
+      'current',
+    );
+
+    expect(result.results.map((candidate) => candidate.threadId)).toEqual(['newest', 'older']);
+    expect(result.results[0]).toMatchObject({
+      excerpt: 'The temporary historical marker is HISTORY-731.',
+      ranking: 'previous_thread',
+    });
+  });
+
+  it('returns the newest prior thread for a previous-thread query without topic words', async () => {
+    const service = createService(
+      storageFor([
+        thread('older', 'Older', [message('user', 'First topic')], '2026-07-02T10:00:00.000Z'),
+        thread('newest', 'Newest', [message('user', 'Second topic')], '2026-07-03T10:00:00.000Z'),
+      ]),
+    );
+
+    const result = await service.searchPastConversations(
+      'ronaldo',
+      'What did we discuss in the previous thread?',
+      1,
+      'current',
+    );
+
+    expect(result.results).toHaveLength(1);
+    expect(result.results[0]?.threadId).toBe('newest');
+  });
 });
 
 function createService(storage: ReturnType<typeof storageFor>): ThreadService {
@@ -69,13 +120,18 @@ function storageFor(threads: readonly ChatThread[]) {
   };
 }
 
-function thread(id: string, title: string, messages: ChatThread['messages']): ChatThread {
+function thread(
+  id: string,
+  title: string,
+  messages: ChatThread['messages'],
+  updatedAt = '2026-07-02T10:00:00.000Z',
+): ChatThread {
   return {
     id,
     agentId: 'ronaldo',
     title,
     createdAt: '2026-07-01T10:00:00.000Z',
-    updatedAt: '2026-07-02T10:00:00.000Z',
+    updatedAt,
     messageCount: messages.length,
     messages,
   };

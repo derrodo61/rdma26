@@ -133,10 +133,6 @@ export class AgentRegistry {
       models: normalizeAgentModelSettings({
         ...existing.models,
         ...request.models,
-        research: {
-          ...existing.models.research,
-          ...request.models?.research,
-        },
       }),
       updatedAt: new Date().toISOString(),
     };
@@ -462,16 +458,8 @@ function normalizeAgentModelSettings(value: unknown): AgentModelSettings {
   }
 
   const record = value as Record<string, unknown>;
-  const research =
-    typeof record['research'] === 'object' && record['research'] !== null
-      ? (record['research'] as Record<string, unknown>)
-      : undefined;
-
   return {
     chat: normalizeOptionalModelId(record['chat']),
-    research: {
-      researcher: normalizeOptionalModelId(research?.['researcher']),
-    },
   };
 }
 

@@ -15,7 +15,7 @@ export function createConversationTools(
       {
         name: 'search_past_conversations',
         description:
-          "Search this agent's earlier conversation threads by words in titles and messages. Returns bounded excerpts and thread ids. Use only when earlier conversation history is relevant.",
+          "Search this agent's earlier conversation threads by meaningful words in titles and messages. Requests for the previous or last thread prioritize the newest prior thread. Returns bounded excerpts and thread ids. Use only when earlier conversation history is relevant.",
         schema: z.object({
           query: z.string().trim().min(2).describe('Words to search for in earlier conversations.'),
           limit: z.number().int().min(1).max(10).default(5),

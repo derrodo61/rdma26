@@ -8,6 +8,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Added OpenAI provider-hosted `web_search` with captured search actions, page
+  openings, citations, source URLs, model usage, cost, context, and latency.
+- Added a built-in `web-research` Deep Agents skill with reusable guidance for
+  source authority, recency, temporal ordering, regional sources, stopping, and
+  uncertainty.
+- Added news-specific web-research guidance for explicit date matching,
+  local-language and regional reporting, focused follow-up searches, developing
+  stories, and direct-report citations.
+- Required same-day news answers to verify the displayed date on a direct article or official statement instead of inferring freshness from search ranking, snippets, or topic pages.
+- Added recursive run-context capture for subagent tool calls, including the
+  responsible agent name, inputs, and outputs used during research.
+- Added an assignable Deep Agents QuickJS interpreter capability for isolated calculations and deterministic structured-data transformations without host filesystem, network, shell, package, credential, or clock access.
+- Added a versioned agent-evaluation harness with isolated temporary agents, direct, research, calculation, uncertainty, memory, and conversation cases, automatic assertions, human-review gates, CLI execution, and persisted baseline reports covering calls, tokens, context size, costs, and latency.
+- Recorded the `2026-07-12-v5` post-rework smoke, research, memory, and core
+  baselines, including factual review findings, citation failures, episodic
+  retrieval competition, context size, latency, and estimated cost.
+- Added an authoritative product vision, current architecture overview, and documentation index that separate implemented behavior from long-term direction.
+- Added current-state storage, research, and observability references with explicit implementation boundaries and known limitations.
 - Added persistent Deep Agents thread state through the official LangGraph SQLite checkpointer.
 - Added scoped Markdown memory files for global user, agent-local user, and agent memory, mounted through Deep Agents backends.
 - Added bounded pinned startup memory and on-demand access to unpinned memory files.
@@ -15,10 +33,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added a bounded `search_unpinned_memory` tool for on-demand recall that structurally excludes pinned startup memory.
 - Added multilingual semantic memory retrieval with OpenAI embeddings, exact-match preference, scoped results, and a content-hash SQLite vector cache that reuses unchanged memory embeddings.
 - Added embedding observability through the shared LLM-call accounting store, including actual provider token usage, model, duration, status, run ownership, estimated cost, operation type, and cache behavior in the Usage and Run context pages.
+- Added privacy-conscious context-composition metrics for each model request, including aggregate message sizes by role, structured block counts, and tool-definition size without duplicating raw prompts.
+- Added official OpenAI embedding-price synchronization for the configured embedding model so semantic-memory calls receive complete cost estimates automatically.
 - Added run-context visibility for the exact pinned memory files loaded at startup.
+- Added skill-use observability that records full `SKILL.md` reads during Deep
+  Agents progressive disclosure and shows them separately in Run context.
 
 ### Fixed
 
+- Ranked an explicit previous-thread lookup by recency, excluded generic
+  conversation-navigation words from topical scoring, and selected excerpts
+  from the strongest matching message.
+- Preserved provider-reported hosted-search source URLs when final model prose
+  omits citation annotations or Deep Agents places citations and search actions
+  in different messages.
+- Preserved provider-hosted search actions and URL citations in run context so
+  sources remain attached to the assistant message that used them.
+- Prevented CLI `--help` requests from launching evaluations, and corrected the
+  uncertainty case to accept the valid phrase "cannot be known".
 - Made omitted chat-run models resolve consistently across API and CLI from the saved per-agent user-profile setting, then the backend agent setting, and finally the application default. Explicit request model overrides still take precedence.
 - Prevented persistent LangGraph runs from resending the full UI thread after a checkpoint already exists.
 - Enforced agent memory permissions at the Deep Agents filesystem boundary so native tools cannot bypass disabled reads or controlled `save_memory` writes.
@@ -29,10 +61,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Removed
 
+- Removed completed or superseded memory, research, observability, SQLite, and temporary context-optimization planning documents after consolidating their durable information into current-state documentation.
 - Removed the custom SQLite memory table, memory types/statuses, lexical and embedding scoring, embedding cache, conversation-summary memory generation, maintenance scheduler, and obsolete UI/API/CLI controls.
+- Removed the custom Tavily researcher subagent, Tavily search and extraction
+  dependency, low-level `internet_search` capability, separate researcher model
+  setting, and search-mode compatibility paths.
 
 ### Changed
 
+- Hosted web search now uses the model selected for the chat, while known-URL
+  page readers remain separate optional capabilities.
+- Evaluation research cases now exercise the same `web_search` path used by
+  normal agents.
+- Reorganized README and project documentation around product direction, implemented architecture, interfaces, and project history.
 - Replaced startup-time schema patching with ordered transactional SQLite migrations. Destructive migrations create a database backup; schema version 8 removes the obsolete memory table and schema version 9 adds a rebuildable semantic-memory vector cache while preserving threads and messages.
 - Replaced the custom memory system with a Deep Agents and LangGraph-aligned architecture that separates checkpointed threads, bounded file-backed long-term memory, on-demand recall, skills, identity, and past-conversation search.
 - Simplified the Memories page to scope, content, tags, pinning, generated timestamps, and direct CRUD with plain-language help.

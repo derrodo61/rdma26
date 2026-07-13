@@ -3,11 +3,6 @@ import { z } from 'zod';
 const agentKindSchema = z.enum(['chat', 'operator', 'internal']);
 const agentModelSettingsSchema = z.object({
   chat: z.string().trim().min(1).optional(),
-  research: z
-    .object({
-      researcher: z.string().trim().min(1).optional(),
-    })
-    .optional(),
 });
 
 export const createAgentRequestSchema = z.object({
@@ -144,9 +139,6 @@ export const updateUserProfileRequestSchema = z.object({
 const modelPricingStatusSchema = z.enum(['active', 'inactive']);
 const llmCallPurposeSchema = z.enum([
   'chat',
-  'research_parent',
-  'research_subagent',
-  'research_verification',
   'thread_summary',
   'memory_retrieval',
   'memory_maintenance',

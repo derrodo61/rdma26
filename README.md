@@ -2,20 +2,21 @@
 
 Local-first Angular and Fastify app for rdma26, a personal multi-agent Deep Agents assistant.
 
+The authoritative product direction is [docs/vision.md](./docs/vision.md).
+
 The backend runs currently on a MacBook and exposes a browser-friendly API for any frontend that can reach it. The first frontend is Angular. Conversations are organized as agent-specific threads, model selection starts with OpenAI model IDs, and each configured agent gets its own stable identity file at `.assistant-data/agents/<agent-id>/configuration/soul.md`.
 
-Agents can also have capabilities and tools assigned dynamically. The recommended internet research capability is `research`, which attaches a Deep Agents researcher subagent when `TAVILY_API_KEY` and `OPENAI_API_KEY` are configured. Lower-level `internet_search` and `read_web_page` tools remain available for specialized or debugging workflows. The protected operator agent is `Scotty` with id `scotty`, a local operator agent with controlled admin tools for managing agents and tool grants. The internal `cost-analyst` agent uses the same protected tool mechanism for advisory LLM usage and cost optimization.
+Agents can also have capabilities and tools assigned dynamically. Internet research uses OpenAI's hosted `web_search` capability with the model selected for the chat. Low-level `read_web_page` and `read_web_page_structure` tools remain available for known-URL inspection workflows. The protected operator agent is `Scotty` with id `scotty`, a local operator agent with controlled admin tools for managing agents and tool grants. The internal `cost-analyst` agent uses the same protected tool mechanism for advisory LLM usage and cost optimization.
 
 The project is designed around one shared backend runtime. API endpoints and CLI commands call the same `AssistantRuntime` service, so functionality exposed through the browser is also available from the command line without maintaining a second implementation.
 
 ## Documentation
 
-- [API endpoints](./docs/api.md)
-- [Backend structure](./docs/backend.md)
-- [CLI commands](./docs/cli.md)
-- [Memory system](./docs/memory.md)
-- [Memory system design spec](./docs/memory-spec.md)
-- [Research agent design spec](./docs/research-agent-spec.md)
+- [Documentation index](./docs/README.md)
+- [Product vision](./docs/vision.md)
+- [Current architecture](./docs/architecture.md)
+- [API reference](./docs/api.md)
+- [CLI reference](./docs/cli.md)
 - [Changelog](./CHANGELOG.md)
 
 ## License
@@ -58,7 +59,7 @@ Then open `http://<macbook-lan-ip>:4200` from the other computer.
 
 All backend routes delegate to the shared runtime used by the CLI. The API reference lives in [docs/api.md](./docs/api.md).
 
-Thread/message records, memory records, and run-context records live in the local SQLite database at `.assistant-data/rdma26.sqlite`. Older JSON thread, memory, and run-context files are imported once on startup and removed after successful import. Agent identity lives in `configuration/soul.md`. Deep Agents filesystem state remains under the configured agent folder in `deepagent/`.
+Thread/message records, run contexts, LLM accounting, pricing, profile data, and rebuildable semantic-memory vectors live in `.assistant-data/rdma26.sqlite`. LangGraph checkpoint state lives in `.assistant-data/langgraph-checkpoints.sqlite`. Curated long-term memory uses scoped Markdown files, while agent identity lives in `configuration/soul.md`. See [docs/storage.md](./docs/storage.md) and [docs/memory.md](./docs/memory.md).
 
 ## Agent Configuration
 
@@ -71,7 +72,7 @@ ASSISTANT_AGENT_NAME=Scotty
 
 At runtime the backend loads the configured agent's `configuration/soul.md` and injects it into the generated bootloader prompt. The agent's stable identity, role, personality, and operating principles belong in that `soul.md`, not in hardcoded TypeScript. Arbitrary memories, transient facts, game results, project notes, and conversation history do not belong in `soul.md`.
 
-The built-in protected operator agent has id `scotty` and display name `Scotty`. Scotty receives controlled backend admin tools during chat runs so Rolf can ask him to list agents, create agents, rename agents, delete non-protected agents, read or update agent `soul.md`, list normal tools, and grant or revoke normal tools. These are application tools backed by `AssistantRuntime`, not shell or unrestricted CLI access. The internal `cost-analyst` agent is hidden from normal chat selection and uses protected tools for cost optimization advice, pricing inspection, and unverified pricing proposals. Pricing activation still requires explicit approval.
+The built-in protected operator agent has id `scotty` and display name `Scotty`. Scotty receives controlled backend admin tools during chat runs so the user can ask him to list agents, create agents, rename agents, delete non-protected agents, read or update agent `soul.md`, list normal tools, and grant or revoke normal tools. These are application tools backed by `AssistantRuntime`, not shell or unrestricted CLI access. The internal `cost-analyst` agent is chat-enabled and uses protected tools for cost optimization and pricing inspection. It has long-term memory disabled to avoid stale personal or pricing context.
 
 Scotty's local file paths:
 
@@ -97,14 +98,13 @@ Each agent gets isolated threads, history, identity configuration, and Deep Agen
 
 `POST /api/agent-runs` requires `agentId`, so a thread can only be read and continued through the agent it belongs to.
 
-Tool grants are agent-specific too. The agent profile stores `enabledTools`, while the backend registry owns the capability/tool implementation and required secrets. Protected system tools are injected only for protected system agents and are not part of the normal tool grant list. To enable internet research for an agent:
+Tool grants are agent-specific too. The agent profile stores `enabledTools`, while the backend registry owns the capability/tool implementation and required secrets. Protected system tools are injected only for protected system agents and are not part of the normal tool grant list. To enable internet research for an agent, configure OpenAI:
 
 ```bash
-TAVILY_API_KEY=tvly-...
 OPENAI_API_KEY=sk-...
 ```
 
-Then grant `research` through the UI, API, or CLI. If a capability or tool is enabled but its provider is not configured, the tool list reports it as unavailable and a chat run fails with a clear configuration error instead of silently pretending the capability exists.
+Then grant `web_search` through the UI, API, or CLI. It uses the model selected for that chat run. If a capability or tool is enabled but its provider is not configured, the tool list reports it as unavailable and a chat run fails with a clear configuration error instead of silently pretending the capability exists.
 
 ## CLI
 

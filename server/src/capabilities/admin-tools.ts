@@ -19,9 +19,6 @@ import type { AssistantRuntime } from '../runtime';
 const memoryScopeSchema = z.enum(['agent', 'agent_user', 'user']);
 const llmCallPurposeSchema = z.enum([
   'chat',
-  'research_parent',
-  'research_subagent',
-  'research_verification',
   'thread_summary',
   'memory_retrieval',
   'memory_maintenance',
@@ -621,20 +618,13 @@ export function createAdminTools(runtime: AssistantRuntime): readonly Structured
       }),
     }),
     tool(
-      async ({ sourceId, query }: { sourceId: string; query?: string }) =>
-        await runtime.readPricingSourcePage(sourceId, query),
+      async ({ sourceId }: { sourceId: string }) => await runtime.readPricingSourcePage(sourceId),
       {
         name: 'admin_read_pricing_source_page',
         description:
           'Fallback reader for a configured provider pricing source page. For OpenAI model-price comparison, use admin_sync_openai_model_pricing first. Use this only when dedicated sync and structured extraction are incomplete, truncated, or missing needed rows.',
         schema: z.object({
           sourceId: z.string().uuid().describe('Pricing source id.'),
-          query: z
-            .string()
-            .trim()
-            .min(1)
-            .optional()
-            .describe('Optional extraction hint for the page reader.'),
         }),
       },
     ),

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { ModelPricingRecord, PricingSourceRecord } from '../../../shared/agent-contracts';
 import {
   compareOpenAiModelPricing,
+  extractOpenAiModelPagePricing,
   extractOpenAiModelPricingFromHtml,
 } from './openai-pricing-sync';
 
@@ -67,6 +68,32 @@ describe('OpenAI pricing sync', () => {
     ]);
   });
 
+  it('extracts input-only pricing from an official embedding model page', () => {
+    expect(
+      extractOpenAiModelPagePricing(
+        `
+          <section>
+            <div>
+              <div>Price</div>
+              <div><span title="$0.02">$0.02</span></div>
+              <div>Cost</div>
+            </div>
+          </section>
+        `,
+        'text-embedding-3-small',
+        'https://developers.openai.com/api/docs/models/text-embedding-3-small',
+      ),
+    ).toEqual({
+      model: 'text-embedding-3-small',
+      sourceLabel: 'text-embedding-3-small',
+      sourceUrl: 'https://developers.openai.com/api/docs/models/text-embedding-3-small',
+      shortContext: {
+        inputCostPerMillionTokens: 0.02,
+        outputCostPerMillionTokens: 0,
+      },
+    });
+  });
+
   it('compares saved active records against official short-context prices', () => {
     const result = compareOpenAiModelPricing({
       source,
@@ -122,6 +149,7 @@ describe('OpenAI pricing sync', () => {
     ]);
     expect(result.missingOfficialModels).toEqual(['gpt-5.4-mini']);
     expect(result.missingLocalModels).toEqual(['gpt-5.4-pro']);
+    expect(result.missingLocalPricing).toMatchObject([{ model: 'gpt-5.4-pro' }]);
     expect(result.notes).toContain(
       'This tool only compares records. It does not create, update, activate, deactivate, or delete pricing records.',
     );

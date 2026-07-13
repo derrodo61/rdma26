@@ -19,7 +19,7 @@ The backend is a Fastify service with a shared runtime facade. HTTP routes and C
 - `server/src/http/` contains route registration, route schemas, SSE helpers, and HTTP error handling.
 - `server/src/memory/` owns scoped Markdown memory files, pinned-memory budgets, and the rebuildable semantic retrieval index.
 - `server/src/profiles/` stores synced user profile preferences.
-- `server/src/research/` implements the researcher subagent, search provider abstraction, search quality helpers, and web page reader.
+- `server/src/research/` implements the known-URL readable-page and structured-page readers.
 - `server/src/runs/` stores inspectable run-context snapshots.
 - `server/src/storage/` contains low-level SQLite and agent file/thread storage adapters.
 - `server/src/threads/` owns thread workflows, persistent LangGraph checkpointing, and bounded past-conversation access.
