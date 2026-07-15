@@ -3,11 +3,8 @@ import type { StructuredToolInterface } from '@langchain/core/tools';
 import type {
   AgentRunRequest,
   ChatThread,
-  LlmCallRecord,
   RunContextDetails,
-  RunContextTokenUsage,
   RunContextTool,
-  UserProfile,
 } from '../../../shared/agent-contracts';
 import type { AgentRegistry } from '../agents/agent-registry';
 import { PersonalAgent, type PersonalAgentResponse } from '../agents/personal-agent';
@@ -16,14 +13,17 @@ import { createAdminTools, listAdminToolDefinitions } from '../capabilities/admi
 import type { CapabilityRegistry } from '../capabilities/capability-registry';
 import { createMemoryReadTools, createMemoryTools } from '../capabilities/memory-tools';
 import { createConversationTools } from '../capabilities/conversation-tools';
-import type { FileMemoryEntry, FileMemoryStore } from '../memory/file-memory-store';
+import type { FileMemoryStore } from '../memory/file-memory-store';
 import type { UserProfileStore } from '../profiles/user-profile-store';
 import type { LlmCallStore } from '../llm/llm-call-store';
 import type { RunContextStore } from '../runs/run-context-store';
 import type { AssistantRuntime } from '../runtime';
 import type { ThreadCheckpointer } from '../threads/thread-checkpointer';
+import { ChatRunRecorder, type ChatRunRecordingContext } from './chat-run-recorder';
 
 export class ChatRunService {
+  private readonly recorder: ChatRunRecorder;
+
   constructor(
     private readonly registry: AgentRegistry,
     private readonly capabilities: CapabilityRegistry,
@@ -33,7 +33,9 @@ export class ChatRunService {
     private readonly userProfileStore: UserProfileStore,
     private readonly threadCheckpointer: ThreadCheckpointer,
     private readonly runtime: AssistantRuntime,
-  ) {}
+  ) {
+    this.recorder = new ChatRunRecorder(runContextStore, fileMemoryStore);
+  }
 
   async runAgent(request: AgentRunRequest, options: RunAgentOptions = {}): Promise<RunAgentResult> {
     const runId = options.runId ?? crypto.randomUUID();
@@ -85,6 +87,19 @@ export class ChatRunService {
     });
     const hasCheckpoint = await this.threadCheckpointer.hasThread(request.threadId);
     const inputMessages = hasCheckpoint ? userThread.messages.slice(-1) : userThread.messages;
+    const recordingContext: ChatRunRecordingContext = {
+      runId,
+      storage,
+      request,
+      userThread,
+      model,
+      soulContent,
+      userProfile,
+      pinnedMemories,
+      tools: toolContext,
+      memoryReadsEnabled,
+      memoryWritesEnabled,
+    };
 
     try {
       const agentResponse = await new PersonalAgent(storage, this.threadCheckpointer.get()).run({
@@ -109,41 +124,17 @@ export class ChatRunService {
       throwIfAborted(options.signal);
 
       const llmCalls = await this.llmCallStore.listCallsForRun(runId);
-      const currentTokenUsage = summarizeCurrentRunTokenUsage(llmCalls);
-      const currentAgentResponse: PersonalAgentResponse = {
-        ...agentResponse,
-        tokenUsage: currentTokenUsage,
-      };
+      const currentAgentResponse = this.recorder.responseWithTokenUsage(agentResponse, llmCalls);
       const thread = await storage.appendMessage(request.threadId, {
         role: 'assistant',
         content: currentAgentResponse.content,
       });
-      const assistantMessage = thread.messages.at(-1);
-      const runContext = await this.runContextStore.writeRunContext({
-        ...baseRunContext({
-          runId,
-          storage,
-          thread: userThread,
-          model,
-          request,
-          soulContent,
-          userProfile,
-          pinnedMemories,
-          memoryReadsEnabled,
-          memoryWritesEnabled,
-          tools: toolContext,
-          virtualPathForMemory: (memory) => this.fileMemoryStore.virtualPath(memory),
-        }),
-        status: 'success',
-        threadTitle: thread.title,
-        assistantResponse: currentAgentResponse.content,
-        assistantMessageId:
-          assistantMessage?.role === 'assistant' ? assistantMessage.id : undefined,
-        toolCalls: currentAgentResponse.toolCalls,
-        skillsUsed: currentAgentResponse.skillsUsed,
-        tokenUsage: currentAgentResponse.tokenUsage,
+      const runContext = await this.recorder.recordSuccess(
+        recordingContext,
+        currentAgentResponse,
+        thread,
         llmCalls,
-      });
+      );
 
       return {
         agentResponse: currentAgentResponse,
@@ -153,26 +144,12 @@ export class ChatRunService {
       };
     } catch (error) {
       const llmCalls = await this.llmCallStore.listCallsForRun(runId);
-      await this.runContextStore.writeRunContext({
-        ...baseRunContext({
-          runId,
-          storage,
-          thread: userThread,
-          model,
-          request,
-          soulContent,
-          userProfile,
-          pinnedMemories,
-          memoryReadsEnabled,
-          memoryWritesEnabled,
-          tools: toolContext,
-          virtualPathForMemory: (memory) => this.fileMemoryStore.virtualPath(memory),
-        }),
-        status: options.signal?.aborted ? 'cancelled' : 'error',
-        errorMessage: getErrorMessage(error),
-        tokenUsage: summarizeCurrentRunTokenUsage(llmCalls),
+      await this.recorder.recordFailure(
+        recordingContext,
+        error,
         llmCalls,
-      });
+        options.signal?.aborted ? 'cancelled' : 'error',
+      );
 
       throw error;
     }
@@ -255,25 +232,6 @@ export class ChatRunService {
   }
 }
 
-function summarizeCurrentRunTokenUsage(
-  calls: readonly LlmCallRecord[],
-): RunContextTokenUsage | undefined {
-  if (!calls.length) return undefined;
-
-  const sum = (select: (call: LlmCallRecord) => number | undefined) =>
-    calls.reduce((total, call) => total + (select(call) ?? 0), 0);
-  const inputTokens = sum((call) => call.inputTokens);
-  const outputTokens = sum((call) => call.outputTokens);
-
-  return {
-    inputTokens,
-    outputTokens,
-    totalTokens: inputTokens + outputTokens,
-    cachedInputTokens: sum((call) => call.cachedInputTokens),
-    reasoningTokens: sum((call) => call.reasoningTokens),
-  };
-}
-
 export interface RunAgentResult {
   readonly agentResponse: PersonalAgentResponse;
   readonly runContext: RunContextDetails;
@@ -287,71 +245,10 @@ export interface RunAgentOptions {
   readonly signal?: AbortSignal;
 }
 
-interface BaseRunContextOptions {
-  readonly runId: string;
-  readonly storage: {
-    readonly agent: {
-      readonly id: string;
-      readonly name: string;
-      readonly soulVirtualPath: string;
-    };
-  };
-  readonly thread: ChatThread;
-  readonly model: string;
-  readonly request: AgentRunRequest;
-  readonly soulContent: string;
-  readonly userProfile: UserProfile;
-  readonly pinnedMemories: readonly FileMemoryEntry[];
-  readonly memoryReadsEnabled: boolean;
-  readonly memoryWritesEnabled: boolean;
-  readonly tools: readonly RunContextTool[];
-  readonly virtualPathForMemory: (memory: FileMemoryEntry) => string;
-}
-
-function baseRunContext(options: BaseRunContextOptions): RunContextDetails {
-  return {
-    runId: options.runId,
-    agentId: options.storage.agent.id,
-    agentName: options.storage.agent.name,
-    threadId: options.request.threadId,
-    threadTitle: options.thread.title,
-    model: options.model,
-    createdAt: new Date().toISOString(),
-    prompt: options.request.prompt,
-    soulVirtualPath: options.storage.agent.soulVirtualPath,
-    soulContent: options.soulContent,
-    userProfile: options.userProfile,
-    memories: options.pinnedMemories.map((memory) => ({
-      memoryId: memory.id,
-      scope: memory.scope,
-      agentId: memory.agentId,
-      pinned: true,
-      tags: memory.tags,
-      source: memory.source,
-      virtualPath: options.virtualPathForMemory(memory),
-      access: 'startup' as const,
-      content: memory.content,
-    })),
-    messages: options.thread.messages.map((message) => ({
-      id: message.id,
-      role: message.role,
-      createdAt: message.createdAt,
-      content: message.content,
-    })),
-    tools: options.tools,
-    memoryReadsEnabled: options.memoryReadsEnabled,
-    memoryWritesEnabled: options.memoryWritesEnabled,
-  };
-}
-
 function throwIfAborted(signal: AbortSignal | undefined): void {
   if (!signal?.aborted) {
     return;
   }
 
   throw new Error('Agent run was cancelled.');
-}
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Agent run failed.';
 }
