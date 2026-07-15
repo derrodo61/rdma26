@@ -89,6 +89,10 @@ export class FileMemoryStore {
     await this.readyPromise;
   }
 
+  close(): void {
+    this.semanticIndex?.close?.();
+  }
+
   private async initialize(): Promise<void> {
     await Promise.all([
       rm(join(this.dataDir, 'memory-index'), { recursive: true, force: true }),

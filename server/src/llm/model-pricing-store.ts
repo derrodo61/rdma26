@@ -19,6 +19,10 @@ export class ModelPricingStore {
     await this.database.ensureReady();
   }
 
+  close(): void {
+    this.database.close();
+  }
+
   async listPricing(request: ModelPricingListRequest = {}): Promise<readonly ModelPricingRecord[]> {
     await this.ensureReady();
 

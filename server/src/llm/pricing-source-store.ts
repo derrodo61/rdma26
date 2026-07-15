@@ -30,6 +30,10 @@ export class PricingSourceStore {
     await this.database.ensureReady();
   }
 
+  close(): void {
+    this.database.close();
+  }
+
   async ensureDefaultSources(): Promise<void> {
     await this.ensureReady();
 

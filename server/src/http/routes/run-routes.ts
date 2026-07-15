@@ -24,11 +24,19 @@ export const registerRunRoutes: RouteRegistrar = (server, { runtime }) => {
 
       const runRequest = parsed.data satisfies AgentRunRequest;
       const runId = crypto.randomUUID();
+      const abortController = new AbortController();
+      let responseEnded = false;
 
       reply.raw.writeHead(200, {
         'Cache-Control': 'no-cache, no-transform',
         Connection: 'keep-alive',
         'Content-Type': 'text/event-stream; charset=utf-8',
+      });
+
+      reply.raw.on('close', () => {
+        if (!responseEnded) {
+          abortController.abort();
+        }
       });
 
       writeServerSentEvent(reply.raw, {
@@ -40,6 +48,7 @@ export const registerRunRoutes: RouteRegistrar = (server, { runtime }) => {
       try {
         const result = await runtime.runAgent(runRequest, {
           runId,
+          signal: abortController.signal,
           onActivity: (activity) => {
             writeServerSentEvent(reply.raw, {
               type: 'run-activity',
@@ -69,6 +78,7 @@ export const registerRunRoutes: RouteRegistrar = (server, { runtime }) => {
           message: getErrorMessage(error),
         });
       } finally {
+        responseEnded = true;
         reply.raw.end();
       }
     },

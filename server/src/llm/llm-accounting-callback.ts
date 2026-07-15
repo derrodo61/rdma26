@@ -85,7 +85,12 @@ export class LlmAccountingCallbackHandler extends BaseCallbackHandler {
       return;
     }
 
-    await this.store.finishCall(callId, 'error', undefined, getErrorMessage(error));
+    await this.store.finishCall(
+      callId,
+      this.context.signal?.aborted ? 'cancelled' : 'error',
+      undefined,
+      getErrorMessage(error),
+    );
   }
 
   private async startProviderRun(
@@ -244,6 +249,7 @@ export interface LlmAccountingContext {
   readonly purpose: LlmCallPurpose;
   readonly agentId?: string;
   readonly threadId?: string;
+  readonly signal?: AbortSignal;
 }
 
 function readModel(

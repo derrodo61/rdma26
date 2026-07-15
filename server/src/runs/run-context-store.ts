@@ -125,6 +125,10 @@ export class RunContextStore {
     return result.changes;
   }
 
+  close(): void {
+    this.database.close();
+  }
+
   private legacyRunsDir(): string {
     return join(this.dataDir, 'runs');
   }

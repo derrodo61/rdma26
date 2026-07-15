@@ -26,6 +26,7 @@ export interface AssistantStorage {
   ): Promise<ChatThread>;
   readSoul(): Promise<string>;
   writeSoul(content: string): Promise<void>;
+  close(): void;
 }
 
 interface StoredThreadFile {
@@ -237,6 +238,9 @@ export function createAssistantStorage(dataDir: string, agent: AgentProfile): As
     async writeSoul(content) {
       await this.ensureReady();
       await writeFile(soulPath, content, 'utf8');
+    },
+    close() {
+      database.close();
     },
   };
 }

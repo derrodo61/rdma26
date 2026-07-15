@@ -44,6 +44,7 @@ interface PersonalAgentRequest {
   readonly prompt: string;
   readonly llmCallStore: LlmCallStore;
   readonly onActivity?: AgentActivityCallback;
+  readonly signal?: AbortSignal;
 }
 
 export interface PersonalAgentResponse {
@@ -84,6 +85,7 @@ export class PersonalAgent {
       purpose: request.isOperatorAgent ? 'operator' : 'chat',
       agentId: this.storage.agent.id,
       threadId: request.threadId,
+      signal: request.signal,
     });
     const defaultBackend = new FilesystemBackend({
       rootDir: this.storage.deepAgentRootDir,
@@ -134,6 +136,7 @@ export class PersonalAgent {
     };
     const agentConfig = {
       callbacks: [llmAccounting],
+      signal: request.signal,
       configurable: {
         thread_id: request.threadId,
       },

@@ -25,6 +25,10 @@ export class LlmCallStore {
     await this.database.ensureReady();
   }
 
+  close(): void {
+    this.database.close();
+  }
+
   async startCall(request: StartLlmCallRequest): Promise<LlmCallRecord> {
     await this.ensureReady();
     await this.pricingStore.ensureReady();

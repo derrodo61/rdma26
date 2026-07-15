@@ -22,6 +22,7 @@ export interface MemorySemanticIndex {
   ): Promise<readonly SemanticMemoryMatch[]>;
   invalidate(memoryId: string): Promise<void>;
   delete(memoryId: string): Promise<void>;
+  close?(): void;
 }
 
 interface MemoryEmbeddingRow {
@@ -58,6 +59,10 @@ export class SqliteSemanticMemoryIndex implements MemorySemanticIndex {
     });
 
     prune(rows.filter((row) => !ids.has(row.memory_id)).map((row) => row.memory_id));
+  }
+
+  close(): void {
+    this.database.close();
   }
 
   async search(

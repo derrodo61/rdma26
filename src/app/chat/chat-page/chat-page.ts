@@ -278,6 +278,8 @@ export class ChatPage {
     this.activeThread.set(optimistic);
 
     try {
+      let runFailed = false;
+
       await this.api.runAgent(
         {
           agentId,
@@ -308,12 +310,18 @@ export class ChatPage {
           }
 
           if (event.type === 'error') {
+            runFailed = true;
             this.error.set(event.message);
           }
         },
       );
+
+      if (runFailed) {
+        await this.threadState.selectThread(thread.id);
+      }
     } catch (error) {
       this.error.set(error instanceof Error ? error.message : 'Agent request failed.');
+      await this.threadState.selectThread(thread.id);
     } finally {
       this.isRunning.set(false);
       this.runActivity.set(null);

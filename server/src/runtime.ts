@@ -669,6 +669,12 @@ export class AssistantRuntime {
   }
 
   close(): void {
+    this.registry.close();
+    this.fileMemoryStore.close();
+    this.runContextStore.close();
+    this.modelPricingStore.close();
+    this.pricingSourceStore.close();
+    this.llmCallStore.close();
     this.threadCheckpointer.close();
   }
 

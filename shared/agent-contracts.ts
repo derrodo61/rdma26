@@ -611,9 +611,11 @@ export interface RunContextDetails {
   readonly threadId: string;
   readonly threadTitle?: string;
   readonly model: string;
+  readonly status?: 'success' | 'error' | 'cancelled';
   readonly createdAt: string;
   readonly prompt?: string;
   readonly assistantResponse?: string;
+  readonly errorMessage?: string;
   readonly assistantMessageId?: string;
   readonly soulVirtualPath: string;
   readonly soulContent: string;

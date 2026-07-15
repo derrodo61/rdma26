@@ -69,6 +69,22 @@ describe('ChatMessageList', () => {
     expect(root.querySelector('a[href="https://example.com/source"]')).toBeNull();
   });
 
+  it('relies on Angular sanitization for rendered assistant markdown', () => {
+    fixture.componentRef.setInput('messages', [
+      assistantMessage(
+        'unsafe-assistant',
+        '<img src=x onerror="globalThis.__xss = true"><script>globalThis.__xss = true</script><a href="javascript:alert(1)">bad</a>',
+      ),
+    ]);
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+
+    expect(root.querySelector('script')).toBeNull();
+    expect(root.querySelector('img')?.getAttribute('onerror')).toBeNull();
+    expect(root.querySelector('a')?.getAttribute('href')).toBe('unsafe:javascript:alert(1)');
+  });
+
   function sourceButtons(): HTMLButtonElement[] {
     const root = fixture.nativeElement as HTMLElement;
 

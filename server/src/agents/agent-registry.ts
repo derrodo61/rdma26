@@ -23,6 +23,7 @@ const soulVirtualPath = '/configuration/soul.md';
 
 export class AgentRegistry {
   private readonly agentsDir: string;
+  private readonly storageByAgentId = new Map<string, AssistantStorage>();
 
   constructor(
     readonly dataDir: string,
@@ -181,6 +182,8 @@ export class AgentRegistry {
       recursive: true,
       force: true,
     });
+    this.storageByAgentId.get(agentId)?.close();
+    this.storageByAgentId.delete(agentId);
     await this.deleteAgentDatabaseRows(agentId);
 
     return true;
@@ -210,11 +213,29 @@ export class AgentRegistry {
       throw new Error(`Agent ${agentId} does not exist.`);
     }
 
-    return createAssistantStorage(this.dataDir, agent);
+    const cached = this.storageByAgentId.get(agent.id);
+
+    if (cached && cached.agent.updatedAt === agent.updatedAt) {
+      return cached;
+    }
+
+    cached?.close();
+    const storage = createAssistantStorage(this.dataDir, agent);
+    this.storageByAgentId.set(agent.id, storage);
+
+    return storage;
   }
 
   getDefaultAgentId(): string {
     return this.defaultAgentId;
+  }
+
+  close(): void {
+    for (const storage of this.storageByAgentId.values()) {
+      storage.close();
+    }
+
+    this.storageByAgentId.clear();
   }
 
   private async writeNewAgent(
@@ -241,7 +262,11 @@ export class AgentRegistry {
 
     await mkdir(this.agentDir(id), { recursive: true });
     await writeFile(this.profilePath(id), `${JSON.stringify(agent, null, 2)}\n`, 'utf8');
-    await storage.ensureReady();
+    try {
+      await storage.ensureReady();
+    } finally {
+      storage.close();
+    }
 
     return agent;
   }
@@ -256,17 +281,24 @@ export class AgentRegistry {
 
   private async writeAgent(agent: AgentProfile): Promise<void> {
     await writeFile(this.profilePath(agent.id), `${JSON.stringify(agent, null, 2)}\n`, 'utf8');
+    this.storageByAgentId.get(agent.id)?.close();
+    this.storageByAgentId.delete(agent.id);
   }
 
   private async deleteAgentDatabaseRows(agentId: string): Promise<void> {
     const database = new LocalDatabase(this.dataDir);
-    await database.ensureReady();
-    const transaction = database.get().transaction(() => {
-      database.get().prepare('delete from threads where agent_id = ?').run(agentId);
-      database.get().prepare('delete from run_contexts where agent_id = ?').run(agentId);
-    });
 
-    transaction();
+    try {
+      await database.ensureReady();
+      const transaction = database.get().transaction(() => {
+        database.get().prepare('delete from threads where agent_id = ?').run(agentId);
+        database.get().prepare('delete from run_contexts where agent_id = ?').run(agentId);
+      });
+
+      transaction();
+    } finally {
+      database.close();
+    }
   }
 
   private async ensureAllAgentStorageReady(): Promise<void> {
@@ -283,19 +315,30 @@ export class AgentRegistry {
         continue;
       }
 
-      await createAssistantStorage(this.dataDir, agent).ensureReady();
+      const storage = createAssistantStorage(this.dataDir, agent);
+
+      try {
+        await storage.ensureReady();
+      } finally {
+        storage.close();
+      }
     }
   }
 
   private async importRootThreadJsonFiles(defaultAgentId: string): Promise<void> {
     const database = new LocalDatabase(this.dataDir);
-    await database.ensureReady();
-    await importThreadJsonFiles(
-      database,
-      join(this.dataDir, 'threads'),
-      defaultAgentId,
-      'thread_json_imported_at:root',
-    );
+
+    try {
+      await database.ensureReady();
+      await importThreadJsonFiles(
+        database,
+        join(this.dataDir, 'threads'),
+        defaultAgentId,
+        'thread_json_imported_at:root',
+      );
+    } finally {
+      database.close();
+    }
   }
 }
 
