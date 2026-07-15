@@ -18,7 +18,6 @@ import type {
   AgentProfile,
   AuthSessionResponse,
   ChatMessage,
-  ChatThread,
   HealthResponse,
   ModelOption,
   ThemePreference,
@@ -33,7 +32,8 @@ import { ChatComposer } from '../components/chat-composer/chat-composer';
 import { ChatLogin } from '../components/chat-login/chat-login';
 import { ChatMessageList } from '../components/chat-message-list/chat-message-list';
 import { ChatSidebar } from '../components/chat-sidebar/chat-sidebar';
-import type { RenderedChatMessage, RunActivity } from './chat-page.types';
+import { ChatRunController } from './chat-run-controller';
+import type { RenderedChatMessage } from './chat-page.types';
 import { ChatThreadState } from './chat-thread-state';
 
 @Component({
@@ -41,6 +41,7 @@ import { ChatThreadState } from './chat-thread-state';
   imports: [ChatComposer, ChatLogin, ChatMessageList, ChatSidebar],
   providers: [
     ChatThreadState,
+    ChatRunController,
     provideIcons({
       lucideArrowUp,
       lucideMonitor,
@@ -61,6 +62,7 @@ export class ChatPage {
   private readonly agentSettingsStorage = inject(AgentSettingsStorage);
   private readonly route = inject(ActivatedRoute);
   private readonly themePreference = inject(ThemePreferenceService);
+  private readonly chatRun = inject(ChatRunController);
   private readonly threadState = inject(ChatThreadState);
   private readonly userProfileSync = inject(UserProfileSyncService);
   private defaultModelId = '';
@@ -77,13 +79,13 @@ export class ChatPage {
   protected readonly activeThread = this.threadState.activeThread;
   protected readonly latestRunId = this.threadState.latestRunId;
   protected readonly messageResearchSources = this.threadState.messageResearchSources;
-  protected readonly runActivity = signal<RunActivity | null>(null);
-  protected readonly draft = signal('');
+  protected readonly runActivity = this.chatRun.runActivity;
+  protected readonly draft = this.chatRun.draft;
   protected readonly isLoading = signal(true);
-  protected readonly isRunning = signal(false);
+  protected readonly isRunning = this.chatRun.isRunning;
   protected readonly isSidebarCollapsed = signal(false);
   protected readonly isSettingsMenuOpen = signal(false);
-  protected readonly error = signal<string | null>(null);
+  protected readonly error = this.chatRun.error;
   protected readonly loginError = signal<string | null>(null);
   protected readonly theme = this.themePreference.theme;
 
@@ -243,93 +245,15 @@ export class ChatPage {
   }
 
   protected async send(): Promise<void> {
-    const thread = this.activeThread();
-    const prompt = this.draft().trim();
-    const model = this.selectedModel();
-
-    if (!thread || !prompt || !model || this.isRunning()) {
-      return;
-    }
-    const agentId = this.selectedAgentId();
-
-    if (!agentId) {
-      return;
-    }
-
-    this.draft.set('');
-    this.isRunning.set(true);
-    this.runActivity.set({
-      label: 'Starting run',
+    await this.chatRun.send({
+      agentId: this.selectedAgentId(),
+      thread: this.activeThread(),
+      model: this.selectedModel(),
     });
-    this.error.set(null);
-
-    const optimistic: ChatThread = {
-      ...thread,
-      messages: [
-        ...thread.messages,
-        {
-          id: `optimistic-${Date.now()}`,
-          role: 'user',
-          content: prompt,
-          createdAt: new Date().toISOString(),
-        },
-      ],
-    };
-    this.activeThread.set(optimistic);
-
-    try {
-      let runFailed = false;
-
-      await this.api.runAgent(
-        {
-          agentId,
-          threadId: thread.id,
-          prompt,
-          model,
-        },
-        (event) => {
-          if (event.type === 'thread-updated') {
-            this.activeThread.set(event.thread);
-            void this.threadState.refreshThreads();
-          }
-
-          if (event.type === 'run-started') {
-            this.latestRunId.set(event.runId);
-          }
-
-          if (event.type === 'run-activity') {
-            this.runActivity.set({
-              label: event.label,
-              detail: event.detail,
-            });
-          }
-
-          if (event.type === 'run-finished') {
-            this.latestRunId.set(event.runId);
-            void this.threadState.loadMessageSourcesFromRun(event.runId);
-          }
-
-          if (event.type === 'error') {
-            runFailed = true;
-            this.error.set(event.message);
-          }
-        },
-      );
-
-      if (runFailed) {
-        await this.threadState.selectThread(thread.id);
-      }
-    } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'Agent request failed.');
-      await this.threadState.selectThread(thread.id);
-    } finally {
-      this.isRunning.set(false);
-      this.runActivity.set(null);
-    }
   }
 
   protected updateDraft(value: string): void {
-    this.draft.set(value);
+    this.chatRun.updateDraft(value);
   }
 
   protected updateUsername(value: string): void {
