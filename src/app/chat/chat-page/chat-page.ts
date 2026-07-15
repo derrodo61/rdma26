@@ -1,6 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
-import { ActivatedRoute } from '@angular/router';
 import { provideIcons } from '@ng-icons/core';
 import {
   lucideArrowUp,
@@ -14,20 +13,9 @@ import {
   lucideTrash2,
 } from '@ng-icons/lucide';
 
-import type {
-  AgentProfile,
-  AuthSessionResponse,
-  ChatMessage,
-  HealthResponse,
-  ModelOption,
-  ThemePreference,
-} from '../../../../shared/agent-contracts';
-import { AgentSettingsStorage } from '../../settings/agent-settings-storage';
+import type { ChatMessage, ThemePreference } from '../../../../shared/agent-contracts';
 import { ThemePreferenceService } from '../../settings/theme-preference';
-import { UserProfileSyncService } from '../../settings/user-profile-sync';
-import type { SelectOption } from '../../shared/app-select/app-select';
 import { renderMarkdown } from '../../shared/markdown/render-markdown';
-import { AssistantApi } from '../assistant-api';
 import { ChatComposer } from '../components/chat-composer/chat-composer';
 import { ChatLogin } from '../components/chat-login/chat-login';
 import { ChatMessageList } from '../components/chat-message-list/chat-message-list';
@@ -35,6 +23,7 @@ import { ChatSidebar } from '../components/chat-sidebar/chat-sidebar';
 import { ChatRunController } from './chat-run-controller';
 import type { RenderedChatMessage } from './chat-page.types';
 import { ChatThreadState } from './chat-thread-state';
+import { ChatWorkspaceController } from './chat-workspace-controller';
 
 @Component({
   selector: 'app-chat-page',
@@ -42,6 +31,7 @@ import { ChatThreadState } from './chat-thread-state';
   providers: [
     ChatThreadState,
     ChatRunController,
+    ChatWorkspaceController,
     provideIcons({
       lucideArrowUp,
       lucideMonitor,
@@ -58,22 +48,15 @@ import { ChatThreadState } from './chat-thread-state';
   styleUrl: './chat-page.css',
 })
 export class ChatPage {
-  private readonly api = inject(AssistantApi);
-  private readonly agentSettingsStorage = inject(AgentSettingsStorage);
-  private readonly route = inject(ActivatedRoute);
   private readonly themePreference = inject(ThemePreferenceService);
   private readonly chatRun = inject(ChatRunController);
   private readonly threadState = inject(ChatThreadState);
-  private readonly userProfileSync = inject(UserProfileSyncService);
-  private defaultModelId = '';
+  private readonly workspace = inject(ChatWorkspaceController);
 
-  protected readonly health = signal<HealthResponse | null>(null);
-  protected readonly session = signal<AuthSessionResponse | null>(null);
-  protected readonly username = signal('');
-  protected readonly password = signal('');
-  protected readonly agents = signal<readonly AgentProfile[]>([]);
-  protected readonly models = signal<readonly ModelOption[]>([]);
-  protected readonly selectedModel = signal('');
+  protected readonly session = this.workspace.session;
+  protected readonly username = this.workspace.username;
+  protected readonly password = this.workspace.password;
+  protected readonly selectedModel = this.workspace.selectedModel;
   protected readonly selectedAgentId = this.threadState.selectedAgentId;
   protected readonly threads = this.threadState.threads;
   protected readonly activeThread = this.threadState.activeThread;
@@ -81,12 +64,12 @@ export class ChatPage {
   protected readonly messageResearchSources = this.threadState.messageResearchSources;
   protected readonly runActivity = this.chatRun.runActivity;
   protected readonly draft = this.chatRun.draft;
-  protected readonly isLoading = signal(true);
+  protected readonly isLoading = this.workspace.isLoading;
   protected readonly isRunning = this.chatRun.isRunning;
   protected readonly isSidebarCollapsed = signal(false);
   protected readonly isSettingsMenuOpen = signal(false);
   protected readonly error = this.chatRun.error;
-  protected readonly loginError = signal<string | null>(null);
+  protected readonly loginError = this.workspace.loginError;
   protected readonly theme = this.themePreference.theme;
 
   protected readonly messages = computed<readonly ChatMessage[]>(
@@ -107,61 +90,22 @@ export class ChatPage {
         this.draft().trim(),
       ) && !this.isRunning(),
   );
-  protected readonly activeAgent = computed<AgentProfile | null>(
-    () => this.agents().find((agent) => agent.id === this.selectedAgentId()) ?? null,
-  );
-  protected readonly chatAgents = computed<readonly AgentProfile[]>(() =>
-    this.agents().filter((agent) => agent.chatEnabled),
-  );
-  protected readonly agentOptions = computed<readonly SelectOption[]>(() =>
-    this.chatAgents().map((agent) => ({
-      value: agent.id,
-      label: agent.name,
-    })),
-  );
-  protected readonly modelOptions = computed<readonly SelectOption[]>(() =>
-    this.models().map((model) => ({
-      value: model.id,
-      label: model.label,
-    })),
-  );
-  protected readonly activeSoulPath = computed(() => {
-    const dataDir = this.health()?.dataDir;
-    const agentId = this.selectedAgentId();
-
-    return dataDir && agentId ? `${dataDir}/agents/${agentId}/configuration/soul.md` : '';
-  });
+  protected readonly activeAgent = this.workspace.activeAgent;
+  protected readonly agentOptions = this.workspace.agentOptions;
+  protected readonly modelOptions = this.workspace.modelOptions;
+  protected readonly activeSoulPath = this.workspace.activeSoulPath;
 
   constructor() {
     void this.load();
   }
 
   protected async login(): Promise<void> {
-    const username = this.username().trim();
-    const password = this.password();
-
-    if (!username || !password) {
-      this.loginError.set('Username and password are required.');
-      return;
-    }
-
-    try {
-      this.loginError.set(null);
-      this.session.set(await this.api.login(username, password));
-      this.password.set('');
-      await this.loadAppData();
-    } catch (error) {
-      this.loginError.set(getErrorMessage(error, 'Login failed.'));
-    }
+    await this.workspace.login();
   }
 
   protected async logout(): Promise<void> {
     this.closeSettingsMenu();
-    await this.api.logout();
-    this.session.set(await this.api.session());
-    this.health.set(null);
-    this.agents.set([]);
-    this.threadState.reset();
+    await this.workspace.logout();
   }
 
   protected async createThread(): Promise<void> {
@@ -206,8 +150,7 @@ export class ChatPage {
       return;
     }
 
-    await this.loadAgentThreads(agentId);
-    void this.userProfileSync.updateLastAgent(agentId);
+    await this.workspace.selectAgent(agentId);
   }
 
   protected async renameSelectedAgent(): Promise<void> {
@@ -224,23 +167,7 @@ export class ChatPage {
     }
 
     await this.handleAsync(async () => {
-      const updatedAgent = await this.api.updateAgent(agent.id, { name });
-      const agentsResponse = await this.api.agents();
-      this.agents.set(
-        agentsResponse.agents.map((candidate) =>
-          candidate.id === updatedAgent.id ? updatedAgent : candidate,
-        ),
-      );
-      this.health.update((health) =>
-        health
-          ? {
-              ...health,
-              agents: health.agents.map((candidate) =>
-                candidate.id === updatedAgent.id ? updatedAgent : candidate,
-              ),
-            }
-          : health,
-      );
+      await this.workspace.renameActiveAgent(name);
     });
   }
 
@@ -257,40 +184,19 @@ export class ChatPage {
   }
 
   protected updateUsername(value: string): void {
-    this.username.set(value);
+    this.workspace.updateUsername(value);
   }
 
   protected updatePassword(value: string): void {
-    this.password.set(value);
+    this.workspace.updatePassword(value);
   }
 
   protected updateModel(value: string): void {
-    const agentId = this.selectedAgentId();
-    const agent = this.agents().find((candidate) => candidate.id === agentId);
-
-    this.selectedModel.set(value);
-
-    if (agent && this.isAvailableModel(value)) {
-      void this.api
-        .updateAgent(agent.id, {
-          models: {
-            ...agent.models,
-            chat: value,
-          },
-        })
-        .then((updatedAgent) => {
-          this.agents.update((agents) =>
-            agents.map((candidate) =>
-              candidate.id === updatedAgent.id ? updatedAgent : candidate,
-            ),
-          );
-        });
-      void this.userProfileSync.updateAgentModel(agentId, value);
-    }
+    this.workspace.updateModel(value);
   }
 
   protected updateTheme(value: ThemePreference): void {
-    void this.userProfileSync.updateTheme(value);
+    this.workspace.updateTheme(value);
   }
 
   protected updateAgent(value: string): void {
@@ -316,70 +222,7 @@ export class ChatPage {
   }
 
   private async load(): Promise<void> {
-    await this.handleAsync(async () => {
-      const session = await this.api.session();
-      this.session.set(session);
-
-      if (session.authenticated) {
-        await this.loadAppData();
-      }
-    });
-    this.isLoading.set(false);
-  }
-
-  private async loadAppData(): Promise<void> {
-    const [health, models, agentsResponse] = await Promise.all([
-      this.api.health(),
-      this.api.models(),
-      this.api.agents(),
-    ]);
-    this.health.set(health);
-    this.agents.set(agentsResponse.agents);
-    this.models.set(models.models);
-    this.defaultModelId = models.defaultModel;
-    const profile = await this.userProfileSync.loadAndHydrate(agentsResponse.agents);
-    const requestedAgentId = this.route.snapshot.queryParamMap.get('agentId');
-    const requestedThreadId = this.route.snapshot.queryParamMap.get('threadId');
-    const chatAgents = agentsResponse.agents.filter((agent) => agent.chatEnabled);
-    const initialAgentId =
-      requestedAgentId && chatAgents.some((agent) => agent.id === requestedAgentId)
-        ? requestedAgentId
-        : profile.lastAgentId && chatAgents.some((agent) => agent.id === profile.lastAgentId)
-          ? profile.lastAgentId
-          : (chatAgents.find((agent) => agent.id === agentsResponse.defaultAgentId)?.id ??
-            chatAgents[0]?.id ??
-            agentsResponse.defaultAgentId);
-
-    await this.loadAgentThreads(initialAgentId, requestedThreadId ?? undefined);
-  }
-
-  private async loadAgentThreads(agentId: string, preferredThreadId?: string): Promise<void> {
-    this.selectedModel.set(this.modelForAgent(agentId));
-    await this.threadState.loadAgentThreads(agentId, preferredThreadId);
-  }
-
-  private modelForAgent(agentId: string): string {
-    const agentModel = this.agents().find((agent) => agent.id === agentId)?.models.chat;
-
-    if (agentModel && this.isAvailableModel(agentModel)) {
-      return agentModel;
-    }
-
-    const storedModel = this.agentSettingsStorage.read(agentId).model;
-
-    if (storedModel && this.isAvailableModel(storedModel)) {
-      return storedModel;
-    }
-
-    if (this.isAvailableModel(this.defaultModelId)) {
-      return this.defaultModelId;
-    }
-
-    return this.models()[0]?.id ?? '';
-  }
-
-  private isAvailableModel(model: string): boolean {
-    return this.models().some((candidate) => candidate.id === model);
+    await this.handleAsync(async () => this.workspace.load());
   }
 
   private async handleAsync(work: () => Promise<void>): Promise<void> {
