@@ -1,16 +1,53 @@
 <div class="min-h-dvh bg-app-bg text-text">
-  <header class="border-b border-border bg-surface">
-    <div class="flex min-h-16 flex-wrap items-center justify-between gap-4 px-4 py-3 sm:px-6">
+  <header class="sticky top-0 z-10 border-b border-border bg-surface/95 backdrop-blur">
+    <div
+      class="mx-auto flex min-h-16 max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-3 sm:px-6"
+    >
       <div class="min-w-0">
-        <h1 class="truncate text-lg font-semibold">Run context</h1>
+        <div class="flex flex-wrap items-center gap-2 text-sm text-text-muted">
+          <a routerLink="/" [queryParams]="chatQueryParams()" class="hover:text-text">Chat</a>
+          <span>/</span>
+          <span>Runs</span>
+          @if (context()) {
+            <span>/</span>
+            <span class="font-mono">{{ compactRunId() }}</span>
+          }
+        </div>
+        <h1 class="mt-1 truncate text-2xl font-semibold tracking-normal">Run details</h1>
       </div>
-      <a
-        routerLink="/"
-        [queryParams]="chatQueryParams()"
-        class="flex h-10 items-center border border-border bg-surface px-3 text-sm font-medium text-text-muted hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-      >
-        Back to chat
-      </a>
+
+      @if (context(); as run) {
+        <div class="flex flex-wrap items-center justify-end gap-2">
+          <span
+            class="border px-3 py-1 text-sm font-medium"
+            [class.border-success-border]="runStatus() === 'success'"
+            [class.bg-success-soft]="runStatus() === 'success'"
+            [class.text-success]="runStatus() === 'success'"
+            [class.border-danger-border]="runStatus() === 'error'"
+            [class.bg-danger-soft]="runStatus() === 'error'"
+            [class.text-danger]="runStatus() === 'error'"
+            [class.border-border]="runStatus() === 'cancelled'"
+            [class.bg-app-bg]="runStatus() === 'cancelled'"
+            [class.text-text-muted]="runStatus() === 'cancelled'"
+          >
+            {{ runStatusLabel() }}
+          </span>
+          <button
+            type="button"
+            class="border border-border bg-surface px-3 py-2 text-sm font-medium text-text hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+            (click)="copyRunId()"
+          >
+            {{ runIdCopied() ? 'Copied' : 'Copy run ID' }}
+          </button>
+          <a
+            routerLink="/"
+            [queryParams]="chatQueryParams()"
+            class="border border-border bg-surface px-3 py-2 text-sm font-medium text-text hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+          >
+            Open chat
+          </a>
+        </div>
+      }
     </div>
   </header>
 
@@ -24,315 +61,332 @@
     @if (isLoading()) {
       <p class="text-sm text-text-muted">Loading run context...</p>
     } @else if (context(); as run) {
-      <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]">
-        <section class="min-w-0 space-y-5">
-          <section class="border border-border bg-surface p-4">
-            <h2 class="text-sm font-semibold text-text-muted">Overview</h2>
-            <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-              <div class="min-w-0">
-                <dt class="text-text-muted">Run</dt>
-                <dd class="mt-1 break-all font-mono text-xs">{{ run.runId }}</dd>
-              </div>
-              <div class="min-w-0">
-                <dt class="text-text-muted">Created</dt>
-                <dd class="mt-1">{{ run.createdAt }}</dd>
-              </div>
-              <div class="min-w-0">
-                <dt class="text-text-muted">Agent</dt>
-                <dd class="mt-1">{{ run.agentName }} · {{ run.agentId }}</dd>
-              </div>
-              <div class="min-w-0">
-                <dt class="text-text-muted">Model</dt>
-                <dd class="mt-1">{{ run.model }}</dd>
-              </div>
-              <div class="min-w-0">
-                <dt class="text-text-muted">Thread</dt>
-                <dd class="mt-1">
-                  @if (run.threadTitle) {
-                    <span>{{ run.threadTitle }}</span>
-                    <span class="text-text-muted"> · </span>
-                  }
-                  <span class="break-all font-mono text-xs">{{ run.threadId }}</span>
-                </dd>
-              </div>
-              <div class="min-w-0">
-                <dt class="text-text-muted">Memory reads</dt>
-                <dd class="mt-1">{{ run.memoryReadsEnabled ? 'enabled' : 'disabled' }}</dd>
-              </div>
-              <div class="min-w-0">
-                <dt class="text-text-muted">Memory writes</dt>
-                <dd class="mt-1">{{ run.memoryWritesEnabled ? 'enabled' : 'disabled' }}</dd>
-              </div>
-            </dl>
-          </section>
+      <section
+        class="grid overflow-hidden border border-border bg-surface md:grid-cols-3 xl:grid-cols-6"
+      >
+        <div class="border-b border-border p-4 md:border-r xl:border-b-0">
+          <p class="text-xs font-medium uppercase text-text-muted">Model</p>
+          <p class="mt-2 break-all font-mono text-sm">{{ run.model }}</p>
+        </div>
+        <div class="border-b border-border p-4 md:border-r xl:border-b-0">
+          <p class="text-xs font-medium uppercase text-text-muted">Cost</p>
+          <p class="mt-2 text-xl font-semibold text-success">{{ totalCostLabel() }}</p>
+        </div>
+        <div class="border-b border-border p-4 md:border-r xl:border-b-0">
+          <p class="text-xs font-medium uppercase text-text-muted">Tokens</p>
+          <p class="mt-2 text-xl font-semibold">{{ formattedLlmCallTotals().totalTokens }}</p>
+          <p class="mt-1 text-xs text-text-muted">
+            {{ formattedLlmCallTotals().inputTokens }} in /
+            {{ formattedLlmCallTotals().outputTokens }} out
+          </p>
+        </div>
+        <div class="border-b border-border p-4 md:border-r md:border-b-0">
+          <p class="text-xs font-medium uppercase text-text-muted">Latency</p>
+          <p class="mt-2 text-xl font-semibold">{{ durationLabel() }}</p>
+        </div>
+        <div class="border-b border-border p-4 md:border-r md:border-b-0">
+          <p class="text-xs font-medium uppercase text-text-muted">Sources</p>
+          <p class="mt-2 text-xl font-semibold">{{ sources().length }}</p>
+        </div>
+        <div class="p-4">
+          <p class="text-xs font-medium uppercase text-text-muted">Tool calls</p>
+          <p class="mt-2 text-xl font-semibold">{{ run.toolCalls?.length ?? 0 }}</p>
+        </div>
+      </section>
 
-          <section class="border border-border bg-surface">
-            <div class="border-b border-border px-4 py-3">
-              <h2 class="text-sm font-semibold text-text-muted">Skills used</h2>
-            </div>
-            @if (!run.skillsUsed?.length) {
-              <p class="p-4 text-sm text-text-muted">
-                No skill file was loaded through progressive disclosure during this run.
-              </p>
-            } @else {
-              <div class="divide-y divide-border">
-                @for (skill of run.skillsUsed; track skill.path) {
-                  <article class="p-4">
-                    <p class="text-sm font-medium text-text">{{ skill.name }}</p>
-                    <p class="mt-1 break-all font-mono text-xs text-text-muted">
-                      {{ skill.path }}
-                    </p>
-                  </article>
-                }
-              </div>
-            }
-          </section>
+      <div class="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(20rem,26rem)]">
+        <section class="min-w-0 border border-border bg-surface">
+          <div class="flex flex-wrap border-b border-border">
+            <button
+              type="button"
+              class="border-b-2 px-4 py-3 text-sm font-medium"
+              [class.border-accent]="selectedTab() === 'overview'"
+              [class.text-text]="selectedTab() === 'overview'"
+              [class.border-transparent]="selectedTab() !== 'overview'"
+              [class.text-text-muted]="selectedTab() !== 'overview'"
+              (click)="selectTab('overview')"
+            >
+              Overview
+            </button>
+            <button
+              type="button"
+              class="border-b-2 px-4 py-3 text-sm font-medium"
+              [class.border-accent]="selectedTab() === 'timeline'"
+              [class.text-text]="selectedTab() === 'timeline'"
+              [class.border-transparent]="selectedTab() !== 'timeline'"
+              [class.text-text-muted]="selectedTab() !== 'timeline'"
+              (click)="selectTab('timeline')"
+            >
+              Timeline
+            </button>
+            <button
+              type="button"
+              class="border-b-2 px-4 py-3 text-sm font-medium"
+              [class.border-accent]="selectedTab() === 'context'"
+              [class.text-text]="selectedTab() === 'context'"
+              [class.border-transparent]="selectedTab() !== 'context'"
+              [class.text-text-muted]="selectedTab() !== 'context'"
+              (click)="selectTab('context')"
+            >
+              Context
+            </button>
+            <button
+              type="button"
+              class="border-b-2 px-4 py-3 text-sm font-medium"
+              [class.border-accent]="selectedTab() === 'raw'"
+              [class.text-text]="selectedTab() === 'raw'"
+              [class.border-transparent]="selectedTab() !== 'raw'"
+              [class.text-text-muted]="selectedTab() !== 'raw'"
+              (click)="selectTab('raw')"
+            >
+              Raw JSON
+            </button>
+          </div>
 
-          <section class="border border-border bg-surface">
-            <div class="border-b border-border px-4 py-3">
-              <h2 class="text-sm font-semibold text-text-muted">Run exchange</h2>
-            </div>
-            <div class="divide-y divide-border">
-              <article class="p-4">
-                <p class="text-xs font-medium uppercase text-text-muted">Prompt</p>
-                <p class="mt-2 whitespace-pre-wrap text-sm leading-6">
-                  {{ run.prompt || 'Prompt was not captured for this run.' }}
-                </p>
-              </article>
-              <article class="p-4">
-                <p class="text-xs font-medium uppercase text-text-muted">Assistant response</p>
-                <p class="mt-2 whitespace-pre-wrap text-sm leading-6">
+          @if (selectedTab() === 'overview') {
+            <div class="space-y-4 p-4">
+              <section class="border border-border bg-app-bg p-4">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <h2 class="text-sm font-semibold">Assistant response</h2>
+                  <span class="text-xs text-text-muted">{{ run.model }}</span>
+                </div>
+                <p class="mt-3 whitespace-pre-wrap text-sm leading-6">
                   {{ run.assistantResponse || 'Assistant response was not captured for this run.' }}
                 </p>
-              </article>
-            </div>
-          </section>
+              </section>
 
-          <section class="border border-border bg-surface">
-            <div class="border-b border-border px-4 py-3">
-              <h2 class="text-sm font-semibold text-text-muted">Memories used</h2>
-            </div>
-            @if (!run.memories.length) {
-              <p class="p-4 text-sm text-text-muted">No pinned memories were loaded at startup.</p>
-            } @else {
-              <div class="divide-y divide-border">
-                @for (memory of run.memories; track memory.memoryId) {
-                  <article class="min-w-0 p-4">
-                    <div class="flex min-w-0 flex-wrap gap-2 text-xs text-text-muted">
-                      <span>{{ memory.scope }}</span>
-                      <span>Pinned startup memory</span>
-                      @if (memory.agentId) {
-                        <span>{{ memory.agentId }}</span>
-                      }
-                      <span>{{ memory.virtualPath }}</span>
-                    </div>
-                    <p class="mt-2 whitespace-pre-wrap text-sm leading-6">{{ memory.content }}</p>
-                    @if (memory.tags?.length) {
-                      <p class="mt-2 text-xs text-text-muted">{{ memory.tags.join(', ') }}</p>
+              <section class="border border-border bg-app-bg p-4">
+                <h2 class="text-sm font-semibold">Prompt</h2>
+                <p class="mt-3 whitespace-pre-wrap text-sm leading-6">
+                  {{ run.prompt || 'Prompt was not captured for this run.' }}
+                </p>
+              </section>
+
+              <section class="border border-border bg-app-bg">
+                <div class="border-b border-border px-4 py-3">
+                  <h2 class="text-sm font-semibold">Sources ({{ sources().length }})</h2>
+                </div>
+                @if (!sources().length) {
+                  <p class="p-4 text-sm text-text-muted">No answer sources were captured.</p>
+                } @else {
+                  <ul class="divide-y divide-border">
+                    @for (source of sources(); track source.url) {
+                      <li class="flex min-w-0 items-center justify-between gap-3 p-4">
+                        <div class="min-w-0">
+                          <a
+                            class="block truncate text-sm font-medium hover:underline"
+                            [href]="source.url"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {{ source.title }}
+                          </a>
+                          <p class="mt-1 truncate text-xs text-text-muted">{{ source.domain }}</p>
+                        </div>
+                        <span
+                          class="shrink-0 border border-border px-2 py-1 text-xs text-text-muted"
+                        >
+                          Source
+                        </span>
+                      </li>
                     }
-                    @if (memory.source) {
-                      <p class="mt-2 text-xs text-text-muted">
-                        Source:
-                        @if (memory.source.agentId) {
-                          <span>agent {{ memory.source.agentId }}</span>
-                        }
-                        @if (memory.source.threadId) {
-                          <span> · thread {{ memory.source.threadId }}</span>
-                        }
-                        @if (memory.source.note) {
-                          <span> · {{ memory.source.note }}</span>
-                        }
-                      </p>
-                    }
-                    <p class="mt-2 truncate font-mono text-xs text-text-muted">
-                      {{ memory.memoryId }}
-                    </p>
-                  </article>
+                  </ul>
                 }
-              </div>
-            }
-          </section>
+              </section>
 
-          <section class="border border-border bg-surface">
-            <div class="border-b border-border px-4 py-3">
-              <h2 class="text-sm font-semibold text-text-muted">Messages included</h2>
-            </div>
-            @if (!run.messages.length) {
-              <p class="p-4 text-sm text-text-muted">No thread messages were included.</p>
-            } @else {
-              <div class="divide-y divide-border">
-                @for (message of run.messages; track message.id) {
-                  <article class="p-4">
-                    <div class="flex flex-wrap gap-2 text-xs text-text-muted">
-                      <span>{{ message.role }}</span>
-                      <span>{{ message.createdAt }}</span>
-                    </div>
-                    <p class="mt-2 whitespace-pre-wrap text-sm leading-6">{{ message.content }}</p>
-                  </article>
-                }
-              </div>
-            }
-          </section>
-
-          <section class="border border-border bg-surface">
-            <div class="border-b border-border px-4 py-3">
-              <h2 class="text-sm font-semibold text-text-muted">Tool calls observed</h2>
-            </div>
-            @if (!run.toolCalls?.length) {
-              <p class="p-4 text-sm text-text-muted">
-                No tool call metadata was captured for this run.
-              </p>
-            } @else {
-              <div class="divide-y divide-border">
-                @for (toolCall of run.toolCalls; track toolCall.id || toolCall.name) {
-                  <article class="p-4">
-                    <div class="flex flex-wrap gap-2 text-xs text-text-muted">
-                      @if (toolCall.name) {
-                        <span>{{ toolCall.name }}</span>
-                      }
-                      @if (toolCall.id) {
-                        <span class="min-w-0 break-all font-mono">{{ toolCall.id }}</span>
-                      }
-                    </div>
-                    @if (toolCall.args !== undefined) {
-                      <pre
-                        class="mt-3 max-h-64 max-w-full overflow-auto whitespace-pre-wrap bg-app-bg p-3 text-xs leading-5"
-                        >{{ toolCall.args | json }}</pre>
+              <section class="border border-border bg-app-bg">
+                <div class="border-b border-border px-4 py-3">
+                  <h2 class="text-sm font-semibold">
+                    Tool calls ({{ run.toolCalls?.length ?? 0 }})
+                  </h2>
+                </div>
+                @if (!run.toolCalls?.length) {
+                  <p class="p-4 text-sm text-text-muted">No tool call metadata was captured.</p>
+                } @else {
+                  <div class="divide-y divide-border">
+                    @for (toolCall of run.toolCalls ?? []; track toolCall.id || toolCall.name) {
+                      <article class="p-4">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                          <p class="font-mono text-sm font-medium">{{ toolCall.name || 'tool' }}</p>
+                          @if (toolCall.agentName) {
+                            <span class="text-xs text-text-muted">{{ toolCall.agentName }}</span>
+                          }
+                        </div>
+                        @if (toolCall.result) {
+                          <p class="mt-2 line-clamp-3 break-all text-sm leading-6 text-text-muted">
+                            {{ toolCall.result }}
+                          </p>
+                        }
+                      </article>
                     }
-                    @if (toolCall.result) {
-                      <p class="mt-3 break-all whitespace-pre-wrap text-sm leading-6">
-                        {{ toolCall.result }}
-                      </p>
-                    }
-                  </article>
+                  </div>
                 }
-              </div>
-            }
-          </section>
+              </section>
+            </div>
+          }
 
-          <section class="border border-border bg-surface p-4">
-            <h2 class="text-sm font-semibold text-text-muted">Loaded soul.md</h2>
-            <p class="mt-2 break-all font-mono text-xs text-text-muted">
-              {{ run.soulVirtualPath }}
-            </p>
-            <pre
-              class="mt-3 max-h-[32rem] overflow-auto whitespace-pre-wrap bg-app-bg p-3 text-sm leading-6"
-              >{{ run.soulContent }}</pre>
-          </section>
+          @if (selectedTab() === 'timeline') {
+            <div class="p-4">
+              <ol class="space-y-3">
+                @for (item of timelineItems(); track item.id) {
+                  <li class="border border-border bg-app-bg p-4">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                      <div class="min-w-0">
+                        <p class="font-medium">{{ item.label }}</p>
+                        <p class="mt-1 break-words text-sm text-text-muted">{{ item.detail }}</p>
+                      </div>
+                      <div class="text-right text-xs text-text-muted">
+                        @if (item.time) {
+                          <p>{{ item.time }}</p>
+                        }
+                        @if (item.duration) {
+                          <p class="mt-1">{{ item.duration }}</p>
+                        }
+                        <p class="mt-1">{{ item.status }}</p>
+                      </div>
+                    </div>
+                  </li>
+                }
+              </ol>
+            </div>
+          }
+
+          @if (selectedTab() === 'context') {
+            <div class="space-y-4 p-4">
+              <section class="border border-border bg-app-bg">
+                <div class="border-b border-border px-4 py-3">
+                  <h2 class="text-sm font-semibold">Messages included</h2>
+                </div>
+                @if (!run.messages.length) {
+                  <p class="p-4 text-sm text-text-muted">No thread messages were included.</p>
+                } @else {
+                  <div class="divide-y divide-border">
+                    @for (message of run.messages; track message.id) {
+                      <article class="p-4">
+                        <div class="flex flex-wrap gap-2 text-xs text-text-muted">
+                          <span>{{ message.role }}</span>
+                          <span>{{ message.createdAt }}</span>
+                        </div>
+                        <p class="mt-2 whitespace-pre-wrap text-sm leading-6">
+                          {{ message.content }}
+                        </p>
+                      </article>
+                    }
+                  </div>
+                }
+              </section>
+
+              <section class="border border-border bg-app-bg">
+                <div class="border-b border-border px-4 py-3">
+                  <h2 class="text-sm font-semibold">Memories used</h2>
+                </div>
+                @if (!run.memories.length) {
+                  <p class="p-4 text-sm text-text-muted">
+                    No pinned memories were loaded at startup.
+                  </p>
+                } @else {
+                  <div class="divide-y divide-border">
+                    @for (memory of run.memories; track memory.memoryId) {
+                      <article class="p-4">
+                        <div class="flex flex-wrap gap-2 text-xs text-text-muted">
+                          <span>{{ memory.scope }}</span>
+                          @if (memory.agentId) {
+                            <span>{{ memory.agentId }}</span>
+                          }
+                          <span>{{ memory.virtualPath }}</span>
+                        </div>
+                        <p class="mt-2 whitespace-pre-wrap text-sm leading-6">
+                          {{ memory.content }}
+                        </p>
+                      </article>
+                    }
+                  </div>
+                }
+              </section>
+
+              <section class="border border-border bg-app-bg p-4">
+                <h2 class="text-sm font-semibold">Loaded soul.md</h2>
+                <p class="mt-2 break-all font-mono text-xs text-text-muted">
+                  {{ run.soulVirtualPath }}
+                </p>
+                <pre
+                  class="mt-3 max-h-[32rem] overflow-auto whitespace-pre-wrap border border-border bg-surface p-3 text-sm leading-6"
+                  >{{ run.soulContent }}</pre>
+              </section>
+            </div>
+          }
+
+          @if (selectedTab() === 'raw') {
+            <div class="p-4">
+              <pre
+                class="max-h-[48rem] overflow-auto whitespace-pre-wrap border border-border bg-app-bg p-4 text-xs leading-5"
+                >{{ rawJson() }}</pre>
+            </div>
+          }
         </section>
 
         <aside class="min-w-0 space-y-5">
           <section class="border border-border bg-surface p-4">
-            <h2 class="text-sm font-semibold text-text-muted">Tools available</h2>
-            @if (!run.tools.length) {
-              <p class="mt-3 text-sm text-text-muted">No tools were available.</p>
-            } @else {
-              <ul class="mt-3 space-y-2 text-sm">
-                @for (tool of run.tools; track tool.id) {
-                  <li>
-                    <div class="flex items-center justify-between gap-3">
-                      <span class="text-sm font-medium">{{ tool.label || tool.id }}</span>
-                      <span class="text-xs text-text-muted">{{
-                        tool.controlled ? 'controlled' : 'assigned'
-                      }}</span>
-                    </div>
-                    <p class="mt-1 break-all font-mono text-xs text-text-muted">{{ tool.id }}</p>
-                    @if (tool.provider) {
-                      <p class="mt-1 text-xs text-text-muted">{{ tool.provider }}</p>
-                    }
-                    @if (tool.description) {
-                      <p class="mt-1 text-xs leading-5 text-text-muted">{{ tool.description }}</p>
-                    }
-                  </li>
-                }
-              </ul>
-            }
-            @if (run.withheldCapabilities?.length) {
-              <div class="mt-4 border-t border-border pt-4">
-                <h3 class="text-xs font-semibold text-text-muted">Unavailable for this run</h3>
-                <ul class="mt-3 space-y-3 text-sm">
-                  @for (capability of run.withheldCapabilities ?? []; track capability.id) {
-                    <li>
-                      <p class="break-all font-mono text-xs">{{ capability.id }}</p>
-                      <p class="mt-1 text-xs leading-5 text-text-muted">{{ capability.reason }}</p>
-                    </li>
-                  }
-                </ul>
+            <h2 class="text-sm font-semibold">Run metadata</h2>
+            <dl class="mt-4 space-y-3 text-sm">
+              <div class="flex justify-between gap-4">
+                <dt class="text-text-muted">Run ID</dt>
+                <dd class="min-w-0 break-all text-right font-mono text-xs">{{ run.runId }}</dd>
               </div>
-            }
-          </section>
-
-          <section class="border border-border bg-surface p-4">
-            <h2 class="text-sm font-semibold text-text-muted">User profile snapshot</h2>
-            <dl class="mt-3 space-y-3 text-sm">
-              @for (line of profileLines(); track line[0]) {
-                <div>
-                  <dt class="text-text-muted">{{ line[0] }}</dt>
-                  <dd class="mt-0.5">{{ line[1] }}</dd>
-                </div>
-              }
+              <div class="flex justify-between gap-4">
+                <dt class="text-text-muted">Started</dt>
+                <dd class="text-right">{{ createdAt() }}</dd>
+              </div>
+              <div class="flex justify-between gap-4">
+                <dt class="text-text-muted">Status</dt>
+                <dd>{{ runStatusLabel() }}</dd>
+              </div>
+              <div class="flex justify-between gap-4">
+                <dt class="text-text-muted">Agent</dt>
+                <dd class="text-right">{{ run.agentName }}</dd>
+              </div>
+              <div class="flex justify-between gap-4">
+                <dt class="text-text-muted">Thread</dt>
+                <dd class="min-w-0 truncate text-right">{{ run.threadTitle || run.threadId }}</dd>
+              </div>
             </dl>
           </section>
 
           <section class="border border-border bg-surface p-4">
-            <h2 class="text-sm font-semibold text-text-muted">Token usage</h2>
-            @if (run.tokenUsage) {
-              <dl class="mt-3 space-y-3 text-sm">
-                <div>
-                  <dt class="text-text-muted">Input</dt>
-                  <dd class="mt-0.5">{{ run.tokenUsage.inputTokens ?? 'not reported' }}</dd>
-                </div>
-                <div>
-                  <dt class="text-text-muted">Output</dt>
-                  <dd class="mt-0.5">{{ run.tokenUsage.outputTokens ?? 'not reported' }}</dd>
-                </div>
-                <div>
-                  <dt class="text-text-muted">Total</dt>
-                  <dd class="mt-0.5">{{ run.tokenUsage.totalTokens ?? 'not reported' }}</dd>
-                </div>
-              </dl>
-            } @else {
-              <p class="mt-3 text-sm text-text-muted">Token usage was not reported.</p>
-            }
+            <h2 class="text-sm font-semibold">Model & usage</h2>
+            <dl class="mt-4 space-y-3 text-sm">
+              <div class="flex justify-between gap-4">
+                <dt class="text-text-muted">Model</dt>
+                <dd class="min-w-0 break-all text-right font-mono text-xs">{{ run.model }}</dd>
+              </div>
+              <div class="flex justify-between gap-4">
+                <dt class="text-text-muted">Input tokens</dt>
+                <dd>{{ formattedLlmCallTotals().inputTokens }}</dd>
+              </div>
+              <div class="flex justify-between gap-4">
+                <dt class="text-text-muted">Output tokens</dt>
+                <dd>{{ formattedLlmCallTotals().outputTokens }}</dd>
+              </div>
+              <div class="flex justify-between gap-4">
+                <dt class="text-text-muted">Total tokens</dt>
+                <dd>{{ formattedLlmCallTotals().totalTokens }}</dd>
+              </div>
+              <div class="flex justify-between gap-4">
+                <dt class="text-text-muted">Cost</dt>
+                <dd>{{ totalCostLabel() }}</dd>
+              </div>
+            </dl>
           </section>
 
           <section class="border border-border bg-surface p-4">
-            <h2 class="text-sm font-semibold text-text-muted">LLM calls</h2>
+            <h2 class="text-sm font-semibold">LLM calls</h2>
             @if ((run.llmCalls ?? []).length) {
-              <dl class="mt-3 grid grid-cols-3 gap-3 text-sm">
-                <div>
-                  <dt class="text-text-muted">Calls</dt>
-                  <dd class="mt-0.5">{{ run.llmCalls?.length }}</dd>
-                </div>
-                <div>
-                  <dt class="text-text-muted">Input</dt>
-                  <dd class="mt-0.5">{{ llmCallTotals().inputTokens }}</dd>
-                </div>
-                <div>
-                  <dt class="text-text-muted">Output</dt>
-                  <dd class="mt-0.5">{{ llmCallTotals().outputTokens }}</dd>
-                </div>
-              </dl>
-              @if (llmCostTotals().length) {
-                <div class="mt-3 border-t border-border pt-3 text-sm">
-                  <p class="text-text-muted">Estimated cost</p>
-                  <ul class="mt-1 space-y-1">
-                    @for (total of llmCostTotals(); track total.currency) {
-                      <li>{{ total.formatted }}</li>
-                    }
-                  </ul>
-                </div>
-              } @else {
-                <p class="mt-3 border-t border-border pt-3 text-sm text-text-muted">
-                  Estimated cost unavailable. Add active model pricing records to calculate costs.
-                </p>
-              }
-              <ul class="mt-4 space-y-3 text-sm">
+              <ul class="mt-4 space-y-3">
                 @for (call of run.llmCalls ?? []; track call.id) {
                   <li class="border border-border bg-app-bg p-3">
                     <div class="flex items-start justify-between gap-3">
-                      <div>
-                        <p class="font-medium">{{ call.model }}</p>
+                      <div class="min-w-0">
+                        <p class="truncate font-mono text-sm">{{ call.model }}</p>
                         <p class="mt-1 text-xs text-text-muted">
                           {{ call.provider }} · {{ call.purpose }}
                           @if (embeddingOperation(call); as operation) {
@@ -342,44 +396,88 @@
                       </div>
                       <span class="text-xs text-text-muted">{{ call.status }}</span>
                     </div>
-                    <dl class="mt-3 grid grid-cols-3 gap-3 text-xs text-text-muted">
+                    <dl class="mt-3 grid grid-cols-3 gap-2 text-xs">
                       <div>
-                        <dt>Input</dt>
-                        <dd class="mt-0.5 text-text">{{ call.inputTokens ?? 'not reported' }}</dd>
+                        <dt class="text-text-muted">Input</dt>
+                        <dd>{{ call.inputTokens ?? 'n/a' }}</dd>
                       </div>
                       <div>
-                        <dt>Output</dt>
-                        <dd class="mt-0.5 text-text">{{ call.outputTokens ?? 'not reported' }}</dd>
+                        <dt class="text-text-muted">Output</dt>
+                        <dd>{{ call.outputTokens ?? 'n/a' }}</dd>
                       </div>
                       <div>
-                        <dt>Cost</dt>
-                        <dd class="mt-0.5 text-text">
+                        <dt class="text-text-muted">Cost</dt>
+                        <dd>
                           {{ formatCallCost(call.estimatedTotalCost, call.estimatedCostCurrency) }}
                         </dd>
                       </div>
                     </dl>
-                    <p class="mt-3 text-xs text-text-muted">
-                      @if (call.durationMs !== undefined) {
-                        {{ call.durationMs }} ms
-                      } @else {
-                        duration not reported
-                      }
-                      @if (call.pricingSnapshotId) {
-                        <span> · pricing {{ call.pricingSnapshotId }}</span>
-                      }
-                    </p>
                     @if (embeddingCacheDetails(call); as cacheDetails) {
                       <p class="mt-2 text-xs text-text-muted">{{ cacheDetails }}</p>
-                    }
-                    @if (call.errorMessage) {
-                      <p class="mt-3 text-xs text-danger">{{ call.errorMessage }}</p>
                     }
                   </li>
                 }
               </ul>
             } @else {
-              <p class="mt-3 text-sm text-text-muted">No LLM calls were recorded for this run.</p>
+              <p class="mt-3 text-sm text-text-muted">No LLM calls were recorded.</p>
             }
+          </section>
+
+          <section class="border border-border bg-surface p-4">
+            <h2 class="text-sm font-semibold">Memory</h2>
+            <dl class="mt-4 space-y-3 text-sm">
+              <div class="flex justify-between gap-4">
+                <dt class="text-text-muted">Loaded memories</dt>
+                <dd>{{ run.memories.length }}</dd>
+              </div>
+              <div class="flex justify-between gap-4">
+                <dt class="text-text-muted">Reads</dt>
+                <dd>{{ run.memoryReadsEnabled ? 'Enabled' : 'Disabled' }}</dd>
+              </div>
+              <div class="flex justify-between gap-4">
+                <dt class="text-text-muted">Writes</dt>
+                <dd>{{ run.memoryWritesEnabled ? 'Enabled' : 'Disabled' }}</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section class="border border-border bg-surface p-4">
+            <h2 class="text-sm font-semibold">Tools available</h2>
+            @if (!run.tools.length && !run.withheldCapabilities?.length) {
+              <p class="mt-3 text-sm text-text-muted">No tools were available.</p>
+            } @else {
+              <ul class="mt-4 space-y-3 text-sm">
+                @for (tool of run.tools; track tool.id) {
+                  <li class="min-w-0">
+                    <div class="flex justify-between gap-3">
+                      <span class="truncate font-medium">{{ tool.label || tool.id }}</span>
+                      <span class="text-xs text-text-muted">
+                        {{ tool.controlled ? 'controlled' : 'assigned' }}
+                      </span>
+                    </div>
+                    <p class="mt-1 truncate font-mono text-xs text-text-muted">{{ tool.id }}</p>
+                  </li>
+                }
+                @for (capability of run.withheldCapabilities ?? []; track capability.id) {
+                  <li class="border-t border-border pt-3">
+                    <p class="truncate font-mono text-xs">{{ capability.id }}</p>
+                    <p class="mt-1 text-xs text-text-muted">{{ capability.reason }}</p>
+                  </li>
+                }
+              </ul>
+            }
+          </section>
+
+          <section class="border border-border bg-surface p-4">
+            <h2 class="text-sm font-semibold">User profile</h2>
+            <dl class="mt-4 space-y-3 text-sm">
+              @for (line of profileLines(); track line[0]) {
+                <div class="flex justify-between gap-4">
+                  <dt class="text-text-muted">{{ line[0] }}</dt>
+                  <dd class="text-right">{{ line[1] }}</dd>
+                </div>
+              }
+            </dl>
           </section>
         </aside>
       </div>
