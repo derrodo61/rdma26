@@ -30,6 +30,9 @@ import type {
   MemoryPinnedBudgetsResponse,
   MemoryRecord,
   ModelOption,
+  ModelProviderLoginStartResponse,
+  ModelProvidersResponse,
+  ModelProviderStatus,
   ModelPricingListRequest,
   ModelPricingListResponse,
   ModelPricingRecord,
@@ -70,6 +73,8 @@ import { ModelPricingStore } from './llm/model-pricing-store';
 import { syncOpenAiModelPricingFromSource } from './llm/openai-pricing-sync';
 import { PricingSourceStore } from './llm/pricing-source-store';
 import { AccountingOpenAiEmbeddingClient } from './llm/openai-embedding-client';
+import { OpenAiChatGptAuthService } from './llm/openai-chatgpt-auth';
+import { OpenAiModelFactory } from './llm/model-factory';
 import type { EmbeddingAccountingContext } from './llm/openai-embedding-client';
 import { readWebPage } from './research/web-page-reader';
 import { RunContextStore } from './runs/run-context-store';
@@ -90,6 +95,8 @@ export class AssistantRuntime {
   private readonly threadCheckpointer: ThreadCheckpointer;
   private readonly threads: ThreadService;
   private readonly chatRuns: ChatRunService;
+  private readonly chatGptAuth: OpenAiChatGptAuthService;
+  private readonly modelFactory: OpenAiModelFactory;
 
   constructor(options: AssistantRuntimeOptions = readRuntimeOptionsFromEnv()) {
     this.registry = new AgentRegistry(
@@ -100,6 +107,8 @@ export class AssistantRuntime {
     this.userProfileStore = new UserProfileStore(options.dataDir);
     this.modelPricingStore = new ModelPricingStore(options.dataDir);
     this.llmCallStore = new LlmCallStore(options.dataDir, this.modelPricingStore);
+    this.chatGptAuth = new OpenAiChatGptAuthService(options.dataDir);
+    this.modelFactory = new OpenAiModelFactory(this.chatGptAuth);
     this.embeddingModel = process.env['OPENAI_EMBEDDING_MODEL'] ?? 'text-embedding-3-small';
     const apiKey = process.env['OPENAI_API_KEY'];
     const semanticMemoryIndex = apiKey
@@ -128,6 +137,7 @@ export class AssistantRuntime {
       this.llmCallStore,
       this.userProfileStore,
       this.threadCheckpointer,
+      this.modelFactory,
       this,
     );
   }
@@ -181,15 +191,43 @@ export class AssistantRuntime {
   }
 
   async health(): Promise<HealthResponse> {
+    const chatGptStatus = await this.chatGptAuth.status();
     return {
       ok: true,
       service: 'rdma26-backend',
       agents: await this.listAgents(),
       defaultAgentId: this.registry.getDefaultAgentId(),
       apiKeyConfigured: Boolean(process.env['OPENAI_API_KEY']),
+      chatGptAuthenticated: chatGptStatus.authenticated,
       authEnabled: readAuthConfig().enabled,
       dataDir: this.registry.dataDir,
     };
+  }
+
+  async modelProvidersResponse(): Promise<ModelProvidersResponse> {
+    return {
+      providers: [
+        {
+          id: 'openai-api',
+          label: 'OpenAI API',
+          authMethod: 'api_key',
+          authenticated: Boolean(process.env['OPENAI_API_KEY']),
+        },
+        await this.chatGptAuth.status(),
+      ],
+    };
+  }
+
+  async startOpenAiChatGptLogin(): Promise<ModelProviderLoginStartResponse> {
+    return await this.chatGptAuth.startLogin();
+  }
+
+  async loginOpenAiChatGpt(openUrl: (url: string) => void): Promise<ModelProviderStatus> {
+    return await this.chatGptAuth.loginAndWait(openUrl);
+  }
+
+  async logoutOpenAiChatGpt(): Promise<ModelProviderStatus> {
+    return await this.chatGptAuth.logout();
   }
 
   modelsResponse(): ModelsResponse {
@@ -676,6 +714,7 @@ export class AssistantRuntime {
     this.pricingSourceStore.close();
     this.llmCallStore.close();
     this.threadCheckpointer.close();
+    this.chatGptAuth.close();
   }
 
   private async storageFor(agentId: string) {
@@ -739,10 +778,27 @@ function readModels(): readonly ModelOption[] {
     .filter(Boolean);
   const modelIds = configured?.length ? configured : ['gpt-4.1-mini', 'gpt-4.1', 'gpt-4o-mini'];
 
-  return modelIds.map((id) => ({
-    id,
-    label: id,
-    provider: 'openai',
-    requiresApiKey: true,
-  }));
+  const configuredChatGpt = process.env['OPENAI_CHATGPT_MODELS']
+    ?.split(',')
+    .map((model) => model.trim())
+    .filter(Boolean);
+  const chatGptModelIds = configuredChatGpt?.length ? configuredChatGpt : modelIds;
+
+  return [
+    ...modelIds.map((model) => ({
+      id: model,
+      model,
+      label: `${model} (OpenAI API)`,
+      provider: 'openai-api' as const,
+      authMethod: 'api_key' as const,
+    })),
+    ...chatGptModelIds.map((model) => ({
+      id: `chatgpt:${model}`,
+      model,
+      label: `${model} (ChatGPT/Codex)`,
+      provider: 'openai-chatgpt' as const,
+      authMethod: 'oauth' as const,
+      experimental: true,
+    })),
+  ];
 }

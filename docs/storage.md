@@ -13,6 +13,8 @@ backend owns this directory; browser code does not access it directly.
   langgraph-checkpoints.sqlite
   backups/
   evaluations/
+  provider-auth/
+    openai-chatgpt.json
   user/
     memory/
   agents/
@@ -66,6 +68,12 @@ Data that is naturally editable and file-oriented remains outside SQLite:
 - future attachments and generated artifacts.
 
 The complete memory layout is documented in [memory.md](./memory.md).
+
+ChatGPT/Codex OAuth credentials are stored in
+`.assistant-data/provider-auth/openai-chatgpt.json`. The provider-auth directory
+uses mode `0700` and the credential file uses mode `0600`. The backend refreshes
+and atomically replaces this file; browser code and API responses never receive
+its access or refresh tokens.
 
 ## Schema Migrations
 

@@ -17,7 +17,7 @@ flowchart LR
     RT --> AG["Agent and chat services"]
     RT --> DATA["Storage and observability services"]
     AG --> DA["Deep Agents runtime"]
-    DA --> LLM["OpenAI models"]
+    DA --> LLM["OpenAI API or ChatGPT/Codex models"]
     DA --> CAP["Granted capabilities and skills"]
 ```
 
@@ -146,6 +146,11 @@ Chat models and embedding requests are created through accounting-aware
 factories or adapters. Call records include model, purpose, agent, thread, run,
 tokens, timing, and pricing snapshots where available.
 
+The public OpenAI API and experimental subscription-backed ChatGPT/Codex path
+are separate providers. The latter is limited to Codex model calls; embeddings
+and hosted web search remain API-key-only. See
+[OpenAI ChatGPT/Codex provider](./architecture/openai-chatgpt-provider.md).
+
 This makes chat, maintenance, and embedding work separately inspectable. See
 [observability.md](./observability.md).
 
@@ -167,7 +172,8 @@ See [storage.md](./storage.md) for ownership and lifecycle details.
 ## Current Architectural Boundaries
 
 - The backend is local-first and currently designed for one authenticated user.
-- OpenAI is the implemented model provider.
+- OpenAI API and experimental ChatGPT/Codex access are implemented as separate
+  model providers.
 - OpenAI hosted web search is the implemented search provider.
 - The QuickJS interpreter is available as an agent capability; a general
   execution sandbox is not yet enabled.

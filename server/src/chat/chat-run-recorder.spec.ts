@@ -58,6 +58,12 @@ describe('ChatRunRecorder', () => {
           access: 'startup',
         },
       ],
+      withheldCapabilities: [
+        {
+          id: 'web_search',
+          reason: 'Unavailable for this model provider.',
+        },
+      ],
     });
     expect(writeRunContext).toHaveBeenCalledWith(recorded);
   });
@@ -151,6 +157,12 @@ function recordingContext(): ChatRunRecordingContext {
       },
     ],
     tools: [],
+    withheldCapabilities: [
+      {
+        id: 'web_search',
+        reason: 'Unavailable for this model provider.',
+      },
+    ],
     memoryReadsEnabled: true,
     memoryWritesEnabled: true,
   };

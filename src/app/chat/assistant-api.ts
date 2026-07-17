@@ -29,6 +29,9 @@ import type {
   MemoryPinnedBudgetsResponse,
   MemoryRecord,
   ModelsResponse,
+  ModelProviderLoginStartResponse,
+  ModelProvidersResponse,
+  ModelProviderStatus,
   ModelPricingListRequest,
   ModelPricingListResponse,
   ModelPricingRecord,
@@ -71,6 +74,25 @@ export class AssistantApi {
 
   async models(): Promise<ModelsResponse> {
     return await firstValueFrom(this.http.get<ModelsResponse>('/api/models'));
+  }
+
+  async modelProviders(): Promise<ModelProvidersResponse> {
+    return await firstValueFrom(this.http.get<ModelProvidersResponse>('/api/model-providers'));
+  }
+
+  async startOpenAiChatGptLogin(): Promise<ModelProviderLoginStartResponse> {
+    return await firstValueFrom(
+      this.http.post<ModelProviderLoginStartResponse>(
+        '/api/model-providers/openai-chatgpt/login',
+        {},
+      ),
+    );
+  }
+
+  async logoutOpenAiChatGpt(): Promise<ModelProviderStatus> {
+    return await firstValueFrom(
+      this.http.delete<ModelProviderStatus>('/api/model-providers/openai-chatgpt/session'),
+    );
   }
 
   async tools(): Promise<ToolsResponse> {

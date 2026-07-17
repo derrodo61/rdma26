@@ -9,6 +9,13 @@ export const routes: Routes = [
     component: ChatPage,
   },
   {
+    path: 'settings/providers',
+    loadComponent: () =>
+      import('./settings/model-providers-page/model-providers-page').then(
+        (module) => module.ModelProvidersPage,
+      ),
+  },
+  {
     path: 'settings/agents',
     loadComponent: () =>
       import('./settings/agent-settings-page/agent-settings-page').then(

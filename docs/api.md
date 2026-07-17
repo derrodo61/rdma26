@@ -19,7 +19,7 @@ The current generated documentation covers routes, request bodies, and path para
 
 ### `GET /api/health`
 
-Returns backend status, configured agents, the initial/protected operator agent id, auth status, data directory, and whether `OPENAI_API_KEY` is configured.
+Returns backend status, configured agents, the initial/protected operator agent id, auth status, data directory, and whether the OpenAI API and ChatGPT/Codex providers are authenticated.
 
 ## Authentication
 
@@ -80,7 +80,23 @@ Agent runs include the current profile in the backend-generated bootloader promp
 
 ### `GET /api/models`
 
-Returns configured OpenAI model options and the default model.
+Returns configured model options and the default model. Public API model ids
+remain unqualified, while ChatGPT/Codex model ids use `chatgpt:<model>`.
+
+### `GET /api/model-providers`
+
+Returns authentication and account-display status for the OpenAI API and
+experimental ChatGPT/Codex providers. OAuth tokens are never returned.
+
+### `POST /api/model-providers/openai-chatgpt/login`
+
+Starts a loopback OAuth login and returns the OpenAI authorization URL. Open the
+URL in a browser, then poll `GET /api/model-providers` for completion.
+
+### `DELETE /api/model-providers/openai-chatgpt/session`
+
+Cancels a pending login and deletes the locally stored ChatGPT/Codex OAuth
+credentials.
 
 ### `GET /api/model-pricing`
 
@@ -391,7 +407,10 @@ The `models` object stores backend-owned model settings:
 }
 ```
 
-`models.chat` is the chat model for the agent and also powers hosted web search when that capability is enabled.
+`models.chat` is the chat model for the agent. Hosted web search is included
+only when that capability is enabled and the selected model uses the public
+OpenAI API provider. Provider-incompatible grants are retained on the agent but
+listed as withheld in the run context.
 
 ### `GET /api/agents/:agentId/soul`
 

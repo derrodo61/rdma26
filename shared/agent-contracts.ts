@@ -167,10 +167,14 @@ export type AgentRunEvent =
 
 export interface ModelOption {
   readonly id: string;
+  readonly model: string;
   readonly label: string;
-  readonly provider: 'openai';
-  readonly requiresApiKey: true;
+  readonly provider: ModelProviderId;
+  readonly authMethod: 'api_key' | 'oauth';
+  readonly experimental?: boolean;
 }
+
+export type ModelProviderId = 'openai-api' | 'openai-chatgpt';
 
 export interface ModelsResponse {
   readonly models: readonly ModelOption[];
@@ -183,8 +187,30 @@ export interface HealthResponse {
   readonly agents: readonly AgentProfile[];
   readonly defaultAgentId: string;
   readonly apiKeyConfigured: boolean;
+  readonly chatGptAuthenticated: boolean;
   readonly authEnabled: boolean;
   readonly dataDir: string;
+}
+
+export interface ModelProviderStatus {
+  readonly id: ModelProviderId;
+  readonly label: string;
+  readonly authMethod: 'api_key' | 'oauth';
+  readonly authenticated: boolean;
+  readonly experimental?: boolean;
+  readonly loginPending?: boolean;
+  readonly account?: string;
+  readonly expiresAt?: string;
+  readonly error?: string;
+}
+
+export interface ModelProvidersResponse {
+  readonly providers: readonly ModelProviderStatus[];
+}
+
+export interface ModelProviderLoginStartResponse {
+  readonly provider: 'openai-chatgpt';
+  readonly authorizationUrl: string;
 }
 
 export interface AuthSessionResponse {
@@ -325,6 +351,11 @@ export interface RunContextTool {
   readonly description?: string;
   readonly provider?: string;
   readonly controlled: boolean;
+}
+
+export interface RunContextWithheldCapability {
+  readonly id: string;
+  readonly reason: string;
 }
 
 export interface RunContextToolCall {
@@ -623,6 +654,7 @@ export interface RunContextDetails {
   readonly memories: readonly RunContextMemory[];
   readonly messages: readonly RunContextMessage[];
   readonly tools: readonly RunContextTool[];
+  readonly withheldCapabilities?: readonly RunContextWithheldCapability[];
   readonly toolCalls?: readonly RunContextToolCall[];
   readonly skillsUsed?: readonly RunContextSkillUsage[];
   readonly tokenUsage?: RunContextTokenUsage;

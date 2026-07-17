@@ -13,12 +13,14 @@ import { createAdminTools, listAdminToolDefinitions } from '../capabilities/admi
 import type { CapabilityRegistry } from '../capabilities/capability-registry';
 import { createMemoryReadTools, createMemoryTools } from '../capabilities/memory-tools';
 import { createConversationTools } from '../capabilities/conversation-tools';
+import { resolveEffectiveCapabilities } from '../capabilities/model-capability-policy';
 import type { FileMemoryStore } from '../memory/file-memory-store';
 import type { UserProfileStore } from '../profiles/user-profile-store';
 import type { LlmCallStore } from '../llm/llm-call-store';
 import type { RunContextStore } from '../runs/run-context-store';
 import type { AssistantRuntime } from '../runtime';
 import type { ThreadCheckpointer } from '../threads/thread-checkpointer';
+import type { OpenAiModelFactory } from '../llm/model-factory';
 import { ChatRunRecorder, type ChatRunRecordingContext } from './chat-run-recorder';
 
 export class ChatRunService {
@@ -32,6 +34,7 @@ export class ChatRunService {
     private readonly llmCallStore: LlmCallStore,
     private readonly userProfileStore: UserProfileStore,
     private readonly threadCheckpointer: ThreadCheckpointer,
+    private readonly modelFactory: OpenAiModelFactory,
     private readonly runtime: AssistantRuntime,
   ) {
     this.recorder = new ChatRunRecorder(runContextStore, fileMemoryStore);
@@ -56,8 +59,9 @@ export class ChatRunService {
 
     const memoryReadsEnabled = storage.agent.memory.canRead;
     const memoryWritesEnabled = storage.agent.memory.canWrite;
+    const effectiveCapabilities = resolveEffectiveCapabilities(model, storage.agent.enabledTools);
     const tools = [
-      ...this.capabilities.createRunnableTools(storage.agent.enabledTools),
+      ...this.capabilities.createRunnableTools(effectiveCapabilities.enabledCapabilityIds),
       ...(memoryReadsEnabled
         ? createMemoryReadTools(this.runtime, storage.agent.id, {
             runId,
@@ -72,7 +76,7 @@ export class ChatRunService {
     ];
     const toolContext = this.runContextToolsFor(
       storage.agent.id,
-      storage.agent.enabledTools,
+      effectiveCapabilities.enabledCapabilityIds,
       memoryReadsEnabled,
       memoryWritesEnabled,
     );
@@ -97,17 +101,22 @@ export class ChatRunService {
       userProfile,
       pinnedMemories,
       tools: toolContext,
+      withheldCapabilities: effectiveCapabilities.withheldCapabilities,
       memoryReadsEnabled,
       memoryWritesEnabled,
     };
 
     try {
-      const agentResponse = await new PersonalAgent(storage, this.threadCheckpointer.get()).run({
+      const agentResponse = await new PersonalAgent(
+        storage,
+        this.threadCheckpointer.get(),
+        this.modelFactory,
+      ).run({
         runId,
         threadId: request.threadId,
         model,
         tools,
-        enabledToolIds: storage.agent.enabledTools,
+        enabledToolIds: effectiveCapabilities.enabledCapabilityIds,
         isOperatorAgent: isSystemOperatorAgent(storage.agent.id, this.registry.getDefaultAgentId()),
         userProfile,
         soulContent,

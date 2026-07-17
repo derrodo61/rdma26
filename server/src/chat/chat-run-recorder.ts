@@ -5,6 +5,7 @@ import type {
   RunContextDetails,
   RunContextTokenUsage,
   RunContextTool,
+  RunContextWithheldCapability,
   UserProfile,
 } from '../../../shared/agent-contracts';
 import type { PersonalAgentResponse } from '../agents/personal-agent';
@@ -93,6 +94,7 @@ export class ChatRunRecorder {
         content: message.content,
       })),
       tools: context.tools,
+      withheldCapabilities: context.withheldCapabilities,
       memoryReadsEnabled: context.memoryReadsEnabled,
       memoryWritesEnabled: context.memoryWritesEnabled,
     };
@@ -109,6 +111,7 @@ export interface ChatRunRecordingContext {
   readonly userProfile: UserProfile;
   readonly pinnedMemories: readonly FileMemoryEntry[];
   readonly tools: readonly RunContextTool[];
+  readonly withheldCapabilities: readonly RunContextWithheldCapability[];
   readonly memoryReadsEnabled: boolean;
   readonly memoryWritesEnabled: boolean;
 }

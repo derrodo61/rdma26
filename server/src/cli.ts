@@ -1,5 +1,6 @@
 import { config } from 'dotenv';
 import { readFile } from 'node:fs/promises';
+import { spawn } from 'node:child_process';
 
 import type {
   DateStylePreference,
@@ -36,6 +37,23 @@ async function main(): Promise<void> {
   await runtime.ensureReady();
 
   switch (command) {
+    case 'providers:list':
+      printJson(await runtime.modelProvidersResponse());
+      return;
+    case 'providers:login': {
+      requireChatGptProvider(options);
+      printJson(
+        await runtime.loginOpenAiChatGpt((url) => {
+          process.stdout.write(`Open this URL to sign in with ChatGPT:\n${url}\n`);
+          openExternalUrl(url);
+        }),
+      );
+      return;
+    }
+    case 'providers:logout':
+      requireChatGptProvider(options);
+      printJson(await runtime.logoutOpenAiChatGpt());
+      return;
     case 'tools:list':
       printJson(runtime.toolsResponse());
       return;
@@ -445,6 +463,20 @@ function agentId(options: Record<string, string | undefined>): string {
   return options['agent'] ?? runtime.getDefaultAgentId();
 }
 
+function requireChatGptProvider(options: Record<string, string | undefined>): void {
+  if (requiredOption(options, 'provider') !== 'openai-chatgpt') {
+    throw new Error('Only the openai-chatgpt provider supports CLI login and logout.');
+  }
+}
+
+function openExternalUrl(url: string): void {
+  const command =
+    process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'cmd' : 'xdg-open';
+  const args = process.platform === 'win32' ? ['/c', 'start', '', url] : [url];
+  const child = spawn(command, args, { detached: true, stdio: 'ignore' });
+  child.unref();
+}
+
 function parseToolList(input: string): readonly string[] {
   return input
     .split(',')
@@ -724,12 +756,16 @@ function printHelp(): void {
   process.stdout.write(`rdma26 CLI
 
 Usage:
+  rdma26 providers:list
+  rdma26 providers:login --provider openai-chatgpt
+  rdma26 providers:logout --provider openai-chatgpt
   rdma26 tools:list
   rdma26 agents:list
   rdma26 agents:create --id research --name "Research assistant"
   rdma26 agents:update --agent research --name "Researcher"
   rdma26 agents:memory:set --agent research --can-read true --can-write true
   rdma26 agents:model:set --agent research --model gpt-4.1-mini
+  rdma26 agents:model:set --agent research --model chatgpt:gpt-5.4
   rdma26 agents:soul:read --agent research
   rdma26 agents:soul:write --agent research --file ./soul.md
   rdma26 agents:delete --agent research

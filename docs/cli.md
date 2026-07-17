@@ -52,7 +52,9 @@ When memory reads are disabled, pinned memory, on-demand memory directories, and
 rdma26 agents:model:set --agent research --model gpt-4.1-mini
 ```
 
-`agents:model:set` changes the chat model. The same selected model powers hosted web search when `web_search` is enabled.
+`agents:model:set` changes the chat model. The same selected model powers hosted
+web search when `web_search` is enabled and the model uses the public OpenAI API
+provider. ChatGPT/Codex runs retain but withhold that grant.
 
 ### Read an agent soul.md
 
@@ -412,7 +414,7 @@ contexts, and LLM calls for debugging. Without it, temporary data is removed
 after the JSON report is written.
 
 Reports are stored under `.assistant-data/evaluations/`. Live evaluations
-require `OPENAI_API_KEY`.
+require credentials for the selected model provider.
 
 The run id is included in `chat:send` output and in the API `run-started` event.
 
@@ -433,3 +435,17 @@ The CLI reads the same `.env` configuration as the backend, including:
 - `ASSISTANT_AGENT_NAME`
 - `OPENAI_API_KEY`
 - `OPENAI_MODELS`
+- `OPENAI_CHATGPT_MODELS`
+
+## Model Providers
+
+```bash
+npm run rdma26 -- providers:list
+npm run rdma26 -- providers:login --provider openai-chatgpt
+npm run rdma26 -- providers:logout --provider openai-chatgpt
+```
+
+The login command starts a loopback callback on `localhost:1455`, prints the
+authorization URL, opens the browser, and waits until token exchange and secure
+persistence complete. Use
+`chatgpt:<model>` when assigning or invoking a subscription-backed model.

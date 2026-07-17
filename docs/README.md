@@ -15,6 +15,8 @@ features.
   data flow, and service boundaries.
 - [Backend structure](./backend.md): backend folder ownership and dependency
   direction.
+- [OpenAI ChatGPT/Codex provider](./architecture/openai-chatgpt-provider.md):
+  OAuth flow, support boundary, model transport, and capability matrix.
 - [Storage](./storage.md): SQLite databases, files, migrations, and deletion
   boundaries.
 - [Memory](./memory.md): current thread state, long-term memory, semantic

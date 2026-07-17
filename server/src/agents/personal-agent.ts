@@ -22,7 +22,7 @@ import { extractText } from './agent-result';
 import { createEnabledAgentMiddleware } from './agent-middleware';
 import { LlmAccountingCallbackHandler } from '../llm/llm-accounting-callback';
 import type { LlmCallStore } from '../llm/llm-call-store';
-import { createOpenAiChatModel } from '../llm/model-factory';
+import { ModelProviderNotConfiguredError, type OpenAiModelFactory } from '../llm/model-factory';
 import { extractOpenAiHostedWebToolCallsFromAgentResult } from '../llm/openai-hosted-web-search';
 import type { AgentMemoryDirectories } from '../memory/file-memory-store';
 import { ToolCallObserver } from './tool-call-observer';
@@ -59,18 +59,31 @@ export class PersonalAgent {
   constructor(
     private readonly storage: AssistantStorage,
     private readonly checkpointer: BaseCheckpointSaver,
+    private readonly modelFactory: OpenAiModelFactory,
   ) {}
 
   async run(request: PersonalAgentRequest): Promise<PersonalAgentResponse> {
-    if (!process.env['OPENAI_API_KEY']) {
+    let configuredModel;
+
+    try {
+      configuredModel = await this.modelFactory.createChatModel(request.model, {
+        includeWebSearchSources: request.enabledToolIds.includes('web_search'),
+      });
+    } catch (error) {
+      if (!(error instanceof ModelProviderNotConfiguredError)) throw error;
+
+      const setup =
+        error.provider === 'openai-api'
+          ? 'Set OPENAI_API_KEY in .env and restart the backend.'
+          : 'Sign in from Model Providers settings or run rdma26 providers:login --provider openai-chatgpt.';
       return {
         content: [
-          'OpenAI is not configured yet, so this is the local backend fallback.',
+          `${error.message} This is the local backend fallback.`,
           '',
           `I stored your message in thread ${request.threadId}.`,
           `The ${this.storage.agent.name} identity file is ready at ${this.storage.soulPath}.`,
           '',
-          'Set OPENAI_API_KEY in .env and restart the backend to use Deep Agents with OpenAI.',
+          setup,
         ].join('\n'),
         usedFallback: true,
         toolCalls: [],
@@ -80,8 +93,8 @@ export class PersonalAgent {
 
     const llmAccounting = new LlmAccountingCallbackHandler(request.llmCallStore, {
       runId: request.runId,
-      provider: 'openai',
-      model: request.model,
+      provider: configuredModel.accountingProvider,
+      model: configuredModel.model,
       purpose: request.isOperatorAgent ? 'operator' : 'chat',
       agentId: this.storage.agent.id,
       threadId: request.threadId,
@@ -92,9 +105,7 @@ export class PersonalAgent {
       virtualMode: true,
     });
     const agent = createDeepAgent({
-      model: createOpenAiChatModel(request.model, {
-        includeWebSearchSources: request.enabledToolIds.includes('web_search'),
-      }),
+      model: configuredModel.instance,
       backend: new CompositeBackend(defaultBackend, {
         '/memory/global/': new FilesystemBackend({
           rootDir: request.memoryDirectories.global,

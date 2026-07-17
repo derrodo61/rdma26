@@ -209,6 +209,7 @@ function health(agentList: readonly AgentProfile[]): HealthResponse {
     agents: agentList,
     defaultAgentId: 'scotty',
     apiKeyConfigured: true,
+    chatGptAuthenticated: false,
     authEnabled: true,
     dataDir: '/tmp/rdma26',
   };
@@ -225,8 +226,9 @@ function modelOptions(ids: readonly string[]): readonly ModelOption[] {
   return ids.map((id) => ({
     id,
     label: id,
-    provider: 'openai',
-    requiresApiKey: true,
+    model: id,
+    provider: 'openai-api',
+    authMethod: 'api_key',
   }));
 }
 
