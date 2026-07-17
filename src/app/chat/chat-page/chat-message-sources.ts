@@ -4,7 +4,7 @@ import type {
   RunContextDetails,
   RunContextToolCall,
 } from '../../../../shared/agent-contracts';
-import type { MessageCostSummary, ResearchSourceSummary } from './chat-page.types';
+import type { MessageRunSummary, ResearchSourceSummary } from './chat-page.types';
 
 interface ResearchToolResult extends Record<string, unknown> {
   readonly answerSourceUrls?: readonly unknown[];
@@ -29,12 +29,13 @@ export function buildMessageResearchSources(
   );
 }
 
-export function buildMessageRunCosts(
+export function buildMessageRunSummaries(
   thread: ChatThread | null,
   runContexts: readonly RunContextDetails[],
-): Readonly<Record<string, MessageCostSummary>> {
-  return runContexts.reduce<Readonly<Record<string, MessageCostSummary>>>(
-    (costsByMessageId, runContext) => mergeMessageRunCosts(costsByMessageId, thread, runContext),
+): Readonly<Record<string, MessageRunSummary>> {
+  return runContexts.reduce<Readonly<Record<string, MessageRunSummary>>>(
+    (summariesByMessageId, runContext) =>
+      mergeMessageRunSummary(summariesByMessageId, thread, runContext),
     {},
   );
 }
@@ -62,14 +63,14 @@ export function mergeMessageResearchSources(
   };
 }
 
-export function mergeMessageRunCosts(
-  current: Readonly<Record<string, MessageCostSummary>>,
+export function mergeMessageRunSummary(
+  current: Readonly<Record<string, MessageRunSummary>>,
   thread: ChatThread | null,
   runContext: RunContextDetails,
-): Readonly<Record<string, MessageCostSummary>> {
-  const costSummary = summarizeRunCosts(runContext.llmCalls ?? []);
+): Readonly<Record<string, MessageRunSummary>> {
+  const runSummary = summarizeRun(runContext);
 
-  if (!costSummary) {
+  if (!runSummary) {
     return current;
   }
 
@@ -81,7 +82,7 @@ export function mergeMessageRunCosts(
 
   return {
     ...current,
-    [messageId]: costSummary,
+    [messageId]: runSummary,
   };
 }
 
@@ -131,7 +132,16 @@ function extractResearchSources(
   return [...sources.values()];
 }
 
-function summarizeRunCosts(llmCalls: readonly LlmCallRecord[]): MessageCostSummary | null {
+function summarizeRun(runContext: RunContextDetails): MessageRunSummary | null {
+  const model = runContext.model.trim();
+  const costs = summarizeRunCosts(runContext.llmCalls ?? []);
+
+  return model || costs.length ? { model, costs } : null;
+}
+
+function summarizeRunCosts(
+  llmCalls: readonly LlmCallRecord[],
+): MessageRunSummary['costs'] {
   const totals = new Map<string, number>();
 
   for (const call of llmCalls) {
@@ -145,11 +155,9 @@ function summarizeRunCosts(llmCalls: readonly LlmCallRecord[]): MessageCostSumma
     );
   }
 
-  const costs = Array.from(totals.entries())
+  return Array.from(totals.entries())
     .map(([currency, amount]) => ({ amount, currency }))
     .sort((left, right) => left.currency.localeCompare(right.currency));
-
-  return costs.length ? { costs } : null;
 }
 
 function resolveAssistantMessageId(

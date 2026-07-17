@@ -4,11 +4,11 @@ import type { ChatThread, ChatThreadSummary } from '../../../../shared/agent-con
 import { AssistantApi } from '../assistant-api';
 import {
   buildMessageResearchSources,
-  buildMessageRunCosts,
+  buildMessageRunSummaries,
   mergeMessageResearchSources,
-  mergeMessageRunCosts,
+  mergeMessageRunSummary,
 } from './chat-message-sources';
-import type { MessageCostSummary, ResearchSourceSummary } from './chat-page.types';
+import type { MessageRunSummary, ResearchSourceSummary } from './chat-page.types';
 
 @Injectable()
 export class ChatThreadState {
@@ -21,7 +21,7 @@ export class ChatThreadState {
   readonly messageResearchSources = signal<
     Readonly<Record<string, readonly ResearchSourceSummary[]>>
   >({});
-  readonly messageRunCosts = signal<Readonly<Record<string, MessageCostSummary>>>({});
+  readonly messageRunSummaries = signal<Readonly<Record<string, MessageRunSummary>>>({});
 
   reset(): void {
     this.selectedAgentId.set('');
@@ -29,7 +29,7 @@ export class ChatThreadState {
     this.activeThread.set(null);
     this.latestRunId.set(null);
     this.messageResearchSources.set({});
-    this.messageRunCosts.set({});
+    this.messageRunSummaries.set({});
   }
 
   async createThread(): Promise<void> {
@@ -124,8 +124,8 @@ export class ChatThreadState {
       this.messageResearchSources.set(
         mergeMessageResearchSources(this.messageResearchSources(), this.activeThread(), runContext),
       );
-      this.messageRunCosts.set(
-        mergeMessageRunCosts(this.messageRunCosts(), this.activeThread(), runContext),
+      this.messageRunSummaries.set(
+        mergeMessageRunSummary(this.messageRunSummaries(), this.activeThread(), runContext),
       );
     } catch {
       return;
@@ -139,7 +139,7 @@ export class ChatThreadState {
       this.messageResearchSources.set(
         buildMessageResearchSources(this.activeThread(), runContexts),
       );
-      this.messageRunCosts.set(buildMessageRunCosts(this.activeThread(), runContexts));
+      this.messageRunSummaries.set(buildMessageRunSummaries(this.activeThread(), runContexts));
     } catch {
       this.clearRunContext();
     }
@@ -148,6 +148,6 @@ export class ChatThreadState {
   private clearRunContext(): void {
     this.latestRunId.set(null);
     this.messageResearchSources.set({});
-    this.messageRunCosts.set({});
+    this.messageRunSummaries.set({});
   }
 }

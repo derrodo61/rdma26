@@ -28,8 +28,11 @@ describe('ChatMessageList', () => {
         },
       ],
     });
-    fixture.componentRef.setInput('messageRunCosts', {
-      'assistant-with-sources': { costs: [{ amount: 0.123456, currency: 'USD' }] },
+    fixture.componentRef.setInput('messageRunSummaries', {
+      'assistant-with-sources': {
+        model: 'chatgpt:gpt-5.4',
+        costs: [{ amount: 0.123456, currency: 'USD' }],
+      },
     });
     fixture.detectChanges();
   });
@@ -46,6 +49,12 @@ describe('ChatMessageList', () => {
 
     expect(root.textContent).toContain('Cost $0.123');
     expect(root.textContent).not.toContain('$0.123456');
+  });
+
+  it('shows the model used for the response', () => {
+    const root = fixture.nativeElement as HTMLElement;
+
+    expect(root.textContent).toContain('Model chatgpt:gpt-5.4');
   });
 
   it('opens message-scoped sources with external links', () => {

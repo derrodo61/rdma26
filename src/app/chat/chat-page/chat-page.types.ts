@@ -10,7 +10,8 @@ export interface ResearchSourceSummary {
   readonly domain: string;
 }
 
-export interface MessageCostSummary {
+export interface MessageRunSummary {
+  readonly model: string;
   readonly costs: readonly {
     readonly amount: number;
     readonly currency: string;

@@ -71,7 +71,7 @@ describe('ChatThreadState', () => {
     expect(state.threads()).toEqual([createdSummary]);
     expect(state.latestRunId()).toBeNull();
     expect(state.messageResearchSources()).toEqual({});
-    expect(state.messageRunCosts()).toEqual({});
+    expect(state.messageRunSummaries()).toEqual({});
     expect(api.createThread).toHaveBeenCalledWith('ronaldo');
   });
 
@@ -109,8 +109,8 @@ describe('ChatThreadState', () => {
     state.messageResearchSources.set({
       old: [{ url: 'https://old.example/source', title: 'Old source', domain: 'old.example' }],
     });
-    state.messageRunCosts.set({
-      old: { costs: [{ amount: 0.01, currency: 'USD' }] },
+    state.messageRunSummaries.set({
+      old: { model: 'gpt-old', costs: [{ amount: 0.01, currency: 'USD' }] },
     });
 
     api.deleteThread.mockResolvedValueOnce({
@@ -127,7 +127,7 @@ describe('ChatThreadState', () => {
     expect(state.threads()).toEqual([replacementSummary]);
     expect(state.latestRunId()).toBeNull();
     expect(state.messageResearchSources()).toEqual({});
-    expect(state.messageRunCosts()).toEqual({});
+    expect(state.messageRunSummaries()).toEqual({});
   });
 
   it('attaches research sources from a run to the matching assistant message', async () => {
@@ -191,8 +191,9 @@ describe('ChatThreadState', () => {
         },
       ],
     });
-    expect(state.messageRunCosts()).toEqual({
+    expect(state.messageRunSummaries()).toEqual({
       [assistantMessage.id]: {
+        model: 'gpt-5.4-mini',
         costs: [{ amount: 0.375, currency: 'USD' }],
       },
     });

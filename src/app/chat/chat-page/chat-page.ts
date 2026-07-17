@@ -62,7 +62,7 @@ export class ChatPage {
   protected readonly activeThread = this.threadState.activeThread;
   protected readonly latestRunId = this.threadState.latestRunId;
   protected readonly messageResearchSources = this.threadState.messageResearchSources;
-  protected readonly messageRunCosts = this.threadState.messageRunCosts;
+  protected readonly messageRunSummaries = this.threadState.messageRunSummaries;
   protected readonly runActivity = this.chatRun.runActivity;
   protected readonly draft = this.chatRun.draft;
   protected readonly isLoading = this.workspace.isLoading;
