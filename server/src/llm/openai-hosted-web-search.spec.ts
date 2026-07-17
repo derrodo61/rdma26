@@ -59,7 +59,7 @@ describe('extractOpenAiHostedWebToolCalls', () => {
     );
   });
 
-  it('uses provider-reported search sources when the final answer has no citations', () => {
+  it('keeps provider-reported search candidates separate from answer citations', () => {
     const calls = extractOpenAiHostedWebToolCalls({
       content: [{ type: 'text', text: 'The final result was 3-1.' }],
       additional_kwargs: {
@@ -82,7 +82,11 @@ describe('extractOpenAiHostedWebToolCalls', () => {
 
     expect(JSON.parse(calls[0]?.result ?? '{}')).toEqual(
       expect.objectContaining({
-        answerSourceUrls: ['https://www.fifa.com/match-report', 'https://apnews.com/match-report'],
+        answerSourceUrls: [],
+        sources: [
+          { url: 'https://www.fifa.com/match-report' },
+          { url: 'https://apnews.com/match-report' },
+        ],
       }),
     );
   });
@@ -126,5 +130,41 @@ describe('extractOpenAiHostedWebToolCalls', () => {
         answerSourceUrls: ['https://angular.dev/reference/releases'],
       }),
     );
+  });
+
+  it('does not copy citations or search actions from an earlier conversation turn', () => {
+    const calls = extractOpenAiHostedWebToolCallsFromAgentResult({
+      messages: [
+        {
+          role: 'assistant',
+          content: [
+            {
+              annotations: [
+                {
+                  type: 'citation',
+                  source: 'url_citation',
+                  url: 'https://example.com/previous-turn',
+                },
+              ],
+            },
+          ],
+          additional_kwargs: {
+            tool_outputs: [{ id: 'ws-old', type: 'web_search_call', action: { type: 'search' } }],
+          },
+        },
+        { role: 'user', content: 'That is wrong. Try again.' },
+        {
+          role: 'assistant',
+          content: [{ type: 'text', text: 'France against Germany.' }],
+          additional_kwargs: {
+            tool_outputs: [{ id: 'ws-new', type: 'web_search_call', action: { type: 'search' } }],
+          },
+        },
+      ],
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.id).toBe('ws-new');
+    expect(JSON.parse(calls[0]?.result ?? '{}').answerSourceUrls).toEqual([]);
   });
 });

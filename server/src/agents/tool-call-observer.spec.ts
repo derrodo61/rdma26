@@ -8,7 +8,7 @@ describe('ToolCallObserver', () => {
 
     observer.handleToolStart(
       { id: ['deepagents', 'read_file'], lc: 1, type: 'not_implemented' },
-      '{"file_path":"/skills/web-research/SKILL.md"}',
+      '{"file_path":"/skills/example/SKILL.md"}',
       'run-1',
       undefined,
       undefined,
@@ -22,7 +22,7 @@ describe('ToolCallObserver', () => {
       {
         id: 'call-1',
         name: 'read_file',
-        args: { file_path: '/skills/web-research/SKILL.md' },
+        args: { file_path: '/skills/example/SKILL.md' },
         result: '# Web research',
       },
     ]);

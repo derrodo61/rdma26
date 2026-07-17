@@ -31,30 +31,17 @@ response metadata and stores them together with final-answer citations. This
 preserves source URLs in run context and the UI even when a model omits citation
 annotations from its final prose.
 
-## Skill Guidance
+## Answer Handling
 
-Every agent receives the built-in `web-research` Deep Agents skill. It provides reusable guidance to:
+Hosted search remains part of the selected model's normal turn. rdma26 returns
+the completed model answer directly and does not reject or rewrite it through a
+separate citation-counting or research-repair workflow. Search actions,
+provider-reported source URLs, final-answer citations, calls, tokens, and latency
+remain available in run context for observability and evaluation.
 
-- identify the exact fact requested before searching;
-- distinguish publication, event, release, scheduled, live, and completed dates or states;
-- prefer primary and authoritative sources;
-- use local-language or regional sources when broad sources are incomplete;
-- continue only when evidence is stale, incomplete, ambiguous, or conflicting;
-- compare dated candidates for latest, last, and next questions;
-- preserve citations and state remaining uncertainty plainly;
-- handle news and developing events with explicit dates, event-date checks,
-  regional and local-language sources, and focused follow-up searches when broad
-  results are noisy. A request about today must not silently fall back to an
-  older recent story, and factual details should cite direct reports rather than
-  publisher homepages.
-
-This is reusable operating guidance, not a hardcoded workflow for one question type.
-
-Deep Agents first injects only the skill name and description. When the model
-decides the skill matches a request, it reads
-`/skills/web-research/SKILL.md` through progressive disclosure. Run context
-records that file read under `skillsUsed`; merely having the skill available is
-not reported as usage.
+The bootloader prompt only asks the model to use hosted search for current or
+uncertain external facts, preserve citations, and state material uncertainty.
+Ordinary web questions do not require a separate research skill.
 
 ## Known-URL Readers
 
@@ -69,4 +56,4 @@ These readers use local HTTP fetching and reject localhost and private-network U
 
 Chat still streams run activity and the final answer through SSE. The current Deep Agents event stream does not preserve all hosted-search citation metadata, so hosted-search runs use the final invocation result to capture search actions and citations reliably. LLM calls remain routed through the accounting-aware model factory.
 
-Research quality, calls, tokens, context size, cost, and latency are measured by the `research` evaluation suite described in [evaluation.md](./evaluation.md).
+Research behavior, citations, calls, tokens, context size, cost, and latency are measured by the `research` evaluation suite described in [evaluation.md](./evaluation.md).

@@ -70,8 +70,8 @@ describe('PersonalAgent bootloader prompt', () => {
     expect(withoutSearch).not.toContain('Web search guidance');
     expect(withSearch).toContain('Web search guidance');
     expect(withSearch).toContain('OpenAI hosted web search is available');
-    expect(withSearch).toContain('read /skills/web-research/SKILL.md');
     expect(withSearch).toContain('Preserve hosted search citations');
+    expect(withSearch).not.toContain('web-research/SKILL.md');
   });
 
   it('adds web page reading guidance only when read_web_page is enabled', () => {
@@ -100,14 +100,8 @@ describe('PersonalAgent bootloader prompt', () => {
 
     expect(withoutReader).not.toContain('Web page reading guidance');
     expect(withReader).toContain('Web page reading guidance');
-    expect(withReader).toContain('inspect public source pages');
-    expect(withReader).toContain('official sources, reputable news/reporting');
-    expect(withReader).toContain(
-      'read the best available source page for each requested item before finalizing the answer',
-    );
-    expect(withReader).toContain(
-      'continue searching or reading until the remaining items are confirmed',
-    );
+    expect(withReader).toContain('when a public URL is already known');
+    expect(withReader).toContain('beyond what hosted search provides');
   });
 
   it('describes the interpreter boundary only when enabled', () => {

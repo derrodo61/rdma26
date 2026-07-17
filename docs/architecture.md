@@ -116,10 +116,10 @@ requirements. Normal capabilities can be granted or revoked per agent.
 Protected capabilities are injected only for their system agent.
 
 The `web_search` capability adds OpenAI's provider-hosted search tool to the
-selected agent model. A built-in `web-research` skill supplies reusable source,
-recency, and uncertainty guidance without introducing a second research model
-or custom orchestration layer. Details are documented in
-[research.md](./research.md).
+selected agent model. Hosted search stays inside the model's normal turn; the
+application records its actions and sources without adding a separate research
+agent, mandatory skill, citation gate, or repair workflow. Details are
+documented in [research.md](./research.md).
 
 The assignable `interpreter` capability adds the official Deep Agents QuickJS
 middleware. It gives an agent an isolated `eval` tool for calculations and

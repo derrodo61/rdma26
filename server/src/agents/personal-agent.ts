@@ -166,7 +166,6 @@ export class PersonalAgent {
         ...toolCallObserver.collected(),
         ...extractOpenAiHostedWebToolCallsFromAgentResult(result),
       ];
-
       emitActivity(request.onActivity, {
         label: `${this.storage.agent.name} is writing the answer`,
       });

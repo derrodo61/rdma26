@@ -261,10 +261,7 @@ async function writeIfMissing(path: string, content: string): Promise<void> {
 async function writeBuiltinSkills(rootDir: string, agent: AgentProfile): Promise<void> {
   const skillsDir = join(rootDir, 'skills');
   await mkdir(skillsDir, { recursive: true });
-
-  const webResearchSkillDir = join(skillsDir, 'web-research');
-  await mkdir(webResearchSkillDir, { recursive: true });
-  await writeFile(join(webResearchSkillDir, 'SKILL.md'), webResearchSkill, 'utf8');
+  await rm(join(skillsDir, 'web-research'), { recursive: true, force: true });
 
   if (agent.id !== 'cost-analyst') {
     return;
@@ -274,39 +271,6 @@ async function writeBuiltinSkills(rootDir: string, agent: AgentProfile): Promise
   await mkdir(skillDir, { recursive: true });
   await writeFile(join(skillDir, 'SKILL.md'), pricingSourceAnalysisSkill, 'utf8');
 }
-
-const webResearchSkill = `---
-name: web-research
-description: "Use this skill before calling web_search for current, changing, uncertain, or externally verifiable information. It defines source selection, recency, stopping, citation, and uncertainty guidance."
----
-
-# Web research
-
-Use the \`web_search\` capability when the answer depends on current or external information. Do not search for stable facts you can answer confidently without the internet.
-
-## Guidance
-
-1. Identify the exact fact or decision the user needs before searching.
-2. Distinguish dates and states carefully: publication date, event date, release date, scheduled event, live event, and completed result are different facts.
-3. Prefer primary and authoritative sources. For regional events, consider local-language and regional sources when broad sources are incomplete.
-4. Inspect more results only when the first evidence is stale, incomplete, ambiguous, or conflicting. Stop when the requested facts are sufficiently supported.
-5. For "latest", "last", or "next" questions, compare dated candidates before choosing one.
-6. Use more than one independent source for high-stakes or rapidly changing claims when practical.
-7. Preserve the hosted search citations in the answer. Cite only sources that support the claims you make.
-8. State uncertainty plainly when reliable evidence is missing or conflicts remain.
-
-## News requests
-
-For current news and developing events:
-
-1. Include the event, location, relevant names, and an explicit date or time window in the first search. Interpret relative terms such as "today" using the exact local calendar date in the runtime's user-profile context. Keep that date consistent in searches and the final answer.
-2. Prefer sources that actually report the requested event: official statements and reputable news organizations. For regional stories, search local-language and regional news sources instead of relying only on large international publishers.
-3. Check both the publication date and the event date. When the user asks about "today", open a direct article or official-statement page and confirm its displayed date before claiming that it is from today. Accept only reporting or an event from that calendar date unless the answer clearly says that no reliable same-day result was found. Do not infer freshness from search ranking, snippets, a topic page, or a publisher homepage. Do not silently substitute an older recent story or an old article about a similar event.
-4. If the first result does not match the requested date, location, or event, search again. Narrow the follow-up query with the exact date, location, local-language terms, or a relevant source domain. Do not restrict every news search to a fixed publisher list.
-5. For developing stories, distinguish confirmed facts from early reports and say when details may still change.
-6. Cite direct article or official-statement pages for factual event details. A publisher homepage, topic page, or search-results page may support that a story is prominent, but it is not sufficient evidence for the event details or date by itself.
-7. Stop once the requested facts are supported by sufficiently recent and directly relevant evidence. Do not add extra searches merely to collect more headlines.
-`;
 
 const pricingSourceAnalysisSkill = `---
 name: pricing-source-analysis

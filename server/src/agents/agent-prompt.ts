@@ -24,16 +24,12 @@ You may use admin tools when they are available to create agents, rename agents,
     ? `
 Web search guidance:
 - OpenAI hosted web search is available. Use it for current, recent, fast-changing, or uncertain external facts.
-- Before the first web_search call in a run, read /skills/web-research/SKILL.md and follow it.
-- Preserve hosted search citations in the final answer.`
+- Preserve hosted search citations in the final answer and state material uncertainty plainly.`
     : '';
   const webPageReaderGuidance = hasWebPageReader
     ? `
 Web page reading guidance:
-- Use read_web_page to inspect public source pages when search snippets do not contain enough evidence.
-- Prefer reading official sources, reputable news/reporting, event pages, or result pages over generic search result snippets.
-- For precise current-list and current-result questions, read the best available source page for each requested item before finalizing the answer.
-- If a source page confirms only one item in a requested list, continue searching or reading until the remaining items are confirmed or explicitly mark them as unverified.
+- Use read_web_page when a public URL is already known and its page text is needed beyond what hosted search provides.
 - Do not use read_web_page for private, local, or internal URLs.`
     : '';
   const interpreterGuidance = hasInterpreter

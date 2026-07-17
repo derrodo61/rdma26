@@ -382,9 +382,10 @@ a second run still relabeled a 12 July story as today's news.
 
 The runtime now supplies an explicit ISO local calendar date as the
 authoritative meaning of "today", in addition to the localized date and time.
-The web-research skill requires same-day claims to confirm the displayed date
-on a direct article or official statement and forbids inferring freshness from
-search ranking, snippets, homepages, or topic pages.
+At the time of this historical evaluation, the now-removed web-research skill
+required same-day claims to confirm the displayed date on a direct article or
+official statement and forbade inferring freshness from search ranking,
+snippets, homepages, or topic pages.
 
 The final focused rerun with `gpt-5.4` behaved correctly:
 

@@ -85,7 +85,7 @@ describe('extractSkillUsages', () => {
       extractSkillUsages([
         {
           name: 'read_file',
-          args: { file_path: '/skills/web-research/SKILL.md', limit: 500 },
+          args: { file_path: '/skills/example/SKILL.md', limit: 500 },
         },
         {
           name: 'read_file',
@@ -94,8 +94,8 @@ describe('extractSkillUsages', () => {
       ]),
     ).toEqual([
       {
-        name: 'web-research',
-        path: '/skills/web-research/SKILL.md',
+        name: 'example',
+        path: '/skills/example/SKILL.md',
       },
     ]);
   });

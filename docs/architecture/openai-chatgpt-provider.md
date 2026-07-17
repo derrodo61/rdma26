@@ -126,6 +126,10 @@ pricing, and other public Platform APIs continue to require `OPENAI_API_KEY`.
 - A stored `web_search` grant is passed to ChatGPT/Codex runs without changing
   the agent configuration. The Codex Responses backend remains authoritative
   for model-specific support.
+- Citation extraction is scoped to the current conversation turn and retained
+  for observability. The completed hosted-search answer is returned directly;
+  the application does not add a citation-counting rejection gate or a separate
+  repair turn.
 
 ## Acceptance Criteria
 

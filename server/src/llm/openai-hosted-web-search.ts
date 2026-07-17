@@ -19,7 +19,6 @@ export function extractOpenAiHostedWebToolCalls(
     const action = readProperty<Record<string, unknown>>(output, 'action') ?? {};
     const actionSources = extractActionSources(action);
     const sources = mergeSources(citations, actionSources);
-    const answerSources = citations.length ? citations : actionSources;
 
     return [
       {
@@ -28,7 +27,7 @@ export function extractOpenAiHostedWebToolCalls(
         args: action,
         result: JSON.stringify({
           action,
-          answerSourceUrls: answerSources.map((source) => source.url),
+          answerSourceUrls: citations.map((source) => source.url),
           sources,
         }),
       },
@@ -40,10 +39,15 @@ export function extractOpenAiHostedWebToolCallsFromAgentResult(
   result: unknown,
 ): readonly RunContextToolCall[] {
   const messages = readProperty<unknown[]>(result, 'messages') ?? [];
+  const currentTurnMessages = messages.slice(findCurrentTurnStart(messages));
   const citations = mergeSources(
-    ...messages.map((message) => extractUrlCitations(readProperty<unknown>(message, 'content'))),
+    ...currentTurnMessages.map((message) =>
+      extractUrlCitations(readProperty<unknown>(message, 'content')),
+    ),
   );
-  return messages.flatMap((message) => extractOpenAiHostedWebToolCalls(message, citations));
+  return currentTurnMessages.flatMap((message) =>
+    extractOpenAiHostedWebToolCalls(message, citations),
+  );
 }
 
 interface WebSource {
@@ -90,6 +94,19 @@ function mergeSources(...groups: readonly (readonly WebSource[])[]): readonly We
   }
 
   return [...sources.values()];
+}
+
+function findCurrentTurnStart(messages: readonly unknown[]): number {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    const role = readProperty<string>(message, 'role');
+    const getType = readProperty<() => string>(message, 'getType');
+    const type = typeof getType === 'function' ? getType.call(message) : undefined;
+
+    if (role === 'user' || role === 'human' || type === 'human') return index;
+  }
+
+  return 0;
 }
 
 function readProperty<T>(value: unknown, key: string): T | undefined {
