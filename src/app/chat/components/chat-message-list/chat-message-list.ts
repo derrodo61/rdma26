@@ -1,10 +1,12 @@
 import { Component, input, signal } from '@angular/core';
 
 import type {
+  MessageCostSummary,
   RenderedChatMessage,
   ResearchSourceSummary,
   RunActivity,
 } from '../../chat-page/chat-page.types';
+import { formatCost } from '../../../shared/cost-format';
 
 @Component({
   selector: 'app-chat-message-list',
@@ -17,10 +19,19 @@ export class ChatMessageList {
   readonly runActivity = input.required<RunActivity | null>();
   readonly messageResearchSources =
     input.required<Readonly<Record<string, readonly ResearchSourceSummary[]>>>();
+  readonly messageRunCosts = input.required<Readonly<Record<string, MessageCostSummary>>>();
   protected readonly openSourcesMessageId = signal<string | null>(null);
 
   protected sourcesForMessage(messageId: string): readonly ResearchSourceSummary[] {
     return this.messageResearchSources()[messageId] ?? [];
+  }
+
+  protected costForMessage(messageId: string): MessageCostSummary | null {
+    return this.messageRunCosts()[messageId] ?? null;
+  }
+
+  protected formatMessageCost(cost: MessageCostSummary): string {
+    return cost.costs.map(({ amount, currency }) => formatCost(amount, currency)).join(' + ');
   }
 
   protected isSourcesOpen(messageId: string): boolean {

@@ -1,9 +1,10 @@
 import type {
   ChatThread,
+  LlmCallRecord,
   RunContextDetails,
   RunContextToolCall,
 } from '../../../../shared/agent-contracts';
-import type { ResearchSourceSummary } from './chat-page.types';
+import type { MessageCostSummary, ResearchSourceSummary } from './chat-page.types';
 
 interface ResearchToolResult extends Record<string, unknown> {
   readonly answerSourceUrls?: readonly unknown[];
@@ -28,6 +29,16 @@ export function buildMessageResearchSources(
   );
 }
 
+export function buildMessageRunCosts(
+  thread: ChatThread | null,
+  runContexts: readonly RunContextDetails[],
+): Readonly<Record<string, MessageCostSummary>> {
+  return runContexts.reduce<Readonly<Record<string, MessageCostSummary>>>(
+    (costsByMessageId, runContext) => mergeMessageRunCosts(costsByMessageId, thread, runContext),
+    {},
+  );
+}
+
 export function mergeMessageResearchSources(
   current: Readonly<Record<string, readonly ResearchSourceSummary[]>>,
   thread: ChatThread | null,
@@ -48,6 +59,29 @@ export function mergeMessageResearchSources(
   return {
     ...current,
     [messageId]: sources,
+  };
+}
+
+export function mergeMessageRunCosts(
+  current: Readonly<Record<string, MessageCostSummary>>,
+  thread: ChatThread | null,
+  runContext: RunContextDetails,
+): Readonly<Record<string, MessageCostSummary>> {
+  const costSummary = summarizeRunCosts(runContext.llmCalls ?? []);
+
+  if (!costSummary) {
+    return current;
+  }
+
+  const messageId = resolveAssistantMessageId(thread, runContext, current);
+
+  if (!messageId) {
+    return current;
+  }
+
+  return {
+    ...current,
+    [messageId]: costSummary,
   };
 }
 
@@ -97,10 +131,31 @@ function extractResearchSources(
   return [...sources.values()];
 }
 
+function summarizeRunCosts(llmCalls: readonly LlmCallRecord[]): MessageCostSummary | null {
+  const totals = new Map<string, number>();
+
+  for (const call of llmCalls) {
+    if (call.estimatedTotalCost === undefined || !call.estimatedCostCurrency) {
+      continue;
+    }
+
+    totals.set(
+      call.estimatedCostCurrency,
+      (totals.get(call.estimatedCostCurrency) ?? 0) + call.estimatedTotalCost,
+    );
+  }
+
+  const costs = Array.from(totals.entries())
+    .map(([currency, amount]) => ({ amount, currency }))
+    .sort((left, right) => left.currency.localeCompare(right.currency));
+
+  return costs.length ? { costs } : null;
+}
+
 function resolveAssistantMessageId(
   thread: ChatThread | null,
   runContext: RunContextDetails,
-  current: Readonly<Record<string, readonly ResearchSourceSummary[]>>,
+  current: Readonly<Record<string, unknown>>,
 ): string | null {
   if (
     runContext.assistantMessageId &&

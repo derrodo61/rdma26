@@ -26,22 +26,29 @@
               [innerHTML]="message.renderedContent"
             ></div>
             @if (sourcesForMessage(message.id); as messageSources) {
-              @if (messageSources.length) {
-                <div class="mt-3">
-                  <button
-                    type="button"
-                    class="rounded-full px-3 py-1 text-xs font-medium text-text-muted hover:bg-surface hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
-                    [attr.aria-expanded]="isSourcesOpen(message.id)"
-                    [attr.aria-controls]="'sources-' + message.id"
-                    (click)="toggleSources(message.id)"
-                  >
-                    Sources {{ messageSources.length }}
-                  </button>
+              @if (costForMessage(message.id); as messageCost) {
+                <div class="mt-3 flex flex-wrap items-center justify-end gap-2">
+                  @if (messageSources.length) {
+                    <button
+                      type="button"
+                      class="rounded-full px-3 py-1 text-xs font-medium text-text-muted hover:bg-surface hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                      [attr.aria-expanded]="isSourcesOpen(message.id)"
+                      [attr.aria-controls]="'sources-' + message.id"
+                      (click)="toggleSources(message.id)"
+                    >
+                      Sources {{ messageSources.length }}
+                    </button>
+                  }
+                  <span class="px-3 py-1 text-xs font-medium text-text-muted">
+                    Cost {{ formatMessageCost(messageCost) }}
+                  </span>
+                </div>
 
+                @if (messageSources.length) {
                   @if (isSourcesOpen(message.id)) {
                     <div
                       [id]="'sources-' + message.id"
-                      class="mt-2 w-full max-w-lg rounded-2xl border border-border bg-surface p-3 shadow-lg"
+                      class="ml-auto mt-2 w-full max-w-lg rounded-2xl border border-border bg-surface p-3 shadow-lg"
                     >
                       <ul class="space-y-2">
                         @for (source of messageSources; track source.url) {
@@ -62,7 +69,46 @@
                       </ul>
                     </div>
                   }
-                </div>
+                }
+              } @else {
+                @if (messageSources.length) {
+                  <div class="mt-3 flex justify-end">
+                    <button
+                      type="button"
+                      class="rounded-full px-3 py-1 text-xs font-medium text-text-muted hover:bg-surface hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                      [attr.aria-expanded]="isSourcesOpen(message.id)"
+                      [attr.aria-controls]="'sources-' + message.id"
+                      (click)="toggleSources(message.id)"
+                    >
+                      Sources {{ messageSources.length }}
+                    </button>
+                  </div>
+
+                  @if (isSourcesOpen(message.id)) {
+                    <div
+                      [id]="'sources-' + message.id"
+                      class="ml-auto mt-2 w-full max-w-lg rounded-2xl border border-border bg-surface p-3 shadow-lg"
+                    >
+                      <ul class="space-y-2">
+                        @for (source of messageSources; track source.url) {
+                          <li class="min-w-0">
+                            <a
+                              class="block truncate text-sm text-text hover:underline"
+                              [href]="source.url"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {{ source.title }}
+                            </a>
+                            <p class="truncate text-xs text-text-muted">
+                              {{ source.domain }}
+                            </p>
+                          </li>
+                        }
+                      </ul>
+                    </div>
+                  }
+                }
               }
             }
           } @else {

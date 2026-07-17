@@ -5,6 +5,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import type { LlmCallRecord, RunContextDetails } from '../../../../shared/agent-contracts';
 import { AssistantApi } from '../../chat/assistant-api';
+import { formatCost } from '../../shared/cost-format';
 
 @Component({
   selector: 'app-run-context-page',
@@ -146,15 +147,6 @@ function readNonNegativeNumber(
 ): number | null {
   const value = metadata[key];
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
-}
-
-function formatCost(amount: number, currency: string): string {
-  return new Intl.NumberFormat(undefined, {
-    currency,
-    maximumFractionDigits: 6,
-    minimumFractionDigits: 0,
-    style: 'currency',
-  }).format(amount);
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {

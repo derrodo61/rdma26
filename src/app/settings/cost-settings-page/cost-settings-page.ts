@@ -19,6 +19,7 @@ import type {
 import { AssistantApi } from '../../chat/assistant-api';
 import { AppDialog } from '../../shared/app-dialog/app-dialog';
 import { AppSelect, type SelectOption } from '../../shared/app-select/app-select';
+import { formatCost } from '../../shared/cost-format';
 import {
   defaultCustomCostDateRange,
   resolveCostDateRange,
@@ -556,19 +557,6 @@ function parseOptionalNullableNumber(value: string): number | null {
 
 function formatOptionalDraftNumber(value: number | undefined): string {
   return value === undefined ? '' : String(value);
-}
-
-function formatCost(amount: number, currency: string): string {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      currency,
-      maximumFractionDigits: 3,
-      minimumFractionDigits: 0,
-      style: 'currency',
-    }).format(amount);
-  } catch {
-    return `${amount.toFixed(3)} ${currency}`;
-  }
 }
 
 function readNonNegativeNumber(

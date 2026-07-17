@@ -10,6 +10,13 @@ export interface ResearchSourceSummary {
   readonly domain: string;
 }
 
+export interface MessageCostSummary {
+  readonly costs: readonly {
+    readonly amount: number;
+    readonly currency: string;
+  }[];
+}
+
 export interface RunActivity {
   readonly label: string;
   readonly detail?: string;

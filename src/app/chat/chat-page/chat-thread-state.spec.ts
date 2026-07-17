@@ -71,6 +71,7 @@ describe('ChatThreadState', () => {
     expect(state.threads()).toEqual([createdSummary]);
     expect(state.latestRunId()).toBeNull();
     expect(state.messageResearchSources()).toEqual({});
+    expect(state.messageRunCosts()).toEqual({});
     expect(api.createThread).toHaveBeenCalledWith('ronaldo');
   });
 
@@ -108,6 +109,9 @@ describe('ChatThreadState', () => {
     state.messageResearchSources.set({
       old: [{ url: 'https://old.example/source', title: 'Old source', domain: 'old.example' }],
     });
+    state.messageRunCosts.set({
+      old: { costs: [{ amount: 0.01, currency: 'USD' }] },
+    });
 
     api.deleteThread.mockResolvedValueOnce({
       deleted: true,
@@ -123,6 +127,7 @@ describe('ChatThreadState', () => {
     expect(state.threads()).toEqual([replacementSummary]);
     expect(state.latestRunId()).toBeNull();
     expect(state.messageResearchSources()).toEqual({});
+    expect(state.messageRunCosts()).toEqual({});
   });
 
   it('attaches research sources from a run to the matching assistant message', async () => {
@@ -145,6 +150,30 @@ describe('ChatThreadState', () => {
           }),
         },
       ],
+      llmCalls: [
+        {
+          id: 'call-1',
+          runId: 'run-1',
+          provider: 'openai-chatgpt',
+          model: 'gpt-5.4',
+          purpose: 'chat',
+          status: 'success',
+          requestStartedAt: '2026-07-08T00:00:00.000Z',
+          estimatedTotalCost: 0.125,
+          estimatedCostCurrency: 'USD',
+        },
+        {
+          id: 'call-2',
+          runId: 'run-1',
+          provider: 'openai-chatgpt',
+          model: 'gpt-5.4',
+          purpose: 'chat',
+          status: 'success',
+          requestStartedAt: '2026-07-08T00:00:00.000Z',
+          estimatedTotalCost: 0.25,
+          estimatedCostCurrency: 'USD',
+        },
+      ],
     });
 
     state.activeThread.set(activeThread);
@@ -161,6 +190,11 @@ describe('ChatThreadState', () => {
           domain: 'example.com',
         },
       ],
+    });
+    expect(state.messageRunCosts()).toEqual({
+      [assistantMessage.id]: {
+        costs: [{ amount: 0.375, currency: 'USD' }],
+      },
     });
   });
 });

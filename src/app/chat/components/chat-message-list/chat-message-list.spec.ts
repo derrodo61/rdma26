@@ -28,6 +28,9 @@ describe('ChatMessageList', () => {
         },
       ],
     });
+    fixture.componentRef.setInput('messageRunCosts', {
+      'assistant-with-sources': { costs: [{ amount: 0.123456, currency: 'USD' }] },
+    });
     fixture.detectChanges();
   });
 
@@ -36,6 +39,13 @@ describe('ChatMessageList', () => {
 
     expect(buttons).toHaveLength(1);
     expect(buttons[0].textContent?.trim()).toBe('Sources 1');
+  });
+
+  it('shows the response cost with at most three decimal places', () => {
+    const root = fixture.nativeElement as HTMLElement;
+
+    expect(root.textContent).toContain('Cost $0.123');
+    expect(root.textContent).not.toContain('$0.123456');
   });
 
   it('opens message-scoped sources with external links', () => {
