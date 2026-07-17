@@ -276,22 +276,36 @@ export class ModelPricingStore {
   ): Promise<ModelPricingRecord | null> {
     await this.ensureReady();
 
-    const row = this.database
-      .get()
-      .prepare(
-        `
-          select *
-          from model_pricing
-          where provider = ?
-            and model = ?
-            and status = 'active'
-          limit 1
-        `,
-      )
-      .get(provider, model);
+    for (const pricingProvider of pricingLookupProviders(provider)) {
+      const row = this.database
+        .get()
+        .prepare(
+          `
+            select *
+            from model_pricing
+            where provider = ?
+              and model = ?
+              and status = 'active'
+            limit 1
+          `,
+        )
+        .get(pricingProvider, model);
 
-    return row ? modelPricingFromRow(row) : null;
+      if (row) {
+        return modelPricingFromRow(row);
+      }
+    }
+
+    return null;
   }
+}
+
+function pricingLookupProviders(provider: string): readonly string[] {
+  if (provider === 'openai-chatgpt') {
+    return ['openai-chatgpt', 'openai'];
+  }
+
+  return [provider];
 }
 
 function modelPricingFromRow(row: unknown): ModelPricingRecord {

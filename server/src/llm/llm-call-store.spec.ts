@@ -100,6 +100,53 @@ describe('LlmCallStore', () => {
     }
   });
 
+  it('estimates ChatGPT login model costs from matching OpenAI pricing', async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-llm-calls-'));
+
+    try {
+      const pricingStore = new ModelPricingStore(dataDir);
+      const store = new LlmCallStore(dataDir, pricingStore);
+      const pricing = await pricingStore.createPricing({
+        provider: 'openai',
+        model: 'gpt-5.4',
+        inputCostPerMillionTokens: 2.5,
+        outputCostPerMillionTokens: 15,
+        cachedInputCostPerMillionTokens: 0.25,
+        sourceUrl: 'https://example.com/pricing',
+      });
+      const runId = crypto.randomUUID();
+      const call = await store.startCall({
+        runId,
+        provider: 'openai-chatgpt',
+        model: 'gpt-5.4',
+        purpose: 'chat',
+      });
+
+      await store.finishCall(call.id, 'success', {
+        inputTokens: 1_000_000,
+        outputTokens: 100_000,
+        totalTokens: 1_100_000,
+        cachedInputTokens: 250_000,
+      });
+
+      await expect(store.listCallsForRun(runId)).resolves.toMatchObject([
+        {
+          id: call.id,
+          provider: 'openai-chatgpt',
+          model: 'gpt-5.4',
+          pricingSnapshotId: pricing.id,
+          estimatedInputCost: 1.875,
+          estimatedOutputCost: 1.5,
+          estimatedCachedInputCost: 0.0625,
+          estimatedTotalCost: 3.4375,
+          estimatedCostCurrency: 'USD',
+        },
+      ]);
+    } finally {
+      await rm(dataDir, { recursive: true, force: true });
+    }
+  });
+
   it('summarizes estimated costs by model', async () => {
     const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-llm-calls-'));
 

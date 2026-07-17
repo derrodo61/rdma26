@@ -103,6 +103,12 @@ Pricing records are unique by provider and model. A record contains the prices
 needed by the current estimator, its currency, source URL, retrieval metadata,
 and active state.
 
+The ChatGPT/Codex provider remains a separate provider for authentication and
+model routing. For cost estimates, `openai-chatgpt` first looks for its own
+active pricing record, then falls back to the matching `openai` model pricing
+when no provider-specific record exists. This makes subscription-backed usage
+visible as an estimate; it is not an OpenAI subscription invoice.
+
 The OpenAI sync path reads the configured official pricing source and updates
 saved model prices. It also reads the official model page for the configured
 OpenAI embedding model and creates that pricing record when it is missing.
