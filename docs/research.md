@@ -4,7 +4,7 @@ rdma26 uses OpenAI's provider-hosted web search as its normal internet-search ca
 
 ## Configuration
 
-Grant the `web_search` capability to an agent through the UI, API, or CLI. The capability requires `OPENAI_API_KEY` and uses the model selected for that chat run.
+Grant the `web_search` capability to an agent through the UI, API, or CLI. The capability uses the model selected for that chat run and works with configured OpenAI API models or supported ChatGPT/Codex models.
 
 ```bash
 ./bin/rdma26 agents:tools:grant --agent ronaldo --tool web_search

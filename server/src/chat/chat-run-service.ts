@@ -13,7 +13,6 @@ import { createAdminTools, listAdminToolDefinitions } from '../capabilities/admi
 import type { CapabilityRegistry } from '../capabilities/capability-registry';
 import { createMemoryReadTools, createMemoryTools } from '../capabilities/memory-tools';
 import { createConversationTools } from '../capabilities/conversation-tools';
-import { resolveEffectiveCapabilities } from '../capabilities/model-capability-policy';
 import type { FileMemoryStore } from '../memory/file-memory-store';
 import type { UserProfileStore } from '../profiles/user-profile-store';
 import type { LlmCallStore } from '../llm/llm-call-store';
@@ -59,9 +58,9 @@ export class ChatRunService {
 
     const memoryReadsEnabled = storage.agent.memory.canRead;
     const memoryWritesEnabled = storage.agent.memory.canWrite;
-    const effectiveCapabilities = resolveEffectiveCapabilities(model, storage.agent.enabledTools);
+    const enabledCapabilityIds = storage.agent.enabledTools;
     const tools = [
-      ...this.capabilities.createRunnableTools(effectiveCapabilities.enabledCapabilityIds),
+      ...this.capabilities.createRunnableTools(enabledCapabilityIds),
       ...(memoryReadsEnabled
         ? createMemoryReadTools(this.runtime, storage.agent.id, {
             runId,
@@ -76,7 +75,7 @@ export class ChatRunService {
     ];
     const toolContext = this.runContextToolsFor(
       storage.agent.id,
-      effectiveCapabilities.enabledCapabilityIds,
+      enabledCapabilityIds,
       memoryReadsEnabled,
       memoryWritesEnabled,
     );
@@ -101,7 +100,7 @@ export class ChatRunService {
       userProfile,
       pinnedMemories,
       tools: toolContext,
-      withheldCapabilities: effectiveCapabilities.withheldCapabilities,
+      withheldCapabilities: [],
       memoryReadsEnabled,
       memoryWritesEnabled,
     };
@@ -116,7 +115,7 @@ export class ChatRunService {
         threadId: request.threadId,
         model,
         tools,
-        enabledToolIds: effectiveCapabilities.enabledCapabilityIds,
+        enabledToolIds: enabledCapabilityIds,
         isOperatorAgent: isSystemOperatorAgent(storage.agent.id, this.registry.getDefaultAgentId()),
         userProfile,
         soulContent,

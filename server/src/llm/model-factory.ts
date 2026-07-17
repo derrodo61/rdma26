@@ -50,12 +50,6 @@ export class OpenAiModelFactory {
     const tokens = await this.chatGptAuth.validTokens();
     if (!tokens) throw new ModelProviderNotConfiguredError('openai-chatgpt');
 
-    if (options.includeWebSearchSources) {
-      throw new Error(
-        'OpenAI hosted web search is not supported by the experimental ChatGPT/Codex provider.',
-      );
-    }
-
     return {
       ...selection,
       accountingProvider: 'openai-chatgpt',
@@ -66,6 +60,13 @@ export class OpenAiModelFactory {
         useResponsesApi: true,
         zdrEnabled: true,
         streaming: true,
+        ...(options.includeWebSearchSources
+          ? {
+              modelKwargs: {
+                include: ['web_search_call.action.sources'],
+              },
+            }
+          : {}),
         configuration: {
           baseURL: codexResponsesBaseUrl,
           defaultHeaders: {

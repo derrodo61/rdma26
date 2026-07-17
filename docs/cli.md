@@ -53,8 +53,8 @@ rdma26 agents:model:set --agent research --model gpt-4.1-mini
 ```
 
 `agents:model:set` changes the chat model. The same selected model powers hosted
-web search when `web_search` is enabled and the model uses the public OpenAI API
-provider. ChatGPT/Codex runs retain but withhold that grant.
+web search when `web_search` is enabled and the selected provider and model
+support it.
 
 ### Read an agent soul.md
 

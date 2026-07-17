@@ -232,7 +232,7 @@ Cost Analyst can use configured pricing sources through controlled tools and its
 
 Returns registered tools and their availability.
 
-- `web_search` is OpenAI's provider-hosted search capability. It is available when `OPENAI_API_KEY` is configured and uses the model selected for the chat run.
+- `web_search` is OpenAI's provider-hosted search capability. It is available with configured OpenAI API models and supported ChatGPT/Codex models, and uses the model selected for the chat run.
 - `read_web_page` is a low-level public web page reader.
 - `read_web_page_structure` fetches a known public web page and returns structured content with focused modes: `overview`, `markdown`, `article`, `headings`, `links`, `lists`, `tables`, and `full`. Use a narrow mode and optional `query` when page structure matters.
 

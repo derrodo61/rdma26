@@ -91,17 +91,18 @@ No API-price estimate is inferred for subscription-backed calls.
 
 ## Capability Matrix
 
-| Capability                               | `openai-api`   | `openai-chatgpt`          |
-| ---------------------------------------- | -------------- | ------------------------- |
-| Chat and Deep Agents tool calls          | Yes            | Experimental              |
-| Token refresh                            | Not applicable | Yes                       |
-| OpenAI hosted web search                 | Yes            | No in this implementation |
-| Embeddings and semantic memory index     | Yes            | No                        |
-| Pricing sync and Platform administration | Yes            | No                        |
+| Capability                               | `openai-api`   | `openai-chatgpt`         |
+| ---------------------------------------- | -------------- | ------------------------ |
+| Chat and Deep Agents tool calls          | Yes            | Experimental             |
+| Token refresh                            | Not applicable | Yes                      |
+| OpenAI hosted web search                 | Yes            | Yes for supported models |
+| Embeddings and semantic memory index     | Yes            | No                       |
+| Pricing sync and Platform administration | Yes            | No                       |
 
 The ChatGPT provider is deliberately limited to model calls verified through
-the Codex Responses transport. Embeddings, hosted web search, pricing, and
-other public Platform APIs continue to require `OPENAI_API_KEY`.
+the Codex Responses transport. Hosted web search grants are passed through to
+that transport, which validates support for the selected model. Embeddings,
+pricing, and other public Platform APIs continue to require `OPENAI_API_KEY`.
 
 ## Application Surfaces
 
@@ -122,9 +123,9 @@ other public Platform APIs continue to require `OPENAI_API_KEY`.
   account identity, and refresh failure are surfaced without token contents.
 - Only one login flow may be pending in a backend process.
 - Starting a second process while port 1455 is occupied returns a clear error.
-- A stored `web_search` grant is withheld from ChatGPT/Codex runs without
-  changing the agent configuration. The run context records why it was
-  unavailable; API-backed runs continue to receive the grant.
+- A stored `web_search` grant is passed to ChatGPT/Codex runs without changing
+  the agent configuration. The Codex Responses backend remains authoritative
+  for model-specific support.
 
 ## Acceptance Criteria
 
@@ -135,9 +136,10 @@ other public Platform APIs continue to require `OPENAI_API_KEY`.
 - Model construction carries the required Codex endpoint and headers.
 - Accounting records the correct provider and raw model.
 - API, CLI, and UI expose consistent provider status and login/logout behavior.
-- Embeddings and hosted web search remain API-key-only.
+- Hosted web search works with supported ChatGPT/Codex models; embeddings remain
+  API-key-only.
 - Unit tests cover identity decoding, expiry, completed OAuth persistence,
-  request adaptation, model resolution, provider-specific capabilities, and
+  request adaptation, model resolution, hosted search source passthrough, and
   provider status.
 - Formatting, linting, frontend tests, backend tests, build, and type checking
   pass.

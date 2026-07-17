@@ -27,7 +27,7 @@ describe('resolveModelSelection', () => {
 });
 
 describe('OpenAiModelFactory', () => {
-  it('reports missing ChatGPT login before capability compatibility errors', async () => {
+  it('reports missing ChatGPT login when hosted web search is requested', async () => {
     const factory = new OpenAiModelFactory({
       validTokens: async () => null,
     } as OpenAiChatGptAuthService);
@@ -37,6 +37,27 @@ describe('OpenAiModelFactory', () => {
         includeWebSearchSources: true,
       }),
     ).rejects.toBeInstanceOf(ModelProviderNotConfiguredError);
+  });
+
+  it('creates a logged-in ChatGPT model with hosted web-search source collection', async () => {
+    const factory = new OpenAiModelFactory({
+      validTokens: async () => ({
+        accessToken: 'access-token',
+        refreshToken: 'refresh-token',
+        accountId: 'account-id',
+        expiresAt: Date.now() + 60_000,
+      }),
+    } as OpenAiChatGptAuthService);
+
+    const configured = await factory.createChatModel('chatgpt:gpt-5.4', {
+      includeWebSearchSources: true,
+    });
+
+    expect(configured.provider).toBe('openai-chatgpt');
+    expect(configured.model).toBe('gpt-5.4');
+    expect(configured.instance.modelKwargs).toEqual({
+      include: ['web_search_call.action.sources'],
+    });
   });
 });
 
@@ -48,19 +69,23 @@ describe('createCodexFetch', () => {
     await codexFetch('https://chatgpt.com/backend-api/codex/responses', {
       method: 'POST',
       body: JSON.stringify({
+        include: ['web_search_call.action.sources'],
         input: [
           { role: 'system', content: 'System instructions' },
           { role: 'user', content: 'Hello' },
         ],
+        tools: [{ type: 'web_search', search_context_size: 'medium' }],
       }),
     });
 
     const init = fetchImplementation.mock.calls[0]?.[1];
     expect(JSON.parse(String(init?.body))).toEqual({
+      include: ['web_search_call.action.sources'],
       input: [
         { role: 'developer', content: 'System instructions' },
         { role: 'user', content: 'Hello' },
       ],
+      tools: [{ type: 'web_search', search_context_size: 'medium' }],
     });
   });
 });
