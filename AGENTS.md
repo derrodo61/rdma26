@@ -89,6 +89,7 @@ Build the actual personal-assistant experience, not a marketing page or an SDK d
 - Add or update stable behavioral evaluations when changing agent prompts, tools, skills, memory retrieval, delegation, or context construction. A single successful example is not sufficient evidence of general reliability.
 - Run formatting, linting, type checking, and tests before considering implementation complete.
 - For UI work, run the app locally and verify it in a browser at desktop and mobile widths.
+- Browser verification with Playwright must authenticate through the local login UI first when auth is enabled. Use the local `.env` credentials without printing secrets, then continue checks in the authenticated chat screen.
 
 ## Change Discipline
 

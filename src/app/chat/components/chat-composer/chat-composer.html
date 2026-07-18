@@ -23,7 +23,7 @@
     <textarea
       #composerInput
       id="message"
-      class="composer-input min-h-[4.5rem] w-full resize-none overflow-hidden bg-transparent px-4 py-3 leading-6 focus:outline-none"
+      class="composer-input max-h-[min(50dvh,32rem)] min-h-[4.5rem] w-full resize-none overflow-y-auto bg-transparent px-4 py-3 leading-6 focus:outline-none"
       placeholder="Write to your assistant"
       [ngModel]="draft()"
       name="message"

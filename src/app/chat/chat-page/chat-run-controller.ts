@@ -19,6 +19,10 @@ export class ChatRunController {
     this.draft.set(value);
   }
 
+  clearDraft(): void {
+    this.draft.set('');
+  }
+
   clearError(): void {
     this.error.set(null);
   }

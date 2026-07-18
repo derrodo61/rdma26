@@ -53,6 +53,12 @@ export class ChatComposer {
       return;
     }
 
+    if (!this.draft().trim()) {
+      input.style.height = '';
+      input.scrollTop = 0;
+      return;
+    }
+
     input.style.height = 'auto';
     input.style.height = `${input.scrollHeight}px`;
   }

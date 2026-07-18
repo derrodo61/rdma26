@@ -22,6 +22,8 @@ features.
 - [Memory](./memory.md): current thread state, long-term memory, semantic
   retrieval, and user controls.
 - [Web research](./research.md): hosted search, source handling, and known-URL readers.
+- [Interpreter capability](./interpreter.md): QuickJS interpreter boundary,
+  runtime behavior, observability, and testing.
 - [Observability and costs](./observability.md): LLM and embedding accounting,
   pricing, run context, and cost estimates.
 - [Agent evaluation](./evaluation.md): versioned cases, reproducible live runs,

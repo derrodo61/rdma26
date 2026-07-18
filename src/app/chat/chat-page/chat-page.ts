@@ -116,7 +116,10 @@ export class ChatPage {
       return;
     }
 
-    await this.handleAsync(async () => this.threadState.createThread());
+    await this.handleAsync(async () => {
+      this.chatRun.clearDraft();
+      await this.threadState.createThread();
+    });
   }
 
   protected async selectThread(threadId: string): Promise<void> {
@@ -126,7 +129,10 @@ export class ChatPage {
       return;
     }
 
-    await this.handleAsync(async () => this.threadState.selectThread(threadId));
+    await this.handleAsync(async () => {
+      this.chatRun.clearDraft();
+      await this.threadState.selectThread(threadId);
+    });
   }
 
   protected async deleteThread(threadId: string): Promise<void> {
@@ -143,7 +149,10 @@ export class ChatPage {
       return;
     }
 
-    await this.handleAsync(async () => this.threadState.deleteThread(threadId));
+    await this.handleAsync(async () => {
+      this.chatRun.clearDraft();
+      await this.threadState.deleteThread(threadId);
+    });
   }
 
   protected async selectAgent(agentId: string): Promise<void> {
