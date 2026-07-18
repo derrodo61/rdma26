@@ -154,10 +154,7 @@ export class PersonalAgent {
     };
 
     if (request.enabledToolIds.includes('web_search')) {
-      const toolCallObserver = new ToolCallObserver();
-      emitActivity(request.onActivity, {
-        label: `${this.storage.agent.name} is searching the web`,
-      });
+      const toolCallObserver = new ToolCallObserver(request.onActivity);
       const result: unknown = await agent.invoke(agentInput, {
         ...agentConfig,
         callbacks: [...agentConfig.callbacks, toolCallObserver],

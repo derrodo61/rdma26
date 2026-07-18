@@ -126,6 +126,8 @@ describe('PersonalAgent bootloader prompt', () => {
     expect(withInterpreter).toContain('Interpreter guidance');
     expect(withInterpreter).toContain('isolated JavaScript interpreter');
     expect(withInterpreter).toContain('sorting, filtering, grouping');
+    expect(withInterpreter).toContain('multiple rows, grouping, sorting');
+    expect(withInterpreter).toContain('Do not solve these tasks by mental arithmetic');
     expect(withInterpreter).toContain('no host filesystem, network, shell');
   });
 });

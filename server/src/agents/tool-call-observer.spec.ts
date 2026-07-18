@@ -27,4 +27,22 @@ describe('ToolCallObserver', () => {
       },
     ]);
   });
+
+  it('emits activity when a tool starts', () => {
+    const activities: string[] = [];
+    const observer = new ToolCallObserver((activity) => activities.push(activity.label));
+
+    observer.handleToolStart(
+      { id: ['langchain', 'eval'], lc: 1, type: 'not_implemented' },
+      '{"code":"1+1"}',
+      'run-1',
+      undefined,
+      undefined,
+      undefined,
+      'eval',
+      'call-1',
+    );
+
+    expect(activities).toEqual(['Using eval']);
+  });
 });

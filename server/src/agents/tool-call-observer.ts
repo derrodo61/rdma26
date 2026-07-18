@@ -2,6 +2,8 @@ import { BaseCallbackHandler } from '@langchain/core/callbacks/base';
 import type { Serialized } from '@langchain/core/load/serializable';
 
 import type { RunContextToolCall } from '../../../shared/agent-contracts';
+import type { AgentActivityCallback } from './agent-activity';
+import { emitActivity } from './agent-activity';
 
 interface PendingToolCall {
   readonly id: string;
@@ -14,7 +16,7 @@ export class ToolCallObserver extends BaseCallbackHandler {
   name = 'rdma26-tool-call-observer';
   private readonly calls = new Map<string, PendingToolCall>();
 
-  constructor() {
+  constructor(private readonly onActivity?: AgentActivityCallback) {
     super({ _awaitHandler: true });
   }
 
@@ -28,10 +30,14 @@ export class ToolCallObserver extends BaseCallbackHandler {
     runName?: string,
     toolCallId?: string,
   ): void {
+    const name = readToolName(tool, runName);
     this.calls.set(runId, {
       id: toolCallId ?? runId,
-      name: readToolName(tool, runName),
+      name,
       args: parseToolInput(input),
+    });
+    emitActivity(this.onActivity, {
+      label: name ? `Using ${formatToolName(name)}` : 'Using a tool',
     });
   }
 
@@ -74,4 +80,8 @@ function stringifyToolOutput(output: unknown): string {
   } catch {
     return String(output);
   }
+}
+
+function formatToolName(name: string): string {
+  return name.replace(/_/g, ' ');
 }
