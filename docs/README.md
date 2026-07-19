@@ -13,6 +13,8 @@ features.
 
 - [Architecture](./architecture.md): current frontend, backend, agent runtime,
   data flow, and service boundaries.
+- [Agent context window](./context-window.md): how model-visible context is
+  assembled, ordered, expanded, and compacted during a run.
 - [Backend structure](./backend.md): backend folder ownership and dependency
   direction.
 - [OpenAI ChatGPT/Codex provider](./architecture/openai-chatgpt-provider.md):

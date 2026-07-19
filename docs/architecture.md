@@ -130,15 +130,14 @@ for file work or controlled application execution.
 
 ## Memory And Context
 
-The runtime keeps distinct context layers:
+The model-visible context combines the rdma26 bootloader, Deep Agents runtime
+instructions, current-thread state, pinned memory, available tool definitions,
+and any tool results added during the run. Its exact sources, ordering,
+on-demand expansion, and compaction are documented in
+[context-window.md](./context-window.md).
 
-1. `soul.md` for stable agent identity;
-2. skills for reusable instructions;
-3. LangGraph checkpoint state for the current thread;
-4. scoped Markdown files for curated long-term memory;
-5. stored past conversations searched on demand.
-
-Long-term memory details are documented in [memory.md](./memory.md).
+Long-term memory storage, scopes, retrieval, and controls are documented in
+[memory.md](./memory.md).
 
 ## Models And Accounting
 
