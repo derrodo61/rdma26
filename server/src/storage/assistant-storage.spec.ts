@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { AgentProfile } from '../../../shared/agent-contracts';
 import { createAssistantStorage } from './assistant-storage';
 
-describe('AssistantStorage built-in skills', () => {
+describe('AssistantStorage skill ownership', () => {
   const temporaryDirectories: string[] = [];
 
   afterEach(async () => {
@@ -16,19 +16,23 @@ describe('AssistantStorage built-in skills', () => {
     );
   });
 
-  it('removes the obsolete web-research skill from existing agents', async () => {
+  it('does not materialize bundled skills inside an agent filesystem', async () => {
     const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-storage-'));
     temporaryDirectories.push(dataDir);
-    const staleSkillDir = join(dataDir, 'agents', 'albert', 'deepagent', 'skills', 'web-research');
-    await mkdir(staleSkillDir, { recursive: true });
-    await writeFile(join(staleSkillDir, 'SKILL.md'), 'obsolete', 'utf8');
-    const storage = createAssistantStorage(dataDir, agentProfile());
+    const storage = createAssistantStorage(dataDir, {
+      ...agentProfile(),
+      id: 'cost-analyst',
+      name: 'Cost Analyst',
+      attachedSkills: ['pricing-source-analysis'],
+    });
 
     try {
       await storage.ensureReady();
-      await expect(readFile(join(staleSkillDir, 'SKILL.md'), 'utf8')).rejects.toMatchObject({
-        code: 'ENOENT',
-      });
+      await expect(
+        access(
+          join(dataDir, 'agents', 'cost-analyst', 'deepagent', 'skills', 'pricing-source-analysis'),
+        ),
+      ).rejects.toMatchObject({ code: 'ENOENT' });
     } finally {
       storage.close();
     }
@@ -43,6 +47,7 @@ function agentProfile(): AgentProfile {
     kind: 'chat',
     chatEnabled: true,
     enabledCapabilities: ['web_search'],
+    attachedSkills: [],
     memory: { canRead: true, canWrite: true },
     models: { chat: 'chatgpt:gpt-5.4' },
     soulVirtualPath: '/configuration/soul.md',

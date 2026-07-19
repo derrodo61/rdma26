@@ -16,6 +16,7 @@ import {
   type AssistantStorage,
 } from '../storage/assistant-storage';
 import { LocalDatabase } from '../storage/local-database';
+import { normalizeSkillIds, SkillLibrary } from '../skills/skill-library';
 import { costAnalystAgentId } from './system-agents';
 
 const profileFileName = 'agent.json';
@@ -29,17 +30,20 @@ export class AgentRegistry {
     readonly dataDir: string,
     private readonly defaultAgentId: string,
     private readonly defaultAgentName: string,
+    private readonly skillLibrary: SkillLibrary = new SkillLibrary(dataDir),
   ) {
     this.agentsDir = join(dataDir, 'agents');
   }
 
   async ensureReady(): Promise<void> {
     await mkdir(this.agentsDir, { recursive: true });
+    await this.skillLibrary.ensureReady();
     const defaultAgent = await this.ensureAgent({
       id: this.defaultAgentId,
       name: this.defaultAgentName,
     });
 
+    await this.migrateAgentSkillAttachments();
     const storage = await this.storageFor(defaultAgent.id);
     await storage.ensureReady();
     await this.ensureAllAgentStorageReady();
@@ -255,6 +259,7 @@ export class AgentRegistry {
       kind,
       chatEnabled,
       enabledCapabilities: [],
+      attachedSkills: this.skillLibrary.defaultAttachmentsForAgent(id),
       memory: defaultAgentMemorySettings(id),
       models: {},
       soulVirtualPath,
@@ -324,6 +329,37 @@ export class AgentRegistry {
         await storage.ensureReady();
       } finally {
         storage.close();
+      }
+    }
+  }
+
+  private async migrateAgentSkillAttachments(): Promise<void> {
+    const entries = await readdir(this.agentsDir, { withFileTypes: true });
+    const agentIds = entries
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .filter((agentId) => isValidAgentId(agentId));
+
+    for (const agentId of agentIds) {
+      const agent = await this.readAgent(agentId);
+
+      if (!agent) {
+        continue;
+      }
+
+      const attachedSkills = await this.skillLibrary.migrateAgentLocalSkills(
+        agent.id,
+        join(this.agentDir(agent.id), 'deepagent', 'skills'),
+        join(this.agentDir(agent.id), 'migration-backups', 'agent-local-skills'),
+        agent.attachedSkills,
+      );
+
+      if (!areStringArraysEqual(agent.attachedSkills, attachedSkills)) {
+        await this.writeAgent({
+          ...agent,
+          attachedSkills,
+          updatedAt: new Date().toISOString(),
+        });
       }
     }
   }
@@ -414,6 +450,10 @@ function parseAgentProfile(value: unknown): AgentProfile | null {
           ? value.chatEnabled
           : defaultAgentKindForId(value.id) !== 'internal',
       enabledCapabilities: normalizeCapabilityIds(persistedCapabilities),
+      attachedSkills:
+        'attachedSkills' in value && Array.isArray(value.attachedSkills)
+          ? normalizeSkillIds(value.attachedSkills)
+          : [],
       memory:
         'memory' in value
           ? normalizeAgentMemorySettings(value.memory, value.id)
@@ -441,6 +481,8 @@ function hasCurrentAgentProfileShape(value: unknown): boolean {
     'enabledCapabilities' in value &&
     Array.isArray(value.enabledCapabilities) &&
     !value.enabledCapabilities.some(isLegacyWebPageToolId) &&
+    'attachedSkills' in value &&
+    Array.isArray(value.attachedSkills) &&
     'memory' in value &&
     typeof value.memory === 'object' &&
     value.memory !== null &&
@@ -454,6 +496,10 @@ function hasCurrentAgentProfileShape(value: unknown): boolean {
     'soulVirtualPath' in value &&
     value.soulVirtualPath === soulVirtualPath
   );
+}
+
+function areStringArraysEqual(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function normalizeAgentKind(value: unknown): AgentKind {

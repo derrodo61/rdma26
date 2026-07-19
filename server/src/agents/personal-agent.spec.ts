@@ -1,15 +1,25 @@
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import {
   collectRunToolCalls,
-  createMemoryFilesystemPermissions,
+  createAgentFilesystemBackend,
+  createFilesystemPermissions,
   extractSkillUsages,
   summarizeSystemPrompt,
 } from './personal-agent';
 
-describe('PersonalAgent memory filesystem permissions', () => {
+describe('PersonalAgent filesystem permissions', () => {
   it('always blocks native memory writes while allowing reads for a readable agent', () => {
-    expect(createMemoryFilesystemPermissions(true)).toEqual([
+    expect(createFilesystemPermissions(true)).toEqual([
+      {
+        operations: ['write'],
+        paths: ['/skills', '/skills/**'],
+        mode: 'deny',
+      },
       {
         operations: ['write'],
         paths: ['/memory', '/memory/**'],
@@ -19,7 +29,12 @@ describe('PersonalAgent memory filesystem permissions', () => {
   });
 
   it('also blocks native memory reads when memory reading is disabled', () => {
-    expect(createMemoryFilesystemPermissions(false)).toEqual([
+    expect(createFilesystemPermissions(false)).toEqual([
+      {
+        operations: ['write'],
+        paths: ['/skills', '/skills/**'],
+        mode: 'deny',
+      },
       {
         operations: ['write'],
         paths: ['/memory', '/memory/**'],
@@ -31,6 +46,56 @@ describe('PersonalAgent memory filesystem permissions', () => {
         mode: 'deny',
       },
     ]);
+  });
+
+  it('mounts attached skills while hiding agent-local and unattached paths', async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'rdma26-agent-backend-'));
+    const deepAgentRoot = join(rootDir, 'deepagent');
+    const attachedSkillDir = join(rootDir, 'library', 'attached');
+    const emptySkillDir = join(rootDir, 'library', 'empty');
+    const memoryDirectories = {
+      global: join(rootDir, 'memory', 'global'),
+      agentUser: join(rootDir, 'memory', 'agent-user'),
+      agent: join(rootDir, 'memory', 'agent'),
+    };
+
+    try {
+      await Promise.all([
+        mkdir(join(deepAgentRoot, 'skills', 'legacy'), { recursive: true }),
+        mkdir(attachedSkillDir, { recursive: true }),
+        mkdir(emptySkillDir, { recursive: true }),
+        ...Object.values(memoryDirectories).map(
+          async (path) => await mkdir(path, { recursive: true }),
+        ),
+      ]);
+      await writeFile(
+        join(deepAgentRoot, 'skills', 'legacy', 'SKILL.md'),
+        'legacy content',
+        'utf8',
+      );
+      await writeFile(join(attachedSkillDir, 'SKILL.md'), 'attached content', 'utf8');
+      const backend = createAgentFilesystemBackend(
+        deepAgentRoot,
+        memoryDirectories,
+        emptySkillDir,
+        [
+          {
+            id: 'attached',
+            virtualPath: '/skills/attached/',
+            directory: attachedSkillDir,
+          },
+        ],
+      );
+
+      await expect(backend.read('/skills/attached/SKILL.md')).resolves.toMatchObject({
+        content: 'attached content',
+      });
+      await expect(backend.read('/skills/legacy/SKILL.md')).resolves.toMatchObject({
+        error: expect.any(String),
+      });
+    } finally {
+      await rm(rootDir, { recursive: true, force: true });
+    }
   });
 });
 

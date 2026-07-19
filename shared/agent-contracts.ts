@@ -61,6 +61,7 @@ export interface AgentProfile {
   readonly kind: AgentKind;
   readonly chatEnabled: boolean;
   readonly enabledCapabilities: readonly string[];
+  readonly attachedSkills: readonly string[];
   readonly memory: AgentMemorySettings;
   readonly models: AgentModelSettings;
   readonly soulVirtualPath: string;

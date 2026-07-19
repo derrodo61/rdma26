@@ -21,6 +21,7 @@ import type { RunContextStore } from '../runs/run-context-store';
 import type { AssistantRuntime } from '../runtime';
 import type { ThreadCheckpointer } from '../threads/thread-checkpointer';
 import type { OpenAiModelFactory } from '../llm/model-factory';
+import type { SkillLibrary } from '../skills/skill-library';
 import { ChatRunRecorder, type ChatRunRecordingContext } from './chat-run-recorder';
 
 export class ChatRunService {
@@ -29,6 +30,7 @@ export class ChatRunService {
   constructor(
     private readonly registry: AgentRegistry,
     private readonly capabilities: CapabilityRegistry,
+    private readonly skillLibrary: SkillLibrary,
     private readonly fileMemoryStore: FileMemoryStore,
     private readonly runContextStore: RunContextStore,
     private readonly llmCallStore: LlmCallStore,
@@ -60,6 +62,9 @@ export class ChatRunService {
     const memoryReadsEnabled = storage.agent.memory.canRead;
     const memoryWritesEnabled = storage.agent.memory.canWrite;
     const enabledCapabilityIds = storage.agent.enabledCapabilities;
+    const skillSources = await this.skillLibrary.resolveAttachedSkills(
+      storage.agent.attachedSkills,
+    );
     const tools = [
       ...this.capabilities.createRunnableTools(enabledCapabilityIds),
       ...(memoryReadsEnabled
@@ -119,6 +124,8 @@ export class ChatRunService {
         model,
         tools,
         enabledCapabilityIds,
+        skillSources,
+        skillFallbackDirectory: this.skillLibrary.runtimeFallbackDirectory(),
         isOperatorAgent: isSystemOperatorAgent(storage.agent.id, this.registry.getDefaultAgentId()),
         userProfile,
         soulContent,

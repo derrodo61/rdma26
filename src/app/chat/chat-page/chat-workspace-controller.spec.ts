@@ -183,6 +183,7 @@ function agent(id: string, overrides: Partial<AgentProfile> = {}): AgentProfile 
     kind: 'chat',
     chatEnabled: true,
     enabledCapabilities: [],
+    attachedSkills: [],
     memory: {
       canRead: true,
       canWrite: true,

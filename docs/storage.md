@@ -64,8 +64,8 @@ Data that is naturally editable and file-oriented remains outside SQLite:
 - agent profiles and configuration;
 - each agent's `configuration/soul.md` identity;
 - global and agent-scoped Markdown memory;
-- Deep Agents filesystem and current agent-local skill data; see
-  [Skills](./skills.md);
+- Deep Agents filesystem state, the shared skill library, and archived legacy
+  agent-local skill packages; see [Skills](./skills.md);
 - future attachments and generated artifacts.
 
 The complete memory layout is documented in [memory.md](./memory.md).

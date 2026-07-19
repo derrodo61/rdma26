@@ -142,7 +142,6 @@ export function createAssistantStorage(dataDir: string, agent: AgentProfile): As
     async ensureReady() {
       await mkdir(configurationDir, { recursive: true });
       await mkdir(deepAgentRootDir, { recursive: true });
-      await writeBuiltinSkills(deepAgentRootDir, agent);
       await database.ensureReady();
       await importThreadJsonFiles(database, threadsDir, agent.id);
       await writeIfMissing(soulPath, createDefaultSoul(agent));
@@ -258,21 +257,7 @@ async function writeIfMissing(path: string, content: string): Promise<void> {
   }
 }
 
-async function writeBuiltinSkills(rootDir: string, agent: AgentProfile): Promise<void> {
-  const skillsDir = join(rootDir, 'skills');
-  await mkdir(skillsDir, { recursive: true });
-  await rm(join(skillsDir, 'web-research'), { recursive: true, force: true });
-
-  if (agent.id !== 'cost-analyst') {
-    return;
-  }
-
-  const skillDir = join(skillsDir, 'pricing-source-analysis');
-  await mkdir(skillDir, { recursive: true });
-  await writeFile(join(skillDir, 'SKILL.md'), pricingSourceAnalysisSkill, 'utf8');
-}
-
-const pricingSourceAnalysisSkill = `---
+export const pricingSourceAnalysisSkillContent = `---
 name: pricing-source-analysis
 description: "Use this skill for LLM and model pricing source tasks: checking saved model prices, comparing them with configured official pricing pages, updating pricing records, or explaining pricing-source problems."
 ---

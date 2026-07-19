@@ -80,11 +80,13 @@ import { readWebPage } from './research/web-page-reader';
 import { RunContextStore } from './runs/run-context-store';
 import { ThreadService } from './threads/thread-service';
 import { ThreadCheckpointer } from './threads/thread-checkpointer';
+import { SkillLibrary } from './skills/skill-library';
 
 export class AssistantRuntime {
   private readonly registry: AgentRegistry;
   private readonly models: readonly ModelOption[];
   private readonly capabilities = new CapabilityRegistry();
+  private readonly skillLibrary: SkillLibrary;
   private readonly userProfileStore: UserProfileStore;
   private readonly fileMemoryStore: FileMemoryStore;
   private readonly runContextStore: RunContextStore;
@@ -99,10 +101,12 @@ export class AssistantRuntime {
   private readonly modelFactory: OpenAiModelFactory;
 
   constructor(options: AssistantRuntimeOptions = readRuntimeOptionsFromEnv()) {
+    this.skillLibrary = new SkillLibrary(options.dataDir);
     this.registry = new AgentRegistry(
       options.dataDir,
       options.defaultAgentId,
       options.defaultAgentName,
+      this.skillLibrary,
     );
     this.userProfileStore = new UserProfileStore(options.dataDir);
     this.modelPricingStore = new ModelPricingStore(options.dataDir);
@@ -132,6 +136,7 @@ export class AssistantRuntime {
     this.chatRuns = new ChatRunService(
       this.registry,
       this.capabilities,
+      this.skillLibrary,
       this.fileMemoryStore,
       this.runContextStore,
       this.llmCallStore,

@@ -28,6 +28,7 @@ import { ModelProviderNotConfiguredError, type OpenAiModelFactory } from '../llm
 import { extractOpenAiHostedWebToolCallsFromAgentResult } from '../llm/openai-hosted-web-search';
 import type { AgentMemoryDirectories } from '../memory/file-memory-store';
 import { ToolCallObserver } from './tool-call-observer';
+import type { AgentSkillSource } from '../skills/skill-library';
 
 interface PersonalAgentRequest {
   readonly runId: string;
@@ -35,6 +36,8 @@ interface PersonalAgentRequest {
   readonly model: string;
   readonly tools: readonly StructuredToolInterface[];
   readonly enabledCapabilityIds: readonly string[];
+  readonly skillSources: readonly AgentSkillSource[];
+  readonly skillFallbackDirectory: string;
   readonly isOperatorAgent: boolean;
   readonly userProfile: UserProfile;
   readonly soulContent: string;
@@ -103,10 +106,6 @@ export class PersonalAgent {
       threadId: request.threadId,
       signal: request.signal,
     });
-    const defaultBackend = new FilesystemBackend({
-      rootDir: this.storage.deepAgentRootDir,
-      virtualMode: true,
-    });
     const systemPrompt = createBootloaderPromptForTest(
       this.storage.agent,
       request.userProfile,
@@ -116,25 +115,18 @@ export class PersonalAgent {
       request.enabledCapabilityIds,
     );
     const systemPromptDiagnostics = summarizeSystemPrompt(systemPrompt);
+    const backend = createAgentFilesystemBackend(
+      this.storage.deepAgentRootDir,
+      request.memoryDirectories,
+      request.skillFallbackDirectory,
+      request.skillSources,
+    );
     const agent = createDeepAgent({
       model: configuredModel.instance,
-      backend: new CompositeBackend(defaultBackend, {
-        '/memory/global/': new FilesystemBackend({
-          rootDir: request.memoryDirectories.global,
-          virtualMode: true,
-        }),
-        '/memory/agent-user/': new FilesystemBackend({
-          rootDir: request.memoryDirectories.agentUser,
-          virtualMode: true,
-        }),
-        '/memory/agent/': new FilesystemBackend({
-          rootDir: request.memoryDirectories.agent,
-          virtualMode: true,
-        }),
-      }),
+      backend,
       memory: [...request.memoryPaths],
-      permissions: createMemoryFilesystemPermissions(request.memoryReadsEnabled),
-      skills: ['/skills/'],
+      permissions: createFilesystemPermissions(request.memoryReadsEnabled),
+      skills: request.skillSources.map((skill) => skill.virtualPath),
       tools: createAgentTools(request.tools, request.enabledCapabilityIds),
       middleware: await createEnabledAgentMiddleware(request.enabledCapabilityIds),
       checkpointer: this.checkpointer,
@@ -213,6 +205,47 @@ export class PersonalAgent {
   }
 }
 
+export function createAgentFilesystemBackend(
+  deepAgentRootDir: string,
+  memoryDirectories: AgentMemoryDirectories,
+  skillFallbackDirectory: string,
+  skillSources: readonly AgentSkillSource[],
+): CompositeBackend {
+  const defaultBackend = new FilesystemBackend({
+    rootDir: deepAgentRootDir,
+    virtualMode: true,
+  });
+  const skillRoutes = Object.fromEntries(
+    skillSources.map((skill) => [
+      skill.virtualPath,
+      new FilesystemBackend({
+        rootDir: skill.directory,
+        virtualMode: true,
+      }),
+    ]),
+  );
+
+  return new CompositeBackend(defaultBackend, {
+    '/memory/global/': new FilesystemBackend({
+      rootDir: memoryDirectories.global,
+      virtualMode: true,
+    }),
+    '/memory/agent-user/': new FilesystemBackend({
+      rootDir: memoryDirectories.agentUser,
+      virtualMode: true,
+    }),
+    '/memory/agent/': new FilesystemBackend({
+      rootDir: memoryDirectories.agent,
+      virtualMode: true,
+    }),
+    '/skills/': new FilesystemBackend({
+      rootDir: skillFallbackDirectory,
+      virtualMode: true,
+    }),
+    ...skillRoutes,
+  });
+}
+
 export function summarizeSystemPrompt(systemPrompt: string): RunContextSystemPromptDiagnostics {
   return {
     characterCount: systemPrompt.length,
@@ -278,8 +311,13 @@ function createAgentTools(
     : runnableTools;
 }
 
-export function createMemoryFilesystemPermissions(memoryReadsEnabled: boolean) {
+export function createFilesystemPermissions(memoryReadsEnabled: boolean) {
   return [
+    {
+      operations: ['write'] as const,
+      paths: ['/skills', '/skills/**'],
+      mode: 'deny' as const,
+    },
     {
       operations: ['write'] as const,
       paths: ['/memory', '/memory/**'],

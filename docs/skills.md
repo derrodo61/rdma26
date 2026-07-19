@@ -73,16 +73,22 @@ Skills package, but it cannot treat a provider-only identifier as local files.
 
 ## Current Implementation
 
-Skills are currently stored separately for each agent:
+The foundation uses one shared local library:
 
 ```text
-.assistant-data/agents/<agent-id>/deepagent/skills/<skill-id>/SKILL.md
+.assistant-data/skills/bundled/<skill-id>/SKILL.md
+.assistant-data/skills/user/<skill-id>/SKILL.md
 ```
 
-When rdma26 creates a Deep Agent, it exposes that agent's `/skills/` directory
-through the Deep Agents filesystem. Deep Agents initially gives the model a
-compact catalog containing each skill's name, description, and path. The full
-`SKILL.md` content is not loaded at that point.
+Each agent profile has an `attachedSkills` list. When rdma26 creates a Deep
+Agent, it resolves only those ids and mounts their shared package directories at
+virtual `/skills/<skill-id>/` paths. Unattached library packages and old
+agent-local files are not visible through the runtime filesystem. Native agent
+writes under `/skills/` are denied.
+
+Deep Agents initially gives the model a compact catalog containing each
+attached skill's name, description, and path. The full `SKILL.md` content is not
+loaded at that point.
 
 If the model decides a skill is useful, it reads the corresponding `SKILL.md`.
 The complete instructions then become part of the conversation state for later
@@ -106,17 +112,28 @@ sequenceDiagram
 
 The current implementation has these limits:
 
-- There is no shared skill library.
 - There is no skill-management API, CLI, or settings page.
-- A skill present in an agent's directory is automatically available to that
-  agent; there is no separate attachment record.
-- rdma26 does not yet validate or safely edit arbitrary skill packages.
+- The user library is populated only by migration; there is no supported create,
+  edit, clone, install, update, attach, or detach operation yet.
+- External package storage, provenance records, compatibility inspection, Git,
+  archives, and catalog adapters are not implemented.
+- `skill_authoring`, `skill_acquisition`, proposals, scanning, and approval are
+  not implemented.
+- The agent editor and run inspector do not yet display attachment metadata.
 - Only the protected Cost Analyst currently receives a bundled skill,
   `pricing-source-analysis`.
 
-That bundled skill is written into the Cost Analyst's agent directory by the
-backend. It guides pricing-source analysis and works with the Cost Analyst's
-protected pricing tools. Other agents currently have no bundled skills.
+That bundled skill is materialized once in the shared library and attached to
+the Cost Analyst. It guides pricing-source analysis and works with the Cost
+Analyst's protected pricing tools. Other agents currently have no default skill
+attachments.
+
+On startup, legacy packages under an agent's old `deepagent/skills/` directory
+are validated and copied once into the user library. Their ids are attached to
+the original agent. Verified originals move to the agent's
+`migration-backups/agent-local-skills/` directory, outside the runtime
+filesystem. Identical packages are shared; conflicting packages stop migration
+without overwriting either version.
 
 ## What The Run Inspector Records
 
@@ -166,7 +183,8 @@ separate editable package into every agent. The runtime may mount or materialize
 attached packages into the agent's virtual `/skills/` path, but that is an
 implementation detail and should not become a user-facing concept.
 
-Concretely, the planned persisted model is:
+The foundation already implements bundled and user roots plus profile
+attachments. The complete persisted model is:
 
 - bundled packages are versioned application resources;
 - user packages live under `.assistant-data/skills/user/<skill-id>/`;
