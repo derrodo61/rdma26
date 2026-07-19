@@ -98,6 +98,23 @@ describe('PersonalAgent bootloader prompt', () => {
     expect(withSearch).not.toContain('web-research/SKILL.md');
   });
 
+  it('requires discovery before authoring when both skill capabilities are enabled', () => {
+    const prompt = createBootloaderPromptForTest(
+      { name: 'Agent', soulVirtualPath: '/configuration/soul.md' },
+      testProfile(),
+      false,
+      '# soul',
+      true,
+      ['skill_authoring', 'skill_acquisition'],
+    );
+
+    expect(prompt).toContain('Skill management guidance');
+    expect(prompt).toContain('reviewable proposals only');
+    expect(prompt).toContain('search_installed_skills');
+    expect(prompt).toContain('search_skill_catalogs');
+    expect(prompt).toContain('separate user actions');
+  });
+
   it('adds web page reading guidance only when web page access is enabled', () => {
     const withoutReader = createBootloaderPromptForTest(
       {

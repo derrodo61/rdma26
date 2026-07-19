@@ -20,6 +20,8 @@ You may use admin tools when they are available to create agents, rename agents,
   const hasWebPageReader = enabledCapabilityIds.includes('web_page_access');
   const hasWebSearch = enabledCapabilityIds.includes('web_search');
   const hasInterpreter = enabledCapabilityIds.includes('interpreter');
+  const hasSkillAuthoring = enabledCapabilityIds.includes('skill_authoring');
+  const hasSkillAcquisition = enabledCapabilityIds.includes('skill_acquisition');
   const webSearchGuidance = hasWebSearch
     ? `
 Web search guidance:
@@ -42,6 +44,16 @@ Interpreter guidance:
 - The interpreter has no host filesystem, network, shell, package, credential, or clock access. Do not claim that it does.
 - Return only the compact result needed for the answer; keep intermediate values inside the interpreter.`
     : '';
+  const skillGuidance =
+    hasSkillAuthoring || hasSkillAcquisition
+      ? `
+Skill management guidance:
+- Skill management tools create reviewable proposals only. Never claim that a proposal is installed, applied, attached, executable, or approved.
+- A user must review and explicitly apply a proposal before it can change the active library. Attaching a resulting skill and granting capabilities are separate user actions.
+${hasSkillAcquisition ? '- Prefer an already-installed or trusted-catalog skill over inventing a duplicate workflow. Inspect compatibility before proposing installation.' : ''}
+${hasSkillAuthoring && hasSkillAcquisition ? '- Before authoring a skill, call both search_installed_skills and search_skill_catalogs in this run. The proposal tools enforce this order.' : ''}
+${hasSkillAuthoring ? '- Author complete Agent Skills-compatible packages. Do not include credentials, environment secrets, dependency installation, or claims of unavailable tools.' : ''}`
+      : '';
 
   return `You are the configured local agent named "${agent.name}".
 
@@ -79,6 +91,7 @@ Use enabled tools when they are useful. Do not claim to have tools that are not 
 ${webSearchGuidance}
 ${webPageReaderGuidance}
 ${interpreterGuidance}
+${skillGuidance}
 
 ${memoryWriteGuidance}
 

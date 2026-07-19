@@ -130,6 +130,62 @@ export class SkillLibrary {
     };
   }
 
+  async applyUserPackage(
+    sourceDirectory: string,
+    skillId: string,
+    expectedTargetHash?: string,
+  ): Promise<void> {
+    const [normalizedId] = normalizeSkillIds([skillId]);
+    const existing = (await this.listPackages()).find((skill) => skill.id === normalizedId);
+
+    if (existing && existing.ownership !== 'user') {
+      throw new Error(`Skill ${normalizedId} is ${existing.ownership} and cannot be overwritten.`);
+    }
+    if (!expectedTargetHash && existing) {
+      throw new Error(`Skill ${normalizedId} is already installed.`);
+    }
+    if (expectedTargetHash && !existing) {
+      throw new Error(`Skill ${normalizedId} no longer exists.`);
+    }
+    if (
+      expectedTargetHash &&
+      existing &&
+      (await hashDirectory(existing.directory)) !== expectedTargetHash
+    ) {
+      throw new Error(`Skill ${normalizedId} changed after the proposal was created.`);
+    }
+
+    const destination = join(this.userDir, normalizedId);
+    const staging = join(this.userDir, `.importing-${normalizedId}-${crypto.randomUUID()}`);
+    const backup = join(this.userDir, `.replacing-${normalizedId}-${crypto.randomUUID()}`);
+
+    try {
+      await cp(sourceDirectory, staging, {
+        recursive: true,
+        errorOnExist: true,
+        force: false,
+        verbatimSymlinks: true,
+      });
+      await readSkillPackage(staging, 'user', normalizedId);
+
+      if (existing) {
+        await rename(destination, backup);
+      }
+      await rename(staging, destination);
+      await rm(backup, { recursive: true, force: true });
+    } catch (error) {
+      await rm(staging, { recursive: true, force: true });
+      if (existing) {
+        try {
+          await lstat(destination);
+        } catch {
+          await rename(backup, destination);
+        }
+      }
+      throw error;
+    }
+  }
+
   async migrateAgentLocalSkills(
     agentId: string,
     legacySkillsDir: string,
@@ -207,7 +263,9 @@ export class SkillLibrary {
     const entries = await readDirectories(rootDir);
     return await Promise.all(
       entries
-        .filter((entry) => !entry.name.startsWith('.importing-'))
+        .filter(
+          (entry) => !entry.name.startsWith('.importing-') && !entry.name.startsWith('.replacing-'),
+        )
         .map(async (entry) => await readSkillPackage(join(rootDir, entry.name), ownership)),
     );
   }

@@ -142,6 +142,20 @@ async function main(): Promise<void> {
     case 'skills:rollback':
       printJson(await runtime.rollbackSkill(requiredOption(options, 'skill'), options['hash']));
       return;
+    case 'skills:proposals':
+      printJson(await runtime.listSkillProposals());
+      return;
+    case 'skills:proposals:show':
+      printJson(await runtime.readSkillProposal(requiredOption(options, 'proposal')));
+      return;
+    case 'skills:proposals:apply':
+      printJson(await runtime.applySkillProposal(requiredOption(options, 'proposal')));
+      return;
+    case 'skills:proposals:reject':
+      printJson(
+        await runtime.rejectSkillProposal(requiredOption(options, 'proposal'), options['reason']),
+      );
+      return;
     case 'agents:list':
       printJson(await runtime.agentsResponse());
       return;
@@ -901,6 +915,10 @@ Usage:
   rdma26 skills:update:apply --skill calendar --hash <content-hash>
   rdma26 skills:pin --skill calendar --pinned true
   rdma26 skills:rollback --skill calendar --hash <content-hash>
+  rdma26 skills:proposals
+  rdma26 skills:proposals:show --proposal <proposal-id>
+  rdma26 skills:proposals:apply --proposal <proposal-id>
+  rdma26 skills:proposals:reject --proposal <proposal-id> --reason "Not needed"
   rdma26 agents:list
   rdma26 agents:create --id research --name "Research assistant"
   rdma26 agents:update --agent research --name "Researcher"

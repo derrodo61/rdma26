@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   CapabilityRegistry,
   interpreterCapabilityId,
+  skillAcquisitionCapabilityId,
+  skillAuthoringCapabilityId,
   webPageAccessCapabilityId,
   webSearchCapabilityId,
 } from './capability-registry';
@@ -23,6 +25,50 @@ describe('CapabilityRegistry', () => {
         available: true,
       }),
     );
+  });
+
+  it('registers proposal-only skill capabilities and enforces discovery before authoring', async () => {
+    const runtime = {
+      listSkills: vi.fn(async () => ({ skills: [] })),
+      readSkill: vi.fn(),
+      listSkillProposals: vi.fn(async () => ({ proposals: [] })),
+      readSkillProposal: vi.fn(),
+      searchSkillCatalog: vi.fn(async () => ({ results: [] })),
+      inspectSkillInstallation: vi.fn(),
+      proposeSkillCreate: vi.fn(async () => ({ id: 'proposal' })),
+      proposeSkillUpdate: vi.fn(),
+      proposeSkillInstall: vi.fn(),
+    };
+    const registry = new CapabilityRegistry(runtime);
+    expect(registry.listDefinitions()).toContainEqual(
+      expect.objectContaining({
+        id: skillAcquisitionCapabilityId,
+        available: true,
+        providedTools: expect.arrayContaining([
+          expect.objectContaining({ id: 'compare_skill_candidates' }),
+        ]),
+      }),
+    );
+    const tools = registry.createRunnableTools(
+      [skillAuthoringCapabilityId, skillAcquisitionCapabilityId],
+      { agentId: 'albert', threadId: 'thread-1' },
+    );
+    const propose = tools.find((candidate) => candidate.name === 'propose_skill_create');
+    const searchInstalled = tools.find((candidate) => candidate.name === 'search_installed_skills');
+    const searchCatalog = tools.find((candidate) => candidate.name === 'search_skill_catalogs');
+    const input = {
+      skillId: 'test-skill',
+      skillMarkdown: '---\nname: test-skill\ndescription: Test.\n---\n',
+    };
+
+    await expect(propose?.invoke(input)).rejects.toThrow('Search both installed skills');
+    await searchInstalled?.invoke({});
+    await searchCatalog?.invoke({ query: 'test' });
+    await expect(propose?.invoke(input)).resolves.toBeTruthy();
+    expect(runtime.proposeSkillCreate).toHaveBeenCalledWith(input, {
+      agentId: 'albert',
+      threadId: 'thread-1',
+    });
   });
 
   it('registers OpenAI hosted search as a provider tool rather than a local tool', () => {

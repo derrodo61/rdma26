@@ -145,6 +145,11 @@ proposal operations belong to Milestone 4.
 
 ## Milestone 4: Agent Proposals
 
+Status: implemented on `codex/skill-agent-proposals`. Proposal persistence,
+hash-bound stale detection, scanning, quarantine, proposal-only capabilities,
+authenticated review operations, and the Angular review queue are ready for
+verification.
+
 - Implement persisted proposal states: pending, stale, quarantined, applied,
   rejected, and superseded.
 - Bind proposals to source and target hashes.
@@ -160,9 +165,10 @@ proposal operations belong to Milestone 4.
 
 ## Milestone 5: Angular Experience
 
-Status: implemented for installed-library management and per-agent attachment
-on `codex/skill-management-ui`. Proposal review, clone/delete, and run-level
-used-state presentation remain pending their corresponding backend milestones.
+Status: installed-library management and per-agent attachment are implemented
+on `codex/skill-management-ui`; proposal review is implemented on
+`codex/skill-agent-proposals`. Clone/delete and run-level used-state
+presentation remain pending their corresponding backend milestones.
 
 - Add a Skills section to the agent editor for attached skills.
 - Add a library view for installed packages, catalog search, source inspection,

@@ -66,7 +66,10 @@ export class ChatRunService {
       storage.agent.attachedSkills,
     );
     const tools = [
-      ...this.capabilities.createRunnableTools(enabledCapabilityIds),
+      ...this.capabilities.createRunnableTools(enabledCapabilityIds, {
+        agentId: storage.agent.id,
+        threadId: request.threadId,
+      }),
       ...(memoryReadsEnabled
         ? createMemoryReadTools(this.runtime, storage.agent.id, {
             runId,

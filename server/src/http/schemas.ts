@@ -111,6 +111,14 @@ export const skillCatalogSearchQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).optional(),
 });
 
+export const skillProposalParamsSchema = z.object({
+  proposalId: z.string().uuid(),
+});
+
+export const rejectSkillProposalRequestSchema = z.object({
+  reason: z.string().trim().min(1).max(2000).optional(),
+});
+
 const memoryScopeSchema = z.enum(['agent', 'agent_user', 'user']);
 const pricingSourceTrustLevelSchema = z.enum(['official', 'third_party', 'user_added']);
 const booleanQuerySchema = z.union([z.boolean(), z.enum(['true', 'false'])]);

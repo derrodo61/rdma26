@@ -4,10 +4,19 @@ import { z } from 'zod';
 import type { CapabilityDefinition, ToolDefinition } from '../../../shared/agent-contracts';
 import { extractWebContent } from '../research/web-content-extractor';
 import { readWebPage } from '../research/web-page-reader';
+import {
+  createSkillAcquisitionTools,
+  createSkillAuthoringTools,
+  type SkillDiscoveryState,
+  type SkillProposalToolRuntime,
+  type SkillToolActor,
+} from './skill-proposal-tools';
 
 export const webSearchCapabilityId = 'web_search';
 export const interpreterCapabilityId = 'interpreter';
 export const webPageAccessCapabilityId = 'web_page_access';
+export const skillAuthoringCapabilityId = 'skill_authoring';
+export const skillAcquisitionCapabilityId = 'skill_acquisition';
 const readWebPageToolId = 'read_web_page';
 const readWebPageStructureToolId = 'read_web_page_structure';
 
@@ -15,10 +24,18 @@ interface CapabilityRegistration {
   readonly definition: Omit<CapabilityDefinition, 'available' | 'unavailableReason'>;
   readonly isAvailable: () => boolean;
   readonly unavailableReason: string;
-  readonly createTools?: () => readonly StructuredToolInterface[];
+  readonly createTools?: (context: CapabilityToolContext) => readonly StructuredToolInterface[];
+}
+
+interface CapabilityToolContext {
+  readonly actor: SkillToolActor;
+  readonly discovery: SkillDiscoveryState;
+  readonly enabledCapabilityIds: readonly string[];
 }
 
 export class CapabilityRegistry {
+  constructor(private readonly skillRuntime?: SkillProposalToolRuntime) {}
+
   private readonly registrations: readonly CapabilityRegistration[] = [
     {
       definition: {
@@ -84,6 +101,105 @@ export class CapabilityRegistry {
       unavailableReason: 'Web content extraction is not available.',
       createTools: () => [createReadWebPageTool(), createExtractWebContentTool()],
     },
+    {
+      definition: {
+        id: skillAuthoringCapabilityId,
+        label: 'Skill authoring',
+        description:
+          'Draft new user skills and revisions as reviewable proposals without applying or attaching them.',
+        provider: 'rdma26-skills',
+        providedTools: [
+          toolDefinition(
+            'propose_skill_create',
+            'Propose skill creation',
+            'Draft a new skill proposal.',
+            'rdma26-skills',
+          ),
+          toolDefinition(
+            'propose_skill_update',
+            'Propose skill update',
+            'Draft a skill revision proposal.',
+            'rdma26-skills',
+          ),
+          toolDefinition(
+            'list_skill_proposals',
+            'List skill proposals',
+            'List reviewable skill proposals.',
+            'rdma26-skills',
+          ),
+          toolDefinition(
+            'inspect_skill_proposal',
+            'Inspect skill proposal',
+            'Inspect a skill proposal.',
+            'rdma26-skills',
+          ),
+        ],
+      },
+      isAvailable: () => Boolean(this.skillRuntime),
+      unavailableReason: 'Skill proposal storage is not available.',
+      createTools: (context) =>
+        createSkillAuthoringTools(
+          requireSkillRuntime(this.skillRuntime),
+          context.actor,
+          context.discovery,
+          context.enabledCapabilityIds.includes(skillAcquisitionCapabilityId),
+        ),
+    },
+    {
+      definition: {
+        id: skillAcquisitionCapabilityId,
+        label: 'Skill acquisition',
+        description:
+          'Search and inspect existing skills and draft hash-bound installation proposals without installing them.',
+        provider: 'rdma26-skills',
+        providedTools: [
+          toolDefinition(
+            'search_installed_skills',
+            'Search installed skills',
+            'List reusable installed skills.',
+            'rdma26-skills',
+          ),
+          toolDefinition(
+            'search_skill_catalogs',
+            'Search skill catalogs',
+            'Search trusted skill catalogs.',
+            'rdma26-skills',
+          ),
+          toolDefinition(
+            'inspect_skill_package',
+            'Inspect skill package',
+            'Inspect an installed skill.',
+            'rdma26-skills',
+          ),
+          toolDefinition(
+            'compare_skill_candidates',
+            'Compare skill candidates',
+            'Compare installed and catalog skill candidates.',
+            'rdma26-skills',
+          ),
+          toolDefinition(
+            'check_skill_compatibility',
+            'Check skill compatibility',
+            'Scan an external skill source.',
+            'rdma26-skills',
+          ),
+          toolDefinition(
+            'propose_skill_install',
+            'Propose skill installation',
+            'Draft an installation proposal.',
+            'rdma26-skills',
+          ),
+        ],
+      },
+      isAvailable: () => Boolean(this.skillRuntime),
+      unavailableReason: 'Skill catalog and proposal storage are not available.',
+      createTools: (context) =>
+        createSkillAcquisitionTools(
+          requireSkillRuntime(this.skillRuntime),
+          context.actor,
+          context.discovery,
+        ),
+    },
   ];
 
   listDefinitions(): readonly CapabilityDefinition[] {
@@ -114,8 +230,16 @@ export class CapabilityRegistry {
     return normalizedCapabilityIds;
   }
 
-  createRunnableTools(capabilityIds: readonly string[]): readonly StructuredToolInterface[] {
+  createRunnableTools(
+    capabilityIds: readonly string[],
+    actor: SkillToolActor = { agentId: 'unknown' },
+  ): readonly StructuredToolInterface[] {
     const registrations = this.registrationsById(capabilityIds);
+    const context: CapabilityToolContext = {
+      actor,
+      discovery: { searchedInstalled: false, searchedCatalog: false },
+      enabledCapabilityIds: capabilityIds,
+    };
 
     return registrations.flatMap((registration) => {
       if (!registration.createTools) {
@@ -128,7 +252,7 @@ export class CapabilityRegistry {
         );
       }
 
-      return registration.createTools();
+      return registration.createTools(context);
     });
   }
 
@@ -147,6 +271,15 @@ export class CapabilityRegistry {
       return registration;
     });
   }
+}
+
+function requireSkillRuntime(
+  runtime: SkillProposalToolRuntime | undefined,
+): SkillProposalToolRuntime {
+  if (!runtime) {
+    throw new Error('Skill proposal runtime is unavailable.');
+  }
+  return runtime;
 }
 
 function toolDefinition(

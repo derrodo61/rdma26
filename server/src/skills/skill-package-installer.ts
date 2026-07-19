@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { access, chmod, cp, mkdir, readFile, rename, rm } from 'node:fs/promises';
+import { access, chmod, cp, mkdir, readFile, rename, rm, stat } from 'node:fs/promises';
 import { join, relative, resolve, sep } from 'node:path';
 
 import type {
@@ -7,6 +7,7 @@ import type {
   InstallSkillRequest,
   SkillFileChange,
   SkillInstallationRecord,
+  SkillInstallationPreview,
   SkillInstallationSource,
   SkillUpdatePreview,
 } from '../../../shared/agent-contracts';
@@ -64,7 +65,7 @@ export class SkillPackageInstaller {
     return await this.requireCatalog(catalogId).search(query, limit);
   }
 
-  async install(request: InstallSkillRequest): Promise<SkillInstallationRecord> {
+  async inspectInstall(request: InstallSkillRequest): Promise<SkillInstallationPreview> {
     await this.ensureReady();
     const resolved = await this.resolveRequest(request);
 
@@ -73,6 +74,40 @@ export class SkillPackageInstaller {
         resolved.staged.directory,
         request.enabledCapabilities ?? [],
       );
+
+      return {
+        skillId: scanned.definition.id,
+        candidate: toInstalledVersion(scanned, new Date().toISOString(), resolved),
+        files: await Promise.all(
+          (await listFiles(resolved.staged.directory)).map(async (file) => ({
+            path: relative(resolved.staged.directory, file).split(sep).join('/'),
+            sizeBytes: (await stat(file)).size,
+          })),
+        ),
+      };
+    } finally {
+      await resolved.staged.cleanup();
+    }
+  }
+
+  async install(
+    request: InstallSkillRequest,
+    expectedContentHash?: string,
+  ): Promise<SkillInstallationRecord> {
+    await this.ensureReady();
+    const resolved = await this.resolveRequest(request);
+
+    try {
+      const scanned = await scanSkillPackage(
+        resolved.staged.directory,
+        request.enabledCapabilities ?? [],
+      );
+
+      if (expectedContentHash && scanned.contentHash !== expectedContentHash) {
+        throw new Error(
+          'The skill source changed after inspection; inspect it again before installing.',
+        );
+      }
 
       if ((await this.library.listPackages()).some((skill) => skill.id === scanned.definition.id)) {
         throw new Error(`Skill ${scanned.definition.id} is already installed.`);

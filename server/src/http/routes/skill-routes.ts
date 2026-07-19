@@ -16,14 +16,84 @@ import {
   inspectSkillUpdateRequestSchema,
   installSkillRequestSchema,
   rollbackSkillRequestSchema,
+  rejectSkillProposalRequestSchema,
   setSkillPinnedRequestSchema,
   skillCatalogParamsSchema,
   skillCatalogSearchQuerySchema,
   skillParamsSchema,
+  skillProposalParamsSchema,
   updateAgentSkillsRequestSchema,
 } from '../schemas';
 
 export const registerSkillRoutes: RouteRegistrar = (server, { runtime }) => {
+  server.get(
+    '/api/skill-proposals',
+    routeDocs({ tags: ['skills'], summary: 'List reviewable skill proposals.' }),
+    async () => await runtime.listSkillProposals(),
+  );
+
+  server.get(
+    '/api/skill-proposals/:proposalId',
+    routeDocs({
+      tags: ['skills'],
+      summary: 'Inspect one skill proposal.',
+      params: skillProposalParamsSchema,
+    }),
+    async (request, reply) => {
+      const params = skillProposalParamsSchema.safeParse(request.params);
+      if (!params.success) {
+        return reply.code(400).send({ message: 'A valid proposal id is required.' });
+      }
+      try {
+        return await runtime.readSkillProposal(params.data.proposalId);
+      } catch (error) {
+        return reply.code(404).send({ message: getErrorMessage(error) });
+      }
+    },
+  );
+
+  server.post(
+    '/api/skill-proposals/:proposalId/apply',
+    routeDocs({
+      tags: ['skills'],
+      summary: 'Explicitly apply a pending skill proposal.',
+      params: skillProposalParamsSchema,
+    }),
+    async (request, reply) => {
+      const params = skillProposalParamsSchema.safeParse(request.params);
+      if (!params.success) {
+        return reply.code(400).send({ message: 'A valid proposal id is required.' });
+      }
+      try {
+        return await runtime.applySkillProposal(params.data.proposalId);
+      } catch (error) {
+        return reply.code(400).send({ message: getErrorMessage(error) });
+      }
+    },
+  );
+
+  server.post(
+    '/api/skill-proposals/:proposalId/reject',
+    routeDocs({
+      tags: ['skills'],
+      summary: 'Reject a skill proposal without changing the library.',
+      params: skillProposalParamsSchema,
+      body: rejectSkillProposalRequestSchema,
+    }),
+    async (request, reply) => {
+      const params = skillProposalParamsSchema.safeParse(request.params);
+      const body = rejectSkillProposalRequestSchema.safeParse(request.body ?? {});
+      if (!params.success || !body.success) {
+        return reply.code(400).send({ message: 'A valid proposal id and reason are required.' });
+      }
+      try {
+        return await runtime.rejectSkillProposal(params.data.proposalId, body.data.reason);
+      } catch (error) {
+        return reply.code(400).send({ message: getErrorMessage(error) });
+      }
+    },
+  );
+
   server.get(
     '/api/skill-installations',
     routeDocs({ tags: ['skills'], summary: 'List external skill installations.' }),

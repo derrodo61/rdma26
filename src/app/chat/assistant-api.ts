@@ -48,6 +48,8 @@ import type {
   SkillInstallationRecord,
   SkillInstallationsResponse,
   SkillPackageDetails,
+  SkillProposalRecord,
+  SkillProposalsResponse,
   SkillsResponse,
   SkillUpdatePreview,
   CapabilitiesResponse,
@@ -113,6 +115,30 @@ export class AssistantApi {
 
   async skills(): Promise<SkillsResponse> {
     return await firstValueFrom(this.http.get<SkillsResponse>('/api/skills'));
+  }
+
+  async skillProposals(): Promise<SkillProposalsResponse> {
+    return await firstValueFrom(this.http.get<SkillProposalsResponse>('/api/skill-proposals'));
+  }
+
+  async readSkillProposal(proposalId: string): Promise<SkillProposalRecord> {
+    return await firstValueFrom(
+      this.http.get<SkillProposalRecord>(`/api/skill-proposals/${proposalId}`),
+    );
+  }
+
+  async applySkillProposal(proposalId: string): Promise<SkillProposalRecord> {
+    return await firstValueFrom(
+      this.http.post<SkillProposalRecord>(`/api/skill-proposals/${proposalId}/apply`, {}),
+    );
+  }
+
+  async rejectSkillProposal(proposalId: string, reason?: string): Promise<SkillProposalRecord> {
+    return await firstValueFrom(
+      this.http.post<SkillProposalRecord>(`/api/skill-proposals/${proposalId}/reject`, {
+        reason,
+      }),
+    );
   }
 
   async readSkill(skillId: string): Promise<SkillPackageDetails> {

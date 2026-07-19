@@ -3,6 +3,7 @@ import type {
   CatalogSearchResponse,
   InstallSkillRequest,
   SkillInstallationRecord,
+  SkillInstallationPreview,
   SkillPackageDetails,
   SkillPackageSummary,
   SkillUpdatePreview,
@@ -49,6 +50,17 @@ export class SkillManagementService {
 
   async installSkill(request: InstallSkillRequest): Promise<SkillInstallationRecord> {
     return await this.installer.install(request);
+  }
+
+  async inspectSkillInstallation(request: InstallSkillRequest): Promise<SkillInstallationPreview> {
+    return await this.installer.inspectInstall(request);
+  }
+
+  async installInspectedSkill(
+    request: InstallSkillRequest,
+    expectedContentHash: string,
+  ): Promise<SkillInstallationRecord> {
+    return await this.installer.install(request, expectedContentHash);
   }
 
   async inspectSkillUpdate(

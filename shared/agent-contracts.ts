@@ -290,6 +290,12 @@ export interface SkillUpdatePreview {
   readonly updateAvailable: boolean;
 }
 
+export interface SkillInstallationPreview {
+  readonly skillId: string;
+  readonly candidate: SkillInstalledVersion;
+  readonly files: readonly SkillFileSummary[];
+}
+
 export interface CatalogSkillSummary {
   readonly catalogId: string;
   readonly skillId: string;
@@ -302,6 +308,61 @@ export interface CatalogSkillSummary {
 
 export interface CatalogSearchResponse {
   readonly results: readonly CatalogSkillSummary[];
+}
+
+export type SkillProposalKind = 'create' | 'update' | 'install';
+export type SkillProposalState =
+  'pending' | 'stale' | 'quarantined' | 'applied' | 'rejected' | 'superseded';
+
+export interface SkillProposalFileInput {
+  readonly path: string;
+  readonly content: string;
+}
+
+export interface SkillProposalActor {
+  readonly agentId: string;
+  readonly threadId?: string;
+  readonly evidence?: string;
+}
+
+export interface SkillProposalRecord {
+  readonly id: string;
+  readonly kind: SkillProposalKind;
+  readonly state: SkillProposalState;
+  readonly skillId: string;
+  readonly title: string;
+  readonly description: string;
+  readonly actor: SkillProposalActor;
+  readonly sourceContentHash: string;
+  readonly targetContentHash?: string;
+  readonly installationRequest?: InstallSkillRequest;
+  readonly compatibility: SkillCompatibilityReport;
+  readonly files: readonly SkillFileSummary[];
+  readonly changes: readonly SkillFileChange[];
+  readonly stateReason?: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly appliedAt?: string;
+}
+
+export interface SkillProposalsResponse {
+  readonly proposals: readonly SkillProposalRecord[];
+}
+
+export interface CreateSkillAuthoringProposalRequest {
+  readonly skillId: string;
+  readonly skillMarkdown: string;
+  readonly supportingFiles?: readonly SkillProposalFileInput[];
+  readonly evidence?: string;
+}
+
+export interface CreateSkillInstallProposalRequest {
+  readonly installation: InstallSkillRequest;
+  readonly evidence?: string;
+}
+
+export interface RejectSkillProposalRequest {
+  readonly reason?: string;
 }
 
 export interface DeleteAgentResponse {

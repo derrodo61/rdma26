@@ -11,6 +11,8 @@ import type {
   ChatThread,
   ChatThreadSummary,
   CatalogSearchResponse,
+  CreateSkillAuthoringProposalRequest,
+  CreateSkillInstallProposalRequest,
   CostSummaryRequest,
   CostSummaryResponse,
   CreateMemoryRequest,
@@ -47,6 +49,10 @@ import type {
   PricingSourceRecord,
   RunContextDetails,
   SkillInstallationRecord,
+  SkillInstallationPreview,
+  SkillProposalActor,
+  SkillProposalRecord,
+  SkillProposalsResponse,
   SyncOpenAiModelPricingResult,
   SkillPackageDetails,
   SkillsResponse,
@@ -90,13 +96,15 @@ import { ThreadService } from './threads/thread-service';
 import { ThreadCheckpointer } from './threads/thread-checkpointer';
 import { SkillLibrary } from './skills/skill-library';
 import { SkillManagementService } from './skills/skill-management-service';
+import { SkillProposalService } from './skills/skill-proposal-service';
 
 export class AssistantRuntime {
   private readonly registry: AgentRegistry;
   private readonly models: readonly ModelOption[];
-  private readonly capabilities = new CapabilityRegistry();
+  private readonly capabilities: CapabilityRegistry;
   private readonly skillLibrary: SkillLibrary;
   private readonly skills: SkillManagementService;
+  private readonly skillProposals: SkillProposalService;
   private readonly userProfileStore: UserProfileStore;
   private readonly fileMemoryStore: FileMemoryStore;
   private readonly runContextStore: RunContextStore;
@@ -119,6 +127,8 @@ export class AssistantRuntime {
       this.skillLibrary,
     );
     this.skills = new SkillManagementService(this.skillLibrary, this.registry);
+    this.skillProposals = new SkillProposalService(options.dataDir, this.skillLibrary, this.skills);
+    this.capabilities = new CapabilityRegistry(this);
     this.userProfileStore = new UserProfileStore(options.dataDir);
     this.modelPricingStore = new ModelPricingStore(options.dataDir);
     this.llmCallStore = new LlmCallStore(options.dataDir, this.modelPricingStore);
@@ -160,6 +170,7 @@ export class AssistantRuntime {
 
   async ensureReady(): Promise<void> {
     await this.registry.ensureReady();
+    await this.skillProposals.ensureReady();
     const costAnalyst = await this.registry.ensureAgent({
       id: costAnalystAgentId,
       name: costAnalystAgentName,
@@ -379,6 +390,10 @@ export class AssistantRuntime {
     return await this.skills.installSkill(request);
   }
 
+  async inspectSkillInstallation(request: InstallSkillRequest): Promise<SkillInstallationPreview> {
+    return await this.skills.inspectSkillInstallation(request);
+  }
+
   async inspectSkillUpdate(
     skillId: string,
     enabledCapabilities: readonly string[] = [],
@@ -408,6 +423,43 @@ export class AssistantRuntime {
     limit?: number,
   ): Promise<CatalogSearchResponse> {
     return await this.skills.searchCatalog(catalogId, query, limit);
+  }
+
+  async listSkillProposals(): Promise<SkillProposalsResponse> {
+    return await this.skillProposals.list();
+  }
+
+  async readSkillProposal(proposalId: string): Promise<SkillProposalRecord> {
+    return await this.skillProposals.read(proposalId);
+  }
+
+  async proposeSkillCreate(
+    request: CreateSkillAuthoringProposalRequest,
+    actor: SkillProposalActor,
+  ): Promise<SkillProposalRecord> {
+    return await this.skillProposals.createAuthoringProposal('create', request, actor);
+  }
+
+  async proposeSkillUpdate(
+    request: CreateSkillAuthoringProposalRequest,
+    actor: SkillProposalActor,
+  ): Promise<SkillProposalRecord> {
+    return await this.skillProposals.createAuthoringProposal('update', request, actor);
+  }
+
+  async proposeSkillInstall(
+    request: CreateSkillInstallProposalRequest,
+    actor: SkillProposalActor,
+  ): Promise<SkillProposalRecord> {
+    return await this.skillProposals.createInstallProposal(request, actor);
+  }
+
+  async applySkillProposal(proposalId: string): Promise<SkillProposalRecord> {
+    return await this.skillProposals.apply(proposalId);
+  }
+
+  async rejectSkillProposal(proposalId: string, reason?: string): Promise<SkillProposalRecord> {
+    return await this.skillProposals.reject(proposalId, reason);
   }
 
   async agentSkillsResponse(agentId: string): Promise<AgentSkillsResponse> {

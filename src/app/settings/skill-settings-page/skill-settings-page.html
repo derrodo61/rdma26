@@ -3,7 +3,9 @@
     <div class="flex min-h-16 items-center justify-between gap-4 px-4 py-3 sm:px-6">
       <div>
         <h1 class="text-lg font-semibold">Skill library</h1>
-        <p class="mt-0.5 text-sm text-text-muted">{{ skills().length }} installed</p>
+        <p class="mt-0.5 text-sm text-text-muted">
+          {{ skills().length }} installed · {{ openProposalCount() }} awaiting review
+        </p>
       </div>
       <a
         routerLink="/"
@@ -30,6 +32,47 @@
     <div class="grid gap-8 xl:grid-cols-[minmax(0,1.35fr)_minmax(22rem,0.65fr)]">
       <div class="min-w-0 space-y-8">
         <section>
+          <div class="flex items-end justify-between gap-3">
+            <div>
+              <h2 class="text-sm font-semibold text-text-muted">Proposals</h2>
+              <p class="mt-1 text-sm text-text-muted">Agent drafts awaiting explicit review.</p>
+            </div>
+            <span class="text-xs text-text-muted">{{ openProposalCount() }} open</span>
+          </div>
+          @if (proposals().length === 0) {
+            <p class="mt-3 border border-border bg-surface p-4 text-sm text-text-muted">
+              No skill proposals.
+            </p>
+          } @else {
+            <div class="mt-3 divide-y divide-border border border-border bg-surface">
+              @for (proposal of proposals(); track proposal.id) {
+                <button
+                  type="button"
+                  class="grid w-full gap-3 p-4 text-left hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)] sm:grid-cols-[1fr_auto] sm:items-center"
+                  [class.bg-surface-active]="selectedProposalId() === proposal.id"
+                  (click)="selectProposal(proposal.id)"
+                >
+                  <span class="min-w-0">
+                    <span class="flex flex-wrap items-center gap-2">
+                      <span class="text-sm font-semibold text-text">{{ proposal.title }}</span>
+                      <span class="font-mono text-xs text-text-muted">{{ proposal.skillId }}</span>
+                      <span
+                        class="border border-border px-1.5 py-0.5 text-[0.6875rem] uppercase text-text-muted"
+                        >{{ proposal.kind }}</span
+                      >
+                    </span>
+                    <span class="mt-1 block truncate text-sm text-text-muted">{{
+                      proposal.description
+                    }}</span>
+                  </span>
+                  <span class="text-xs uppercase text-text-muted">{{ proposal.state }}</span>
+                </button>
+              }
+            </div>
+          }
+        </section>
+
+        <section class="border-t border-border pt-6">
           <div class="flex flex-wrap items-end justify-between gap-3">
             <div>
               <h2 class="text-sm font-semibold text-text-muted">Installed</h2>
@@ -248,7 +291,99 @@
       </div>
 
       <aside class="min-w-0 xl:border-l xl:border-border xl:pl-6">
-        @if (selectedSkill(); as skill) {
+        @if (selectedProposal(); as proposal) {
+          <div class="xl:sticky xl:top-6">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 class="text-base font-semibold">{{ proposal.title }}</h2>
+                <p class="mt-1 font-mono text-xs text-text-muted">{{ proposal.skillId }}</p>
+              </div>
+              <span class="border border-border px-2 py-1 text-xs uppercase text-text-muted">{{
+                proposal.state
+              }}</span>
+            </div>
+            <p class="mt-4 text-sm leading-6 text-text-muted">{{ proposal.description }}</p>
+            <dl
+              class="mt-5 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 border-y border-border py-4 text-sm"
+            >
+              <dt class="text-text-muted">Action</dt>
+              <dd class="text-right uppercase">{{ proposal.kind }}</dd>
+              <dt class="text-text-muted">Proposed by</dt>
+              <dd class="text-right">{{ proposal.actor.agentId }}</dd>
+              <dt class="text-text-muted">Created</dt>
+              <dd class="text-right">{{ proposal.createdAt }}</dd>
+              <dt class="text-text-muted">Compatibility</dt>
+              <dd class="text-right">{{ proposal.compatibility.status }}</dd>
+            </dl>
+            @if (proposal.actor.evidence) {
+              <section class="mt-5">
+                <h3 class="text-sm font-semibold text-text-muted">Evidence</h3>
+                <p class="mt-2 whitespace-pre-wrap text-sm leading-6 text-text-muted">
+                  {{ proposal.actor.evidence }}
+                </p>
+              </section>
+            }
+            @if (proposal.stateReason) {
+              <p class="mt-5 border border-border bg-surface-muted p-3 text-sm text-text-muted">
+                {{ proposal.stateReason }}
+              </p>
+            }
+            <section class="mt-5">
+              <h3 class="text-sm font-semibold text-text-muted">File changes</h3>
+              <div class="mt-2 divide-y divide-border border border-border">
+                @for (change of proposal.changes; track change.path) {
+                  <div class="flex items-center justify-between gap-3 px-3 py-2 text-xs">
+                    <span class="min-w-0 truncate font-mono">{{ change.path }}</span
+                    ><span class="shrink-0 uppercase text-text-muted">{{ change.kind }}</span>
+                  </div>
+                }
+              </div>
+            </section>
+            @if (proposal.compatibility.findings.length > 0) {
+              <section class="mt-5">
+                <h3 class="text-sm font-semibold text-text-muted">Scanner findings</h3>
+                <div class="mt-2 divide-y divide-border border border-border">
+                  @for (
+                    finding of proposal.compatibility.findings;
+                    track finding.code + finding.path
+                  ) {
+                    <div class="p-3">
+                      <div class="flex justify-between gap-3 text-xs">
+                        <span class="font-mono">{{ finding.code }}</span
+                        ><span class="uppercase text-text-muted">{{ finding.severity }}</span>
+                      </div>
+                      <p class="mt-1 text-sm text-text-muted">{{ finding.message }}</p>
+                    </div>
+                  }
+                </div>
+              </section>
+            }
+            @if (proposal.state === 'pending' || canRejectProposal(proposal)) {
+              <div class="mt-5 flex flex-wrap justify-end gap-2 border-t border-border pt-4">
+                @if (canRejectProposal(proposal)) {
+                  <button
+                    type="button"
+                    class="flex h-10 items-center gap-2 border border-danger-border px-3 text-sm font-medium text-danger hover:bg-danger-soft"
+                    [disabled]="isWorking()"
+                    (click)="rejectProposal(proposal)"
+                  >
+                    <ng-icon name="lucideX" size="16" /> Reject
+                  </button>
+                }
+                @if (proposal.state === 'pending') {
+                  <button
+                    type="button"
+                    class="flex h-10 items-center gap-2 bg-accent px-3 text-sm font-semibold text-white hover:bg-accent-hover"
+                    [disabled]="isWorking()"
+                    (click)="applyProposal(proposal)"
+                  >
+                    <ng-icon name="lucideCheck" size="16" /> Apply proposal
+                  </button>
+                }
+              </div>
+            }
+          </div>
+        } @else if (selectedSkill(); as skill) {
           <div class="xl:sticky xl:top-6">
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -376,8 +511,8 @@
           </div>
         } @else {
           <div class="border border-border bg-surface p-5 text-sm text-text-muted">
-            Select a skill to inspect its files, attachments, provenance, compatibility, and
-            versions.
+            Select a proposal for review or a skill to inspect its files, attachments, provenance,
+            compatibility, and versions.
           </div>
         }
       </aside>

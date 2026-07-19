@@ -118,10 +118,11 @@ The current implementation has these limits:
   surfaces call the same `SkillManagementService` through `AssistantRuntime`.
 - The agent editor has a Skills tab, and the separate skill library is available
   at `/settings/skills`.
-- The user library is populated only by migration; there is no supported create,
-  edit, clone, or delete operation yet.
-- `skill_authoring`, `skill_acquisition`, proposals, scanning, and approval are
-  not implemented.
+- The user library can be populated by migration or an explicitly approved
+  authoring proposal. There is no direct editor, clone, or delete operation yet.
+- `skill_authoring` and `skill_acquisition` are independently configurable and
+  create persisted, scanned proposals only. Authenticated API, CLI, and Angular
+  review actions apply or reject proposals explicitly.
 - The run inspector does not yet display attached-versus-used skill metadata.
 - Only the protected Cost Analyst currently receives a bundled skill,
   `pricing-source-analysis`.
@@ -322,16 +323,15 @@ does not silently install or enable them.
 
 ## Agent-Assisted Skill Management
 
-Users should be able to manage skills conversationally as well as through the
-settings UI. rdma26 provides two separate, configurable capabilities because
+Users can manage skills conversationally as well as through the settings UI.
+rdma26 provides two separate, configurable capabilities because
 local authoring and external software acquisition have different trust
 boundaries.
 
 ### `skill_authoring`
 
 The **Skill authoring** capability lets an agent draft new skills and revisions
-to user-owned skills. It contributes authoring guidance and proposal tools such
-as:
+to user-owned skills. It contributes authoring guidance and proposal tools:
 
 - `propose_skill_create`;
 - `propose_skill_update`;
@@ -347,7 +347,7 @@ scripts, overwrite bundled or external skills, or install a tool plugin.
 
 The **Skill acquisition** capability lets an agent find and evaluate existing
 skills before inventing a new one. It contributes catalog guidance and proposal
-tools such as:
+tools:
 
 - `search_skill_catalogs`;
 - `inspect_skill_package`;
@@ -360,9 +360,10 @@ an installation or approve dependencies. When both skill capabilities are
 enabled, shared guidance requires the agent to search installed skills and
 trusted catalogs before proposing a new skill.
 
-Both capabilities are disabled by default for ordinary agents and can be
-enabled independently in agent settings. The protected operator agent may
-receive them by default, but proposal approval remains a user action.
+Both capabilities are disabled by default and can be enabled independently in
+agent settings. Proposal approval always remains an authenticated user action.
+When both capabilities are enabled, authoring proposal tools deterministically
+require installed-library and trusted-catalog searches earlier in the same run.
 
 ```mermaid
 flowchart LR
@@ -377,10 +378,11 @@ flowchart LR
     S --> A["Attach to selected agents"]
 ```
 
-Applying a proposal is the only operation that changes the active library. A
-proposal records its target and content hashes so it becomes stale if its
-source or target changes before approval. Invalid proposals are rejected, and
-suspicious proposals can be quarantined for inspection.
+Within the proposal workflow, only an authenticated explicit apply operation
+changes the active library. A proposal records its target and content hashes so
+it becomes stale if its source or target changes before approval. Invalid
+proposals are rejected, and suspicious proposals are quarantined for
+inspection.
 
 ## Planned User Experience
 

@@ -160,6 +160,30 @@ describe('skill routes', () => {
         payload: {},
       });
       expect(invalidUpdate.statusCode).toBe(400);
+
+      const proposal = await runtime.proposeSkillCreate(
+        {
+          skillId: 'review-checklist',
+          skillMarkdown:
+            '---\nname: review-checklist\ndescription: Review a checklist.\n---\n\n# Review\n',
+        },
+        { agentId: 'albert', threadId: 'thread-1' },
+      );
+      const proposalList = await server.inject({ method: 'GET', url: '/api/skill-proposals' });
+      expect(proposalList.statusCode).toBe(200);
+      expect(proposalList.json()).toMatchObject({
+        proposals: [expect.objectContaining({ id: proposal.id, state: 'pending' })],
+      });
+
+      const applyProposal = await server.inject({
+        method: 'POST',
+        url: `/api/skill-proposals/${proposal.id}/apply`,
+      });
+      expect(applyProposal.statusCode).toBe(200);
+      expect(applyProposal.json()).toMatchObject({ id: proposal.id, state: 'applied' });
+      await expect(runtime.readSkill('review-checklist')).resolves.toMatchObject({
+        ownership: 'user',
+      });
     } finally {
       await server.close();
       runtime.close();

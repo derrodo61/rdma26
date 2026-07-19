@@ -5,12 +5,14 @@ import { RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideArrowLeft,
+  lucideCheck,
   lucideDownload,
   lucideExternalLink,
   lucidePin,
   lucideRefreshCw,
   lucideRotateCcw,
   lucideSearch,
+  lucideX,
 } from '@ng-icons/lucide';
 
 import type {
@@ -21,6 +23,7 @@ import type {
   SkillInstalledVersion,
   SkillPackageDetails,
   SkillPackageSummary,
+  SkillProposalRecord,
   SkillUpdatePreview,
 } from '../../../../shared/agent-contracts';
 import { AssistantApi } from '../../chat/assistant-api';
@@ -33,12 +36,14 @@ type InstallSourceType = InstallSkillRequest['sourceType'];
   providers: [
     provideIcons({
       lucideArrowLeft,
+      lucideCheck,
       lucideDownload,
       lucideExternalLink,
       lucidePin,
       lucideRefreshCw,
       lucideRotateCcw,
       lucideSearch,
+      lucideX,
     }),
   ],
   templateUrl: './skill-settings-page.html',
@@ -49,7 +54,9 @@ export class SkillSettingsPage {
   protected readonly skills = signal<readonly SkillPackageSummary[]>([]);
   protected readonly installations = signal<readonly SkillInstallationRecord[]>([]);
   protected readonly agents = signal<readonly AgentProfile[]>([]);
+  protected readonly proposals = signal<readonly SkillProposalRecord[]>([]);
   protected readonly selectedSkillId = signal<string | null>(null);
+  protected readonly selectedProposalId = signal<string | null>(null);
   protected readonly selectedSkill = signal<SkillPackageDetails | null>(null);
   protected readonly updatePreview = signal<SkillUpdatePreview | null>(null);
   protected readonly libraryQuery = signal('');
@@ -81,6 +88,17 @@ export class SkillSettingsPage {
     this.installations().find((record) => record.skillId === this.selectedSkillId()),
   );
 
+  protected readonly selectedProposal = computed(() =>
+    this.proposals().find((proposal) => proposal.id === this.selectedProposalId()),
+  );
+
+  protected readonly openProposalCount = computed(
+    () =>
+      this.proposals().filter((proposal) =>
+        ['pending', 'quarantined', 'stale'].includes(proposal.state),
+      ).length,
+  );
+
   protected readonly selectedAttachmentAgents = computed(() => {
     const skillId = this.selectedSkillId();
     return skillId ? this.agents().filter((agent) => agent.attachedSkills.includes(skillId)) : [];
@@ -100,11 +118,53 @@ export class SkillSettingsPage {
   }
 
   protected async selectSkill(skillId: string): Promise<void> {
+    this.selectedProposalId.set(null);
     this.selectedSkillId.set(skillId);
     this.updatePreview.set(null);
     await this.run(async () => {
       this.selectedSkill.set(await this.api.readSkill(skillId));
     });
+  }
+
+  protected selectProposal(proposalId: string): void {
+    this.selectedSkillId.set(null);
+    this.selectedSkill.set(null);
+    this.updatePreview.set(null);
+    this.selectedProposalId.set(proposalId);
+    this.clearMessages();
+  }
+
+  protected async applyProposal(proposal: SkillProposalRecord): Promise<void> {
+    if (
+      !globalThis.confirm(`Apply the reviewed ${proposal.kind} proposal for ${proposal.skillId}?`)
+    ) {
+      return;
+    }
+
+    await this.run(async () => {
+      const updated = await this.api.applySkillProposal(proposal.id);
+      await this.refreshLibrary();
+      this.selectedProposalId.set(updated.id);
+      this.notice.set(`Applied proposal for ${updated.skillId}.`);
+    });
+  }
+
+  protected async rejectProposal(proposal: SkillProposalRecord): Promise<void> {
+    const reason = globalThis.prompt('Reason for rejection', 'Rejected after review.');
+    if (reason === null) {
+      return;
+    }
+
+    await this.run(async () => {
+      const updated = await this.api.rejectSkillProposal(proposal.id, reason.trim() || undefined);
+      await this.refreshLibrary();
+      this.selectedProposalId.set(updated.id);
+      this.notice.set(`Rejected proposal for ${updated.skillId}.`);
+    });
+  }
+
+  protected canRejectProposal(proposal: SkillProposalRecord): boolean {
+    return ['pending', 'quarantined', 'stale'].includes(proposal.state);
   }
 
   protected async install(): Promise<void> {
@@ -251,14 +311,16 @@ export class SkillSettingsPage {
   }
 
   private async refreshLibrary(): Promise<void> {
-    const [skills, installations, agents] = await Promise.all([
+    const [skills, installations, agents, proposals] = await Promise.all([
       this.api.skills(),
       this.api.skillInstallations(),
       this.api.agents(),
+      this.api.skillProposals(),
     ]);
     this.skills.set(skills.skills);
     this.installations.set(installations.installations);
     this.agents.set(agents.agents);
+    this.proposals.set(proposals.proposals);
 
     const selectedId = this.selectedSkillId();
     if (selectedId && !skills.skills.some((skill) => skill.id === selectedId)) {
