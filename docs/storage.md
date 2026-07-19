@@ -15,6 +15,11 @@ backend owns this directory; browser code does not access it directly.
   evaluations/
   provider-auth/
     openai-chatgpt.json
+  skills/
+    bundled/
+      <skill-id>/
+    user/
+      <skill-id>/
   user/
     memory/
   agents/

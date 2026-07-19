@@ -112,9 +112,12 @@ sequenceDiagram
 
 The current implementation has these limits:
 
-- There is no skill-management API, CLI, or settings page.
+- The authenticated API and CLI can list and inspect installed packages and can
+  list, replace, attach, or detach an agent's skill attachments. These surfaces
+  call the same `SkillManagementService` through `AssistantRuntime`.
+- There is no skill-management settings page yet.
 - The user library is populated only by migration; there is no supported create,
-  edit, clone, install, update, attach, or detach operation yet.
+  edit, clone, install, update, or delete operation yet.
 - External package storage, provenance records, compatibility inspection, Git,
   archives, and catalog adapters are not implemented.
 - `skill_authoring`, `skill_acquisition`, proposals, scanning, and approval are
@@ -125,8 +128,9 @@ The current implementation has these limits:
 
 That bundled skill is materialized once in the shared library and attached to
 the Cost Analyst. It guides pricing-source analysis and works with the Cost
-Analyst's protected pricing tools. Other agents currently have no default skill
-attachments.
+Analyst's protected pricing tools. It is a required attachment for that
+protected system agent and cannot be detached through the management service.
+Other agents currently have no required skill attachments.
 
 On startup, legacy packages under an agent's old `deepagent/skills/` directory
 are validated and copied once into the user library. Their ids are attached to

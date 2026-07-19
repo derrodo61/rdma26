@@ -5,6 +5,7 @@ import type {
   AgentProfile,
   AgentRunRequest,
   AgentSoulResponse,
+  AgentSkillsResponse,
   AgentCapabilitiesResponse,
   AgentsResponse,
   ChatThread,
@@ -44,9 +45,12 @@ import type {
   PricingSourceRecord,
   RunContextDetails,
   SyncOpenAiModelPricingResult,
+  SkillPackageDetails,
+  SkillsResponse,
   CapabilitiesResponse,
   UpdateAgentRequest,
   UpdateAgentSoulRequest,
+  UpdateAgentSkillsRequest,
   UpdateAgentCapabilitiesRequest,
   UpdateMemoryRequest,
   UpdateModelPricingRequest,
@@ -81,12 +85,14 @@ import { RunContextStore } from './runs/run-context-store';
 import { ThreadService } from './threads/thread-service';
 import { ThreadCheckpointer } from './threads/thread-checkpointer';
 import { SkillLibrary } from './skills/skill-library';
+import { SkillManagementService } from './skills/skill-management-service';
 
 export class AssistantRuntime {
   private readonly registry: AgentRegistry;
   private readonly models: readonly ModelOption[];
   private readonly capabilities = new CapabilityRegistry();
   private readonly skillLibrary: SkillLibrary;
+  private readonly skills: SkillManagementService;
   private readonly userProfileStore: UserProfileStore;
   private readonly fileMemoryStore: FileMemoryStore;
   private readonly runContextStore: RunContextStore;
@@ -108,6 +114,7 @@ export class AssistantRuntime {
       options.defaultAgentName,
       this.skillLibrary,
     );
+    this.skills = new SkillManagementService(this.skillLibrary, this.registry);
     this.userProfileStore = new UserProfileStore(options.dataDir);
     this.modelPricingStore = new ModelPricingStore(options.dataDir);
     this.llmCallStore = new LlmCallStore(options.dataDir, this.modelPricingStore);
@@ -350,6 +357,33 @@ export class AssistantRuntime {
         (enabledCapabilityId) => enabledCapabilityId !== capabilityId,
       ),
     });
+  }
+
+  async listSkills(): Promise<SkillsResponse> {
+    return await this.skills.listSkills();
+  }
+
+  async readSkill(skillId: string): Promise<SkillPackageDetails> {
+    return await this.skills.readSkill(skillId);
+  }
+
+  async agentSkillsResponse(agentId: string): Promise<AgentSkillsResponse> {
+    return await this.skills.readAgentSkills(agentId);
+  }
+
+  async updateAgentSkills(
+    agentId: string,
+    request: UpdateAgentSkillsRequest,
+  ): Promise<AgentSkillsResponse> {
+    return await this.skills.updateAgentSkills(agentId, request);
+  }
+
+  async attachAgentSkill(agentId: string, skillId: string): Promise<AgentSkillsResponse> {
+    return await this.skills.attachSkill(agentId, skillId);
+  }
+
+  async detachAgentSkill(agentId: string, skillId: string): Promise<AgentSkillsResponse> {
+    return await this.skills.detachSkill(agentId, skillId);
   }
 
   async deleteAgent(agentId: string): Promise<DeleteAgentResponse> {

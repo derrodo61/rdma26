@@ -9,6 +9,7 @@ import type {
   CreateAgentRequest,
   UpdateAgentRequest,
   UpdateAgentCapabilitiesRequest,
+  UpdateAgentSkillsRequest,
 } from '../../../shared/agent-contracts';
 import {
   createAssistantStorage,
@@ -168,6 +169,27 @@ export class AgentRegistry {
     return updated;
   }
 
+  async updateAgentSkills(
+    agentId: string,
+    request: UpdateAgentSkillsRequest,
+  ): Promise<AgentProfile> {
+    const existing = await this.readAgent(agentId);
+
+    if (!existing) {
+      throw new Error(`Agent ${agentId} does not exist.`);
+    }
+
+    const updated: AgentProfile = {
+      ...existing,
+      attachedSkills: normalizeSkillIds(request.attachedSkillIds),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await this.writeAgent(updated);
+
+    return updated;
+  }
+
   async deleteAgent(agentId: string): Promise<boolean> {
     validateAgentId(agentId);
 
@@ -259,7 +281,7 @@ export class AgentRegistry {
       kind,
       chatEnabled,
       enabledCapabilities: [],
-      attachedSkills: this.skillLibrary.defaultAttachmentsForAgent(id),
+      attachedSkills: this.skillLibrary.requiredAttachmentsForAgent(id),
       memory: defaultAgentMemorySettings(id),
       models: {},
       soulVirtualPath,

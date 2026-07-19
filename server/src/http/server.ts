@@ -44,6 +44,7 @@ export async function startServer(): Promise<void> {
         { name: 'memories', description: 'Long-term memory records.' },
         { name: 'tools', description: 'Tool registry and per-agent grants.' },
         { name: 'agents', description: 'Agent profiles.' },
+        { name: 'skills', description: 'Installed skills and agent attachments.' },
         { name: 'threads', description: 'Agent-specific conversation threads.' },
         { name: 'runs', description: 'Agent runs and streaming responses.' },
         { name: 'run-context', description: 'Optional run context transparency details.' },

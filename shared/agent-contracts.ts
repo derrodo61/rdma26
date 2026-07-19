@@ -142,6 +142,40 @@ export interface UpdateAgentCapabilitiesRequest {
   readonly enabledCapabilities: readonly string[];
 }
 
+export type SkillOwnership = 'bundled' | 'user' | 'external';
+
+export interface SkillPackageSummary {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+  readonly ownership: SkillOwnership;
+}
+
+export interface SkillFileSummary {
+  readonly path: string;
+  readonly sizeBytes: number;
+}
+
+export interface SkillPackageDetails extends SkillPackageSummary {
+  readonly skillMarkdown: string;
+  readonly files: readonly SkillFileSummary[];
+}
+
+export interface SkillsResponse {
+  readonly skills: readonly SkillPackageSummary[];
+}
+
+export interface AgentSkillsResponse {
+  readonly agentId: string;
+  readonly attachedSkillIds: readonly string[];
+  readonly requiredSkillIds: readonly string[];
+  readonly skills: readonly SkillPackageSummary[];
+}
+
+export interface UpdateAgentSkillsRequest {
+  readonly attachedSkillIds: readonly string[];
+}
+
 export interface DeleteAgentResponse {
   readonly deleted: true;
   readonly agentId: string;

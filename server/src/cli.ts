@@ -57,6 +57,12 @@ async function main(): Promise<void> {
     case 'capabilities:list':
       printJson(runtime.capabilitiesResponse());
       return;
+    case 'skills:list':
+      printJson(await runtime.listSkills());
+      return;
+    case 'skills:show':
+      printJson(await runtime.readSkill(requiredOption(options, 'skill')));
+      return;
     case 'agents:list':
       printJson(await runtime.agentsResponse());
       return;
@@ -222,6 +228,22 @@ async function main(): Promise<void> {
           requiredOption(options, 'capability'),
         ),
       );
+      return;
+    case 'agents:skills':
+      printJson(await runtime.agentSkillsResponse(agentId(options)));
+      return;
+    case 'agents:skills:set':
+      printJson(
+        await runtime.updateAgentSkills(agentId(options), {
+          attachedSkillIds: parseRequiredListOption(options, 'skills'),
+        }),
+      );
+      return;
+    case 'agents:skills:attach':
+      printJson(await runtime.attachAgentSkill(agentId(options), requiredOption(options, 'skill')));
+      return;
+    case 'agents:skills:detach':
+      printJson(await runtime.detachAgentSkill(agentId(options), requiredOption(options, 'skill')));
       return;
     case 'threads:list':
       printJson(await runtime.listThreads(agentId(options)));
@@ -538,6 +560,17 @@ function parseOptionalList(value: string | undefined): readonly string[] {
     : [];
 }
 
+function parseRequiredListOption(
+  options: Record<string, string | undefined>,
+  key: string,
+): readonly string[] {
+  if (options[key] === undefined) {
+    throw new Error(`Missing required option: --${key}`);
+  }
+
+  return parseOptionalList(options[key]);
+}
+
 function parseOptionalInteger(value: string | undefined, name: string): number | undefined {
   if (!value) {
     return undefined;
@@ -767,6 +800,8 @@ Usage:
   rdma26 providers:login --provider openai-chatgpt
   rdma26 providers:logout --provider openai-chatgpt
   rdma26 capabilities:list
+  rdma26 skills:list
+  rdma26 skills:show --skill pricing-source-analysis
   rdma26 agents:list
   rdma26 agents:create --id research --name "Research assistant"
   rdma26 agents:update --agent research --name "Researcher"
@@ -789,6 +824,10 @@ Usage:
   rdma26 agents:capabilities:set --agent research --capabilities web_search
   rdma26 agents:capabilities:grant --agent research --capability web_search
   rdma26 agents:capabilities:revoke --agent research --capability web_search
+  rdma26 agents:skills --agent research
+  rdma26 agents:skills:set --agent research --skills pricing-source-analysis
+  rdma26 agents:skills:attach --agent research --skill pricing-source-analysis
+  rdma26 agents:skills:detach --agent research --skill pricing-source-analysis
   rdma26 threads:list --agent scotty
   rdma26 threads:create --agent scotty --title "Planning"
   rdma26 threads:read --agent scotty --thread <thread-id>

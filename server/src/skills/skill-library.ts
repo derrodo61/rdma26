@@ -1,12 +1,12 @@
 import { createHash } from 'node:crypto';
-import { cp, lstat, mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
-import { basename, dirname, join, relative } from 'node:path';
+import { cp, lstat, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { basename, dirname, join, relative, sep } from 'node:path';
 
 import { parse } from 'yaml';
 
 import { pricingSourceAnalysisSkillContent } from '../storage/assistant-storage';
 
-export type SkillOwnership = 'bundled' | 'user';
+import type { SkillFileSummary, SkillOwnership } from '../../../shared/agent-contracts';
 
 export interface SkillPackageDefinition {
   readonly id: string;
@@ -20,6 +20,11 @@ export interface AgentSkillSource {
   readonly id: string;
   readonly virtualPath: string;
   readonly directory: string;
+}
+
+export interface SkillPackageInspection extends SkillPackageDefinition {
+  readonly skillMarkdown: string;
+  readonly files: readonly SkillFileSummary[];
 }
 
 const pricingSourceAnalysisSkillId = 'pricing-source-analysis';
@@ -47,7 +52,7 @@ export class SkillLibrary {
     await writeFile(join(pricingSkillDir, 'SKILL.md'), pricingSourceAnalysisSkillContent, 'utf8');
   }
 
-  defaultAttachmentsForAgent(agentId: string): readonly string[] {
+  requiredAttachmentsForAgent(agentId: string): readonly string[] {
     return agentId === 'cost-analyst' ? [pricingSourceAnalysisSkillId] : [];
   }
 
@@ -94,6 +99,28 @@ export class SkillLibrary {
     });
   }
 
+  async inspectPackage(skillId: string): Promise<SkillPackageInspection> {
+    const [normalizedId] = normalizeSkillIds([skillId]);
+    const skill = (await this.listPackages()).find((candidate) => candidate.id === normalizedId);
+
+    if (!skill) {
+      throw new Error(`Skill ${normalizedId} is not installed.`);
+    }
+
+    const filePaths = await listFiles(skill.directory);
+
+    return {
+      ...skill,
+      skillMarkdown: await readFile(join(skill.directory, 'SKILL.md'), 'utf8'),
+      files: await Promise.all(
+        filePaths.map(async (filePath) => ({
+          path: relative(skill.directory, filePath).split(sep).join('/'),
+          sizeBytes: (await stat(filePath)).size,
+        })),
+      ),
+    };
+  }
+
   async migrateAgentLocalSkills(
     agentId: string,
     legacySkillsDir: string,
@@ -103,7 +130,7 @@ export class SkillLibrary {
     await this.ensureReady();
     const attachments = new Set(normalizeSkillIds(attachedSkillIds));
 
-    for (const defaultSkillId of this.defaultAttachmentsForAgent(agentId)) {
+    for (const defaultSkillId of this.requiredAttachmentsForAgent(agentId)) {
       attachments.add(defaultSkillId);
     }
 

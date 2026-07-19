@@ -10,6 +10,7 @@ import { registerObservabilityRoutes } from './routes/observability-routes';
 import { registerProfileRoutes } from './routes/profile-routes';
 import { registerPricingSourceRoutes } from './routes/pricing-source-routes';
 import { registerRunRoutes } from './routes/run-routes';
+import { registerSkillRoutes } from './routes/skill-routes';
 import { registerSystemRoutes } from './routes/system-routes';
 import { registerThreadRoutes } from './routes/thread-routes';
 
@@ -23,6 +24,7 @@ export function registerApiRoutes(server: FastifyInstance, options: RegisterRout
   registerPricingSourceRoutes(server, options);
   registerObservabilityRoutes(server, options);
   registerAgentRoutes(server, options);
+  registerSkillRoutes(server, options);
   registerThreadRoutes(server, options);
   registerRunRoutes(server, options);
 }

@@ -37,6 +37,27 @@ export const updateAgentCapabilitiesRequestSchema = z.object({
   enabledCapabilities: z.array(z.string().trim().min(1)),
 });
 
+const skillIdSchema = z
+  .string()
+  .trim()
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+  .max(64);
+
+export const skillParamsSchema = z.object({
+  skillId: skillIdSchema,
+});
+
+export const agentSkillParamsSchema = z.object({
+  agentId: z.string().trim().min(1),
+  skillId: skillIdSchema,
+});
+
+export const updateAgentSkillsRequestSchema = z.object({
+  attachedSkillIds: z
+    .array(skillIdSchema)
+    .refine((ids) => new Set(ids).size === ids.length, 'Skill ids must be unique.'),
+});
+
 const memoryScopeSchema = z.enum(['agent', 'agent_user', 'user']);
 const pricingSourceTrustLevelSchema = z.enum(['official', 'third_party', 'user_added']);
 const booleanQuerySchema = z.union([z.boolean(), z.enum(['true', 'false'])]);

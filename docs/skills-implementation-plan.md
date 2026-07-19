@@ -127,6 +127,10 @@ attachment. Other new agents start with no attached skills.
 
 ## Milestone 3: Shared Service, API, And CLI
 
+Status: the installed-library inspection and agent-attachment slice is
+implemented and verified on `codex/skill-management-api`. Installation, update,
+clone, and proposal operations remain blocked on Milestones 2 and 4.
+
 - Expose typed library, package, installation, update, clone, proposal, and
   attachment operations through `AssistantRuntime`.
 - Add authenticated HTTP routes and OpenAPI schemas.
