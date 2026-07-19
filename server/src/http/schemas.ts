@@ -58,6 +58,59 @@ export const updateAgentSkillsRequestSchema = z.object({
     .refine((ids) => new Set(ids).size === ids.length, 'Skill ids must be unique.'),
 });
 
+const enabledCapabilitiesSchema = z.array(z.string().trim().min(1)).optional();
+
+export const installSkillRequestSchema = z.discriminatedUnion('sourceType', [
+  z.object({
+    sourceType: z.literal('local-directory'),
+    path: z.string().trim().min(1),
+    enabledCapabilities: enabledCapabilitiesSchema,
+  }),
+  z.object({
+    sourceType: z.literal('local-archive'),
+    path: z.string().trim().min(1),
+    enabledCapabilities: enabledCapabilitiesSchema,
+  }),
+  z.object({
+    sourceType: z.literal('git'),
+    repositoryUrl: z.string().trim().min(1),
+    packagePath: z.string().trim().min(1).optional(),
+    revision: z.string().trim().min(1).optional(),
+    enabledCapabilities: enabledCapabilitiesSchema,
+  }),
+  z.object({
+    sourceType: z.literal('clawhub'),
+    slug: z.string().trim().min(1),
+    version: z.string().trim().min(1).optional(),
+    enabledCapabilities: enabledCapabilitiesSchema,
+  }),
+]);
+
+export const inspectSkillUpdateRequestSchema = z.object({
+  enabledCapabilities: enabledCapabilitiesSchema,
+});
+
+export const applySkillUpdateRequestSchema = inspectSkillUpdateRequestSchema.extend({
+  expectedContentHash: z.string().trim().min(1),
+});
+
+export const setSkillPinnedRequestSchema = z.object({
+  pinned: z.boolean(),
+});
+
+export const rollbackSkillRequestSchema = z.object({
+  contentHash: z.string().trim().min(1).optional(),
+});
+
+export const skillCatalogParamsSchema = z.object({
+  catalogId: z.string().trim().min(1),
+});
+
+export const skillCatalogSearchQuerySchema = z.object({
+  query: z.string().trim().min(1),
+  limit: z.coerce.number().int().min(1).max(50).optional(),
+});
+
 const memoryScopeSchema = z.enum(['agent', 'agent_user', 'user']);
 const pricingSourceTrustLevelSchema = z.enum(['official', 'third_party', 'user_added']);
 const booleanQuerySchema = z.union([z.boolean(), z.enum(['true', 'false'])]);

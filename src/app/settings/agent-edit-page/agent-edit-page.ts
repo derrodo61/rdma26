@@ -17,6 +17,7 @@ import type {
   AgentProfile,
   CapabilityDefinition,
   ModelOption,
+  SkillPackageSummary,
   ToolDefinition,
 } from '../../../../shared/agent-contracts';
 import { AssistantApi } from '../../chat/assistant-api';
@@ -28,7 +29,7 @@ import { UserProfileSyncService } from '../user-profile-sync';
 type MarkdownAction = 'bold' | 'italic' | 'bulletList' | 'numberedList' | 'quote' | 'code' | 'link';
 
 type MarkdownHeadingLevel = 1 | 2 | 3;
-type AgentEditTab = 'basic' | 'capabilities' | 'soul';
+type AgentEditTab = 'basic' | 'capabilities' | 'skills' | 'soul';
 
 interface MarkdownToolbarItem {
   readonly action: MarkdownAction;
@@ -73,6 +74,9 @@ export class AgentEditPage {
   protected readonly models = signal<readonly ModelOption[]>([]);
   protected readonly capabilities = signal<readonly CapabilityDefinition[]>([]);
   protected readonly controlledTools = signal<readonly ToolDefinition[]>([]);
+  protected readonly skills = signal<readonly SkillPackageSummary[]>([]);
+  protected readonly attachedSkillIds = signal<readonly string[]>([]);
+  protected readonly requiredSkillIds = signal<readonly string[]>([]);
   protected readonly defaultModel = signal('');
   protected readonly draftName = signal('');
   protected readonly soulContent = signal('');
@@ -116,6 +120,7 @@ export class AgentEditPage {
         this.canReadMemory() !== agent.memory.canRead ||
         this.canWriteMemory() !== agent.memory.canWrite ||
         !areStringArraysEqual(this.enabledCapabilityIds(), agent.enabledCapabilities) ||
+        !areStringArraysEqual(this.attachedSkillIds(), agent.attachedSkills) ||
         this.draftSoulContent() !== this.soulContent()),
     );
   });
@@ -223,6 +228,27 @@ export class AgentEditPage {
     return this.enabledCapabilityIds().includes(capabilityId);
   }
 
+  protected isSkillAttached(skillId: string): boolean {
+    return this.attachedSkillIds().includes(skillId);
+  }
+
+  protected isSkillRequired(skillId: string): boolean {
+    return this.requiredSkillIds().includes(skillId);
+  }
+
+  protected updateSkill(skillId: string, isAttached: boolean): void {
+    if (this.isSkillRequired(skillId)) {
+      return;
+    }
+
+    this.attachedSkillIds.update((skillIds) =>
+      normalizeSkillIds(
+        isAttached ? [...skillIds, skillId] : skillIds.filter((id) => id !== skillId),
+      ),
+    );
+    this.savedMessage.set(null);
+  }
+
   protected async save(): Promise<void> {
     const agent = this.agent();
     const name = this.draftName().trim();
@@ -264,9 +290,18 @@ export class AgentEditPage {
           : await this.api.updateAgentSoul(updatedAgent.id, {
               content: this.draftSoulContent(),
             });
+      const updatedSkills = areStringArraysEqual(
+        this.attachedSkillIds(),
+        updatedAgent.attachedSkills,
+      )
+        ? { attachedSkillIds: updatedAgent.attachedSkills }
+        : await this.api.updateAgentSkills(updatedAgent.id, {
+            attachedSkillIds: this.attachedSkillIds(),
+          });
       const nextAgent: AgentProfile = {
         ...updatedAgent,
         enabledCapabilities: updatedCapabilities.enabledCapabilities,
+        attachedSkills: updatedSkills.attachedSkillIds,
       };
 
       this.agent.set(nextAgent);
@@ -274,6 +309,7 @@ export class AgentEditPage {
       this.canReadMemory.set(nextAgent.memory.canRead);
       this.canWriteMemory.set(nextAgent.memory.canWrite);
       this.enabledCapabilityIds.set(nextAgent.enabledCapabilities);
+      this.attachedSkillIds.set(nextAgent.attachedSkills);
       this.soulContent.set(updatedSoul.content);
       this.draftSoulContent.set(updatedSoul.content);
       this.savedMessage.set('Agent settings saved.');
@@ -288,17 +324,23 @@ export class AgentEditPage {
         throw new Error('Agent id is required.');
       }
 
-      const [agent, models, agentCapabilities, soul, profile] = await Promise.all([
-        this.api.readAgent(agentId),
-        this.api.models(),
-        this.api.agentCapabilities(agentId),
-        this.api.readAgentSoul(agentId),
-        this.userProfileSync.loadProfile(),
-      ]);
+      const [agent, models, agentCapabilities, agentSkills, skills, soul, profile] =
+        await Promise.all([
+          this.api.readAgent(agentId),
+          this.api.models(),
+          this.api.agentCapabilities(agentId),
+          this.api.agentSkills(agentId),
+          this.api.skills(),
+          this.api.readAgentSoul(agentId),
+          this.userProfileSync.loadProfile(),
+        ]);
       this.agent.set(agent);
       this.models.set(models.models);
       this.capabilities.set(agentCapabilities.capabilities);
       this.controlledTools.set(agentCapabilities.controlledTools);
+      this.skills.set(skills.skills);
+      this.attachedSkillIds.set(agentSkills.attachedSkillIds);
+      this.requiredSkillIds.set(agentSkills.requiredSkillIds);
       this.defaultModel.set(models.defaultModel);
       this.draftName.set(agent.name);
       this.canReadMemory.set(agent.memory.canRead);
@@ -372,6 +414,10 @@ export class AgentEditPage {
 
 function normalizeCapabilityIds(capabilityIds: readonly string[]): readonly string[] {
   return [...new Set(capabilityIds)].sort();
+}
+
+function normalizeSkillIds(skillIds: readonly string[]): readonly string[] {
+  return [...new Set(skillIds.map((skillId) => skillId.trim()).filter(Boolean))].sort();
 }
 
 function areStringArraysEqual(left: readonly string[], right: readonly string[]): boolean {

@@ -130,11 +130,10 @@ ready for review.
 
 ## Milestone 3: Shared Service, API, And CLI
 
-Status: the installed-library inspection and agent-attachment slice is
-implemented and verified on `codex/skill-management-api`. Milestone 2 now adds
-installation and update methods to the shared service and runtime; their HTTP
-and CLI surfaces, plus clone and proposal operations, remain here or in
-Milestone 4.
+Status: implemented for installed-library inspection, agent attachment,
+installation, catalog search, update inspection and apply, pinning, and
+rollback. Clone operations remain part of later user-skill management, while
+proposal operations belong to Milestone 4.
 
 - Expose typed library, package, installation, update, clone, proposal, and
   attachment operations through `AssistantRuntime`.
@@ -160,6 +159,10 @@ Milestone 4.
   outside both capabilities.
 
 ## Milestone 5: Angular Experience
+
+Status: implemented for installed-library management and per-agent attachment
+on `codex/skill-management-ui`. Proposal review, clone/delete, and run-level
+used-state presentation remain pending their corresponding backend milestones.
 
 - Add a Skills section to the agent editor for attached skills.
 - Add a library view for installed packages, catalog search, source inspection,

@@ -63,6 +63,85 @@ async function main(): Promise<void> {
     case 'skills:show':
       printJson(await runtime.readSkill(requiredOption(options, 'skill')));
       return;
+    case 'skills:installations':
+      printJson({ installations: await runtime.listSkillInstallations() });
+      return;
+    case 'skills:install:directory':
+      printJson(
+        await runtime.installSkill({
+          sourceType: 'local-directory',
+          path: requiredOption(options, 'path'),
+          enabledCapabilities: parseOptionalList(options['capabilities']),
+        }),
+      );
+      return;
+    case 'skills:install:archive':
+      printJson(
+        await runtime.installSkill({
+          sourceType: 'local-archive',
+          path: requiredOption(options, 'path'),
+          enabledCapabilities: parseOptionalList(options['capabilities']),
+        }),
+      );
+      return;
+    case 'skills:install:git':
+      printJson(
+        await runtime.installSkill({
+          sourceType: 'git',
+          repositoryUrl: requiredOption(options, 'url'),
+          packagePath: options['package-path'],
+          revision: options['revision'],
+          enabledCapabilities: parseOptionalList(options['capabilities']),
+        }),
+      );
+      return;
+    case 'skills:install:clawhub':
+      printJson(
+        await runtime.installSkill({
+          sourceType: 'clawhub',
+          slug: requiredOption(options, 'slug'),
+          version: options['version'],
+          enabledCapabilities: parseOptionalList(options['capabilities']),
+        }),
+      );
+      return;
+    case 'skills:catalog:search':
+      printJson(
+        await runtime.searchSkillCatalog(
+          options['catalog'] ?? 'clawhub',
+          requiredOption(options, 'query'),
+          parseOptionalInteger(options['limit'], 'limit'),
+        ),
+      );
+      return;
+    case 'skills:update:inspect':
+      printJson(
+        await runtime.inspectSkillUpdate(
+          requiredOption(options, 'skill'),
+          parseOptionalList(options['capabilities']),
+        ),
+      );
+      return;
+    case 'skills:update:apply':
+      printJson(
+        await runtime.applySkillUpdate(
+          requiredOption(options, 'skill'),
+          requiredOption(options, 'hash'),
+          parseOptionalList(options['capabilities']),
+        ),
+      );
+      return;
+    case 'skills:pin':
+      printJson(
+        await runtime.setSkillPinned(
+          requiredOption(options, 'skill'),
+          parseRequiredBooleanOption(options['pinned'], 'pinned'),
+        ),
+      );
+      return;
+    case 'skills:rollback':
+      printJson(await runtime.rollbackSkill(requiredOption(options, 'skill'), options['hash']));
+      return;
     case 'agents:list':
       printJson(await runtime.agentsResponse());
       return;
@@ -644,6 +723,16 @@ function parseOptionalBooleanOption(value: string | undefined, name: string): bo
   return value === undefined ? undefined : parseBooleanOption(value, name);
 }
 
+function parseRequiredBooleanOption(value: string | undefined, name: string): boolean {
+  const parsed = parseOptionalBooleanOption(value, name);
+
+  if (parsed === undefined) {
+    throw new Error(`Missing required option: --${name}`);
+  }
+
+  return parsed;
+}
+
 function pricingStatusFromActiveOption(
   value: string | undefined,
 ): 'active' | 'inactive' | undefined {
@@ -802,6 +891,16 @@ Usage:
   rdma26 capabilities:list
   rdma26 skills:list
   rdma26 skills:show --skill pricing-source-analysis
+  rdma26 skills:installations
+  rdma26 skills:install:directory --path ./my-skill
+  rdma26 skills:install:archive --path ./my-skill.zip
+  rdma26 skills:install:git --url https://github.com/example/skills.git --package-path skills/example --revision main
+  rdma26 skills:catalog:search --catalog clawhub --query calendar --limit 10
+  rdma26 skills:install:clawhub --slug owner/calendar --version 1.0.0
+  rdma26 skills:update:inspect --skill calendar
+  rdma26 skills:update:apply --skill calendar --hash <content-hash>
+  rdma26 skills:pin --skill calendar --pinned true
+  rdma26 skills:rollback --skill calendar --hash <content-hash>
   rdma26 agents:list
   rdma26 agents:create --id research --name "Research assistant"
   rdma26 agents:update --agent research --name "Researcher"

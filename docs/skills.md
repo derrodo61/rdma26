@@ -112,18 +112,17 @@ sequenceDiagram
 
 The current implementation has these limits:
 
-- The authenticated API and CLI can list and inspect installed packages and can
-  list, replace, attach, or detach an agent's skill attachments. These surfaces
-  call the same `SkillManagementService` through `AssistantRuntime`.
-- There is no skill-management settings page yet.
+- The authenticated API, CLI, and Angular settings UI can list and inspect
+  installed packages, install external packages, search ClawHub, inspect and
+  apply updates, pin and restore versions, and manage agent attachments. These
+  surfaces call the same `SkillManagementService` through `AssistantRuntime`.
+- The agent editor has a Skills tab, and the separate skill library is available
+  at `/settings/skills`.
 - The user library is populated only by migration; there is no supported create,
   edit, clone, or delete operation yet.
-- External installation and update operations are available through the shared
-  backend service and `AssistantRuntime`, but their authenticated HTTP, CLI, and
-  Angular management surfaces are the next milestone.
 - `skill_authoring`, `skill_acquisition`, proposals, scanning, and approval are
   not implemented.
-- The agent editor and run inspector do not yet display attachment metadata.
+- The run inspector does not yet display attached-versus-used skill metadata.
 - Only the protected Cost Analyst currently receives a bundled skill,
   `pricing-source-analysis`.
 
@@ -385,12 +384,16 @@ suspicious proposals can be quarantined for inspection.
 
 ## Planned User Experience
 
-The agent editor will gain a **Skills** section that shows the skills attached
-to that agent. From there, a user should be able to:
+The agent editor has a **Skills** section that shows the skills attached to that
+agent. It currently supports:
 
 - attach an installed skill;
 - detach a skill without deleting it;
-- open a skill to inspect its description, ownership, source, and files;
+- open the library to inspect a skill's description, ownership, source, and
+  files.
+
+Later user-skill management should add:
+
 - create a user skill;
 - edit or delete a user-owned skill;
 - clone a bundled or external skill before customizing it.

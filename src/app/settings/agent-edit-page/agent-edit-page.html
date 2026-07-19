@@ -60,6 +60,17 @@
             type="button"
             class="h-9 rounded-md px-3 text-sm font-semibold text-text-muted hover:bg-surface-hover hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
             role="tab"
+            [class.bg-surface-active]="activeTab() === 'skills'"
+            [class.text-text]="activeTab() === 'skills'"
+            [attr.aria-selected]="activeTab() === 'skills'"
+            (click)="selectTab('skills')"
+          >
+            Skills
+          </button>
+          <button
+            type="button"
+            class="h-9 rounded-md px-3 text-sm font-semibold text-text-muted hover:bg-surface-hover hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+            role="tab"
             [class.bg-surface-active]="activeTab() === 'soul'"
             [class.text-text]="activeTab() === 'soul'"
             [attr.aria-selected]="activeTab() === 'soul'"
@@ -317,6 +328,67 @@
                 ></div>
               </section>
             </div>
+          </section>
+        }
+
+        @if (activeTab() === 'skills') {
+          <section role="tabpanel">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 class="text-sm font-semibold text-text-muted">Attached skills</h2>
+                <p class="mt-1 text-sm text-text-muted">
+                  Attached skills provide reusable workflow instructions to this agent.
+                </p>
+              </div>
+              <a
+                routerLink="/settings/skills"
+                class="flex h-9 items-center border border-border bg-surface px-3 text-sm font-medium text-text-muted hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+              >
+                Manage library
+              </a>
+            </div>
+
+            @if (skills().length === 0) {
+              <p class="mt-4 text-sm text-text-muted">No skills are installed.</p>
+            } @else {
+              <div class="mt-3 divide-y divide-border border border-border bg-surface">
+                @for (skill of skills(); track skill.id) {
+                  <label
+                    class="grid gap-3 p-3 hover:bg-surface-muted sm:grid-cols-[auto_1fr] sm:items-start"
+                    [class.cursor-pointer]="!isSkillRequired(skill.id)"
+                  >
+                    <input
+                      type="checkbox"
+                      class="mt-1 h-4 w-4 accent-accent"
+                      [checked]="isSkillAttached(skill.id)"
+                      [disabled]="isSkillRequired(skill.id)"
+                      (change)="updateSkill(skill.id, $any($event.target).checked)"
+                    />
+                    <span class="min-w-0">
+                      <span class="flex flex-wrap items-center gap-2">
+                        <span class="text-sm font-semibold text-text">{{ skill.name }}</span>
+                        <span class="font-mono text-xs text-text-muted">{{ skill.id }}</span>
+                        <span
+                          class="border border-border px-1.5 py-0.5 text-[0.6875rem] uppercase text-text-muted"
+                        >
+                          {{ skill.ownership }}
+                        </span>
+                        @if (isSkillRequired(skill.id)) {
+                          <span
+                            class="border border-border px-1.5 py-0.5 text-[0.6875rem] uppercase text-text-muted"
+                          >
+                            Required
+                          </span>
+                        }
+                      </span>
+                      <span class="mt-1 block text-sm text-text-muted">{{
+                        skill.description
+                      }}</span>
+                    </span>
+                  </label>
+                }
+              </div>
+            }
           </section>
         }
 

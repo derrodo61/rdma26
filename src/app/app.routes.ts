@@ -28,6 +28,13 @@ export const routes: Routes = [
       import('./settings/agent-edit-page/agent-edit-page').then((module) => module.AgentEditPage),
   },
   {
+    path: 'settings/skills',
+    loadComponent: () =>
+      import('./settings/skill-settings-page/skill-settings-page').then(
+        (module) => module.SkillSettingsPage,
+      ),
+  },
+  {
     path: 'settings/profile',
     loadComponent: () =>
       import('./settings/user-profile-page/user-profile-page').then(

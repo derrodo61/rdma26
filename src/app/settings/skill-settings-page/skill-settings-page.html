@@ -1,0 +1,386 @@
+<div class="min-h-dvh bg-app-bg text-text">
+  <header class="border-b border-border bg-surface">
+    <div class="flex min-h-16 items-center justify-between gap-4 px-4 py-3 sm:px-6">
+      <div>
+        <h1 class="text-lg font-semibold">Skill library</h1>
+        <p class="mt-0.5 text-sm text-text-muted">{{ skills().length }} installed</p>
+      </div>
+      <a
+        routerLink="/"
+        class="flex h-10 items-center gap-2 border border-border bg-surface px-3 text-sm font-medium text-text-muted hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+      >
+        <ng-icon name="lucideArrowLeft" size="16" strokeWidth="2" />
+        Back to chat
+      </a>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+    @if (error(); as currentError) {
+      <p class="mb-4 border border-danger-border bg-danger-soft px-3 py-2 text-sm text-danger">
+        {{ currentError }}
+      </p>
+    }
+    @if (notice(); as currentNotice) {
+      <p class="mb-4 border border-border bg-surface-muted px-3 py-2 text-sm text-text">
+        {{ currentNotice }}
+      </p>
+    }
+
+    <div class="grid gap-8 xl:grid-cols-[minmax(0,1.35fr)_minmax(22rem,0.65fr)]">
+      <div class="min-w-0 space-y-8">
+        <section>
+          <div class="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 class="text-sm font-semibold text-text-muted">Installed</h2>
+              <p class="mt-1 text-sm text-text-muted">
+                Bundled, user-created, and externally installed packages.
+              </p>
+            </div>
+            <label class="relative block w-full sm:w-72">
+              <span class="sr-only">Search installed skills</span>
+              <ng-icon
+                class="pointer-events-none absolute left-3 top-3 text-text-muted"
+                name="lucideSearch"
+                size="16"
+              />
+              <input
+                type="search"
+                class="h-10 w-full border border-border bg-surface pl-9 pr-3 text-sm text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                placeholder="Search installed skills"
+                [ngModel]="libraryQuery()"
+                (ngModelChange)="updateLibraryQuery($event)"
+              />
+            </label>
+          </div>
+
+          @if (isLoading()) {
+            <p class="mt-4 text-sm text-text-muted">Loading skills...</p>
+          } @else if (filteredSkills().length === 0) {
+            <p class="mt-4 border border-border bg-surface p-4 text-sm text-text-muted">
+              No matching skills.
+            </p>
+          } @else {
+            <div class="mt-3 divide-y divide-border border border-border bg-surface">
+              @for (skill of filteredSkills(); track skill.id) {
+                <button
+                  type="button"
+                  class="grid w-full gap-3 p-4 text-left hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)] sm:grid-cols-[1fr_auto] sm:items-center"
+                  [class.bg-surface-active]="selectedSkillId() === skill.id"
+                  (click)="selectSkill(skill.id)"
+                >
+                  <span class="min-w-0">
+                    <span class="flex flex-wrap items-center gap-2">
+                      <span class="text-sm font-semibold text-text">{{ skill.name }}</span>
+                      <span class="font-mono text-xs text-text-muted">{{ skill.id }}</span>
+                      <span
+                        class="border border-border px-1.5 py-0.5 text-[0.6875rem] uppercase text-text-muted"
+                        >{{ skill.ownership }}</span
+                      >
+                      @if (installationFor(skill.id); as installation) {
+                        <span
+                          class="border border-border px-1.5 py-0.5 text-[0.6875rem] uppercase text-text-muted"
+                        >
+                          {{ activeVersion(installation)?.compatibility?.status ?? 'external' }}
+                        </span>
+                      }
+                    </span>
+                    <span class="mt-1 block text-sm text-text-muted">{{ skill.description }}</span>
+                  </span>
+                  <span class="text-xs text-text-muted"
+                    >{{ attachmentCount(skill.id) }} attached</span
+                  >
+                </button>
+              }
+            </div>
+          }
+        </section>
+
+        <section class="border-t border-border pt-6">
+          <h2 class="text-sm font-semibold text-text-muted">Install</h2>
+          <div
+            class="mt-3 flex flex-wrap gap-1 border-b border-border pb-3"
+            role="group"
+            aria-label="Installation source"
+          >
+            @for (
+              source of [
+                ['local-directory', 'Directory'],
+                ['local-archive', 'ZIP'],
+                ['git', 'Git'],
+                ['clawhub', 'ClawHub'],
+              ];
+              track source[0]
+            ) {
+              <button
+                type="button"
+                class="h-9 px-3 text-sm font-medium text-text-muted hover:bg-surface-hover hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                [class.bg-surface-active]="installSourceType() === source[0]"
+                [class.text-text]="installSourceType() === source[0]"
+                (click)="updateInstallSourceType($any(source[0]))"
+              >
+                {{ source[1] }}
+              </button>
+            }
+          </div>
+
+          @if (
+            installSourceType() === 'local-directory' || installSourceType() === 'local-archive'
+          ) {
+            <form
+              class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end"
+              (submit)="$event.preventDefault(); install()"
+            >
+              <label class="min-w-0 flex-1 text-sm font-medium text-text-muted">
+                <span>{{
+                  installSourceType() === 'local-directory'
+                    ? 'Skill directory path'
+                    : 'ZIP archive path'
+                }}</span>
+                <input
+                  class="mt-1 h-10 w-full border border-border bg-surface px-3 font-mono text-sm text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                  [ngModel]="sourcePath()"
+                  name="sourcePath"
+                  (ngModelChange)="sourcePath.set($event)"
+                />
+              </label>
+              <button
+                type="submit"
+                class="flex h-10 items-center justify-center gap-2 bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-hover disabled:bg-control-disabled"
+                [disabled]="isWorking()"
+              >
+                <ng-icon name="lucideDownload" size="16" /> Install
+              </button>
+            </form>
+          }
+
+          @if (installSourceType() === 'git') {
+            <form
+              class="mt-4 grid gap-3 sm:grid-cols-2"
+              (submit)="$event.preventDefault(); install()"
+            >
+              <label class="text-sm font-medium text-text-muted sm:col-span-2"
+                >Repository URL<input
+                  class="mt-1 h-10 w-full border border-border bg-surface px-3 font-mono text-sm text-text"
+                  [ngModel]="repositoryUrl()"
+                  name="repositoryUrl"
+                  (ngModelChange)="repositoryUrl.set($event)"
+              /></label>
+              <label class="text-sm font-medium text-text-muted"
+                >Package path<input
+                  class="mt-1 h-10 w-full border border-border bg-surface px-3 font-mono text-sm text-text"
+                  [ngModel]="packagePath()"
+                  name="packagePath"
+                  (ngModelChange)="packagePath.set($event)"
+              /></label>
+              <label class="text-sm font-medium text-text-muted"
+                >Revision<input
+                  class="mt-1 h-10 w-full border border-border bg-surface px-3 font-mono text-sm text-text"
+                  [ngModel]="revision()"
+                  name="revision"
+                  (ngModelChange)="revision.set($event)"
+              /></label>
+              <button
+                type="submit"
+                class="flex h-10 items-center justify-center gap-2 bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-hover disabled:bg-control-disabled sm:col-span-2 sm:justify-self-end"
+                [disabled]="isWorking()"
+              >
+                <ng-icon name="lucideDownload" size="16" /> Install
+              </button>
+            </form>
+          }
+
+          @if (installSourceType() === 'clawhub') {
+            <form class="mt-4 flex gap-2" (submit)="$event.preventDefault(); searchCatalog()">
+              <label class="min-w-0 flex-1"
+                ><span class="sr-only">Search ClawHub</span
+                ><input
+                  type="search"
+                  class="h-10 w-full border border-border bg-surface px-3 text-sm text-text"
+                  placeholder="Search ClawHub"
+                  [ngModel]="catalogQuery()"
+                  name="catalogQuery"
+                  (ngModelChange)="catalogQuery.set($event)"
+              /></label>
+              <button
+                type="submit"
+                class="flex h-10 items-center gap-2 border border-border bg-surface px-3 text-sm font-medium text-text-muted hover:bg-surface-muted"
+                [disabled]="isWorking()"
+              >
+                <ng-icon name="lucideSearch" size="16" /> Search
+              </button>
+            </form>
+            @if (catalogResults().length > 0) {
+              <div class="mt-3 divide-y divide-border border border-border bg-surface">
+                @for (result of catalogResults(); track result.catalogId + result.skillId) {
+                  <article class="grid gap-3 p-3 sm:grid-cols-[1fr_auto] sm:items-center">
+                    <div>
+                      <p class="text-sm font-semibold">{{ result.displayName }}</p>
+                      <p class="mt-1 text-sm text-text-muted">{{ result.description }}</p>
+                      <p class="mt-1 font-mono text-xs text-text-muted">
+                        {{ result.skillId }}{{ result.version ? ' · ' + result.version : '' }}
+                      </p>
+                    </div>
+                    <div class="flex gap-2">
+                      <a
+                        class="grid h-9 w-9 place-items-center border border-border text-text-muted hover:bg-surface-muted"
+                        [href]="result.canonicalUrl"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="Open catalog page"
+                        title="Open catalog page"
+                        ><ng-icon name="lucideExternalLink" size="16" /></a
+                      ><button
+                        type="button"
+                        class="flex h-9 items-center gap-2 bg-accent px-3 text-sm font-semibold text-white hover:bg-accent-hover"
+                        [disabled]="isWorking()"
+                        (click)="installCatalogSkill(result)"
+                      >
+                        <ng-icon name="lucideDownload" size="16" /> Install
+                      </button>
+                    </div>
+                  </article>
+                }
+              </div>
+            }
+          }
+        </section>
+      </div>
+
+      <aside class="min-w-0 xl:border-l xl:border-border xl:pl-6">
+        @if (selectedSkill(); as skill) {
+          <div class="xl:sticky xl:top-6">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 class="text-base font-semibold">{{ skill.name }}</h2>
+                <p class="mt-1 font-mono text-xs text-text-muted">{{ skill.id }}</p>
+              </div>
+              <span class="border border-border px-2 py-1 text-xs uppercase text-text-muted">{{
+                skill.ownership
+              }}</span>
+            </div>
+            <p class="mt-4 text-sm leading-6 text-text-muted">{{ skill.description }}</p>
+
+            <dl
+              class="mt-5 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 border-y border-border py-4 text-sm"
+            >
+              <dt class="text-text-muted">Files</dt>
+              <dd class="text-right">{{ skill.files.length }}</dd>
+              <dt class="text-text-muted">Attached</dt>
+              <dd class="text-right">{{ selectedAttachmentLabel() }}</dd>
+            </dl>
+
+            @if (selectedInstallation(); as record) {
+              <section class="mt-5">
+                <h3 class="text-sm font-semibold text-text-muted">External installation</h3>
+                <p class="mt-2 break-all text-xs text-text-muted">{{ sourceLabel(record) }}</p>
+                @if (activeVersion(record); as version) {
+                  <div class="mt-3 border border-border p-3 text-sm">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                      <span class="font-semibold">{{
+                        version.version ??
+                          version.resolvedRevision?.slice(0, 10) ??
+                          'Current version'
+                      }}</span
+                      ><span class="text-xs uppercase text-text-muted">{{
+                        version.compatibility.status
+                      }}</span>
+                    </div>
+                    @for (
+                      finding of version.compatibility.findings;
+                      track finding.code + finding.path
+                    ) {
+                      <p class="mt-2 text-xs text-text-muted">{{ finding.message }}</p>
+                    }
+                  </div>
+                }
+                <div class="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    class="flex h-9 items-center gap-2 border border-border bg-surface px-3 text-sm text-text-muted hover:bg-surface-muted"
+                    [disabled]="isWorking()"
+                    (click)="inspectUpdate(record.skillId)"
+                  >
+                    <ng-icon name="lucideRefreshCw" size="16" /> Check update
+                  </button>
+                  <button
+                    type="button"
+                    class="flex h-9 items-center gap-2 border border-border bg-surface px-3 text-sm text-text-muted hover:bg-surface-muted"
+                    [disabled]="isWorking()"
+                    (click)="setPinned(record)"
+                  >
+                    <ng-icon name="lucidePin" size="16" /> {{ record.pinned ? 'Unpin' : 'Pin' }}
+                  </button>
+                </div>
+                @if (updatePreview(); as preview) {
+                  <div class="mt-4 border border-border p-3">
+                    <p class="text-sm font-semibold">
+                      {{ preview.updateAvailable ? 'Update available' : 'Already current' }}
+                    </p>
+                    <p class="mt-1 text-xs text-text-muted">
+                      {{ preview.changes.length }} file changes ·
+                      {{ preview.candidate.compatibility.status }}
+                    </p>
+                    @if (preview.updateAvailable) {
+                      <button
+                        type="button"
+                        class="mt-3 h-9 bg-accent px-3 text-sm font-semibold text-white hover:bg-accent-hover"
+                        (click)="applyUpdate(preview)"
+                      >
+                        Apply inspected update
+                      </button>
+                    }
+                  </div>
+                }
+                @if (record.versions.length > 1) {
+                  <h3 class="mt-5 text-sm font-semibold text-text-muted">Retained versions</h3>
+                  <div class="mt-2 divide-y divide-border border border-border">
+                    @for (version of record.versions; track version.contentHash) {
+                      <div class="flex items-center justify-between gap-3 p-3">
+                        <div class="min-w-0">
+                          <p class="truncate text-xs font-medium">
+                            {{ version.version ?? version.contentHash.slice(0, 12) }}
+                          </p>
+                          <p class="mt-1 text-xs text-text-muted">{{ version.installedAt }}</p>
+                        </div>
+                        <button
+                          type="button"
+                          class="grid h-8 w-8 place-items-center text-text-muted hover:bg-surface-muted disabled:text-control-disabled"
+                          [disabled]="
+                            version.contentHash === record.activeContentHash || isWorking()
+                          "
+                          (click)="rollback(record, version)"
+                          aria-label="Restore version"
+                          title="Restore version"
+                        >
+                          <ng-icon name="lucideRotateCcw" size="15" />
+                        </button>
+                      </div>
+                    }
+                  </div>
+                }
+              </section>
+            }
+
+            <section class="mt-5">
+              <h3 class="text-sm font-semibold text-text-muted">Package files</h3>
+              <div class="mt-2 divide-y divide-border border border-border">
+                @for (file of skill.files; track file.path) {
+                  <div class="flex justify-between gap-3 px-3 py-2 text-xs">
+                    <span class="min-w-0 truncate font-mono">{{ file.path }}</span
+                    ><span class="shrink-0 text-text-muted">{{ file.sizeBytes }} B</span>
+                  </div>
+                }
+              </div>
+            </section>
+          </div>
+        } @else {
+          <div class="border border-border bg-surface p-5 text-sm text-text-muted">
+            Select a skill to inspect its files, attachments, provenance, compatibility, and
+            versions.
+          </div>
+        }
+      </aside>
+    </div>
+  </main>
+</div>

@@ -5,11 +5,14 @@ import { firstValueFrom } from 'rxjs';
 import type {
   AgentRunEvent,
   AgentRunRequest,
+  AgentSkillsResponse,
   AgentSoulResponse,
   AgentCapabilitiesResponse,
   AgentProfile,
   AgentsResponse,
   AuthSessionResponse,
+  ApplySkillUpdateRequest,
+  CatalogSearchResponse,
   ChatThread,
   ChatThreadSummary,
   CostSummaryRequest,
@@ -22,6 +25,7 @@ import type {
   DeleteModelPricingResponse,
   DeleteThreadResponse,
   HealthResponse,
+  InstallSkillRequest,
   LlmCallListRequest,
   LlmCallListResponse,
   MemoryListRequest,
@@ -39,11 +43,19 @@ import type {
   OptimizerRunResponse,
   PricingSourceListResponse,
   RunContextDetails,
+  RollbackSkillRequest,
+  SetSkillPinnedRequest,
+  SkillInstallationRecord,
+  SkillInstallationsResponse,
+  SkillPackageDetails,
+  SkillsResponse,
+  SkillUpdatePreview,
   CapabilitiesResponse,
   SyncOpenAiModelPricingResult,
   UpdateAgentRequest,
   UpdateMemoryRequest,
   UpdateAgentSoulRequest,
+  UpdateAgentSkillsRequest,
   UpdateAgentCapabilitiesRequest,
   UpdateModelPricingRequest,
   UpdateUserProfileRequest,
@@ -97,6 +109,95 @@ export class AssistantApi {
 
   async capabilities(): Promise<CapabilitiesResponse> {
     return await firstValueFrom(this.http.get<CapabilitiesResponse>('/api/capabilities'));
+  }
+
+  async skills(): Promise<SkillsResponse> {
+    return await firstValueFrom(this.http.get<SkillsResponse>('/api/skills'));
+  }
+
+  async readSkill(skillId: string): Promise<SkillPackageDetails> {
+    return await firstValueFrom(this.http.get<SkillPackageDetails>(`/api/skills/${skillId}`));
+  }
+
+  async skillInstallations(): Promise<SkillInstallationsResponse> {
+    return await firstValueFrom(
+      this.http.get<SkillInstallationsResponse>('/api/skill-installations'),
+    );
+  }
+
+  async installSkill(request: InstallSkillRequest): Promise<SkillInstallationRecord> {
+    return await firstValueFrom(
+      this.http.post<SkillInstallationRecord>('/api/skill-installations', request),
+    );
+  }
+
+  async inspectSkillUpdate(skillId: string): Promise<SkillUpdatePreview> {
+    return await firstValueFrom(
+      this.http.post<SkillUpdatePreview>(
+        `/api/skill-installations/${skillId}/update-inspection`,
+        {},
+      ),
+    );
+  }
+
+  async applySkillUpdate(
+    skillId: string,
+    request: ApplySkillUpdateRequest,
+  ): Promise<SkillInstallationRecord> {
+    return await firstValueFrom(
+      this.http.post<SkillInstallationRecord>(
+        `/api/skill-installations/${skillId}/update`,
+        request,
+      ),
+    );
+  }
+
+  async setSkillPinned(
+    skillId: string,
+    request: SetSkillPinnedRequest,
+  ): Promise<SkillInstallationRecord> {
+    return await firstValueFrom(
+      this.http.patch<SkillInstallationRecord>(`/api/skill-installations/${skillId}/pin`, request),
+    );
+  }
+
+  async rollbackSkill(
+    skillId: string,
+    request: RollbackSkillRequest = {},
+  ): Promise<SkillInstallationRecord> {
+    return await firstValueFrom(
+      this.http.post<SkillInstallationRecord>(
+        `/api/skill-installations/${skillId}/rollback`,
+        request,
+      ),
+    );
+  }
+
+  async searchSkillCatalog(
+    query: string,
+    catalogId = 'clawhub',
+    limit = 20,
+  ): Promise<CatalogSearchResponse> {
+    return await firstValueFrom(
+      this.http.get<CatalogSearchResponse>(`/api/skill-catalogs/${catalogId}/search`, {
+        params: { query, limit },
+      }),
+    );
+  }
+
+  async agentSkills(agentId: string): Promise<AgentSkillsResponse> {
+    return await firstValueFrom(
+      this.http.get<AgentSkillsResponse>(`/api/agents/${agentId}/skills`),
+    );
+  }
+
+  async updateAgentSkills(
+    agentId: string,
+    request: UpdateAgentSkillsRequest,
+  ): Promise<AgentSkillsResponse> {
+    return await firstValueFrom(
+      this.http.put<AgentSkillsResponse>(`/api/agents/${agentId}/skills`, request),
+    );
   }
 
   async llmCalls(request: LlmCallListRequest = {}): Promise<LlmCallListResponse> {

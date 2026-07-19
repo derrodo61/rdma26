@@ -232,6 +232,10 @@ export interface SkillInstallationRecord {
   readonly versions: readonly SkillInstalledVersion[];
 }
 
+export interface SkillInstallationsResponse {
+  readonly installations: readonly SkillInstallationRecord[];
+}
+
 export type InstallSkillRequest =
   | {
       readonly sourceType: 'local-directory';
@@ -256,6 +260,22 @@ export type InstallSkillRequest =
       readonly version?: string;
       readonly enabledCapabilities?: readonly string[];
     };
+
+export interface InspectSkillUpdateRequest {
+  readonly enabledCapabilities?: readonly string[];
+}
+
+export interface ApplySkillUpdateRequest extends InspectSkillUpdateRequest {
+  readonly expectedContentHash: string;
+}
+
+export interface SetSkillPinnedRequest {
+  readonly pinned: boolean;
+}
+
+export interface RollbackSkillRequest {
+  readonly contentHash?: string;
+}
 
 export interface SkillFileChange {
   readonly path: string;

@@ -100,6 +100,71 @@ describe('skill routes', () => {
       runtime.close();
     }
   });
+
+  it('installs and manages an external skill through authenticated routes', async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-skill-management-routes-'));
+    const sourceRoot = await mkdtemp(join(tmpdir(), 'rdma26-skill-source-'));
+    const sourceDir = join(sourceRoot, 'invoice-review');
+    temporaryDirectories.push(dataDir, sourceRoot);
+    await writeSkill(sourceDir);
+    const runtime = new AssistantRuntime({
+      dataDir,
+      defaultAgentId: 'scotty',
+      defaultAgentName: 'Scotty',
+    });
+    const server = Fastify();
+    const authConfig: AuthConfig = {
+      enabled: false,
+      username: '',
+      password: '',
+      sessionSecret: 'test-session-secret',
+    };
+
+    try {
+      await runtime.ensureReady();
+      registerApiRoutes(server, { authConfig, runtime });
+      await server.ready();
+
+      const install = await server.inject({
+        method: 'POST',
+        url: '/api/skill-installations',
+        payload: { sourceType: 'local-directory', path: sourceDir },
+      });
+      expect(install.statusCode).toBe(200);
+      expect(install.json()).toMatchObject({
+        skillId: 'invoice-review',
+        pinned: false,
+        source: { type: 'local-directory' },
+      });
+
+      const installations = await server.inject({
+        method: 'GET',
+        url: '/api/skill-installations',
+      });
+      expect(installations.statusCode).toBe(200);
+      expect(installations.json()).toMatchObject({
+        installations: [expect.objectContaining({ skillId: 'invoice-review' })],
+      });
+
+      const pin = await server.inject({
+        method: 'PATCH',
+        url: '/api/skill-installations/invoice-review/pin',
+        payload: { pinned: true },
+      });
+      expect(pin.statusCode).toBe(200);
+      expect(pin.json()).toMatchObject({ skillId: 'invoice-review', pinned: true });
+
+      const invalidUpdate = await server.inject({
+        method: 'POST',
+        url: '/api/skill-installations/invoice-review/update',
+        payload: {},
+      });
+      expect(invalidUpdate.statusCode).toBe(400);
+    } finally {
+      await server.close();
+      runtime.close();
+    }
+  });
 });
 
 async function writeSkill(directory: string): Promise<void> {
