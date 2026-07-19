@@ -176,6 +176,114 @@ export interface UpdateAgentSkillsRequest {
   readonly attachedSkillIds: readonly string[];
 }
 
+export type SkillInstallationSourceType = 'local-directory' | 'local-archive' | 'git' | 'clawhub';
+
+export interface SkillInstallationSource {
+  readonly type: SkillInstallationSourceType;
+  readonly url?: string;
+  readonly path?: string;
+  readonly packagePath?: string;
+  readonly requestedRevision?: string;
+  readonly catalogId?: string;
+  readonly catalogSkillId?: string;
+}
+
+export type SkillCompatibilityStatus =
+  | 'compatible'
+  | 'instructions_only'
+  | 'missing_capabilities'
+  | 'unsupported_runtime'
+  | 'unsafe_or_invalid';
+
+export type SkillFindingSeverity = 'info' | 'warning' | 'error';
+
+export interface SkillCompatibilityFinding {
+  readonly code: string;
+  readonly severity: SkillFindingSeverity;
+  readonly message: string;
+  readonly path?: string;
+}
+
+export interface SkillCompatibilityReport {
+  readonly status: SkillCompatibilityStatus;
+  readonly requiredCapabilities: readonly string[];
+  readonly missingCapabilities: readonly string[];
+  readonly unsupportedRequirements: readonly string[];
+  readonly findings: readonly SkillCompatibilityFinding[];
+}
+
+export interface SkillInstalledVersion {
+  readonly contentHash: string;
+  readonly resolvedRevision?: string;
+  readonly version?: string;
+  readonly author?: string;
+  readonly license?: string;
+  readonly installedAt: string;
+  readonly compatibility: SkillCompatibilityReport;
+}
+
+export interface SkillInstallationRecord {
+  readonly skillId: string;
+  readonly source: SkillInstallationSource;
+  readonly activeContentHash: string;
+  readonly pinned: boolean;
+  readonly installedAt: string;
+  readonly updatedAt: string;
+  readonly versions: readonly SkillInstalledVersion[];
+}
+
+export type InstallSkillRequest =
+  | {
+      readonly sourceType: 'local-directory';
+      readonly path: string;
+      readonly enabledCapabilities?: readonly string[];
+    }
+  | {
+      readonly sourceType: 'local-archive';
+      readonly path: string;
+      readonly enabledCapabilities?: readonly string[];
+    }
+  | {
+      readonly sourceType: 'git';
+      readonly repositoryUrl: string;
+      readonly packagePath?: string;
+      readonly revision?: string;
+      readonly enabledCapabilities?: readonly string[];
+    }
+  | {
+      readonly sourceType: 'clawhub';
+      readonly slug: string;
+      readonly version?: string;
+      readonly enabledCapabilities?: readonly string[];
+    };
+
+export interface SkillFileChange {
+  readonly path: string;
+  readonly kind: 'added' | 'modified' | 'removed';
+}
+
+export interface SkillUpdatePreview {
+  readonly skillId: string;
+  readonly currentContentHash: string;
+  readonly candidate: SkillInstalledVersion;
+  readonly changes: readonly SkillFileChange[];
+  readonly updateAvailable: boolean;
+}
+
+export interface CatalogSkillSummary {
+  readonly catalogId: string;
+  readonly skillId: string;
+  readonly displayName: string;
+  readonly description: string;
+  readonly version?: string;
+  readonly author?: string;
+  readonly canonicalUrl: string;
+}
+
+export interface CatalogSearchResponse {
+  readonly results: readonly CatalogSkillSummary[];
+}
+
 export interface DeleteAgentResponse {
   readonly deleted: true;
   readonly agentId: string;

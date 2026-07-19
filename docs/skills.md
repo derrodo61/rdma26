@@ -117,9 +117,10 @@ The current implementation has these limits:
   call the same `SkillManagementService` through `AssistantRuntime`.
 - There is no skill-management settings page yet.
 - The user library is populated only by migration; there is no supported create,
-  edit, clone, install, update, or delete operation yet.
-- External package storage, provenance records, compatibility inspection, Git,
-  archives, and catalog adapters are not implemented.
+  edit, clone, or delete operation yet.
+- External installation and update operations are available through the shared
+  backend service and `AssistantRuntime`, but their authenticated HTTP, CLI, and
+  Angular management surfaces are the next milestone.
 - `skill_authoring`, `skill_acquisition`, proposals, scanning, and approval are
   not implemented.
 - The agent editor and run inspector do not yet display attachment metadata.
@@ -138,6 +139,40 @@ the original agent. Verified originals move to the agent's
 `migration-backups/agent-local-skills/` directory, outside the runtime
 filesystem. Identical packages are shared; conflicting packages stop migration
 without overwriting either version.
+
+### External installations
+
+External packages are stored as immutable, content-addressed versions under
+`.assistant-data/skills/external/<skill-id>/<sha256>/`. A separate installation
+record selects the active hash and retains the source, requested and resolved
+revision, catalog id, version, content hash, author, license, timestamps,
+compatibility report, prior versions, and pin state. The original package files
+are preserved without rdma26-specific rewrites.
+
+The installer currently accepts:
+
+- a local skill directory;
+- a ZIP archive containing one skill package;
+- an HTTPS Git repository with an optional package subdirectory and revision;
+- a public ClawHub skill selected through an owner-qualified catalog result.
+
+Git sources are fetched into a bare repository and read as blobs without a
+working-tree checkout, hooks, or repository code execution. ZIP extraction and
+all copied sources reject traversal paths, symbolic links, unsupported entry
+types, oversized packages, executable binaries, and embedded credential
+patterns. Scripts remain inert package files.
+
+Compatibility inspection reports **Compatible**, **Instructions only**,
+**Missing capabilities**, **Unsupported runtime**, or **Unsafe or invalid**.
+Recognized capability requirements are compared with the capabilities supplied
+for inspection, but installation never grants them. OpenClaw environment,
+binary, configuration, and dependency-install requirements are retained as
+unsupported requirements until rdma26 has an approved runtime for them.
+
+Updates must first be inspected. Applying an update requires the inspected
+candidate hash, so a changed source becomes stale instead of being silently
+installed. Versions can be pinned, and any retained version can be restored
+without rewriting or deleting the others.
 
 ## What The Run Inspector Records
 

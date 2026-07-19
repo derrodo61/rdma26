@@ -10,6 +10,7 @@ import type {
   AgentsResponse,
   ChatThread,
   ChatThreadSummary,
+  CatalogSearchResponse,
   CostSummaryRequest,
   CostSummaryResponse,
   CreateMemoryRequest,
@@ -23,6 +24,7 @@ import type {
   DeletePricingSourceResponse,
   DeleteThreadResponse,
   HealthResponse,
+  InstallSkillRequest,
   LlmCallListRequest,
   LlmCallListResponse,
   LlmCallRecord,
@@ -44,9 +46,11 @@ import type {
   PricingSourceListResponse,
   PricingSourceRecord,
   RunContextDetails,
+  SkillInstallationRecord,
   SyncOpenAiModelPricingResult,
   SkillPackageDetails,
   SkillsResponse,
+  SkillUpdatePreview,
   CapabilitiesResponse,
   UpdateAgentRequest,
   UpdateAgentSoulRequest,
@@ -365,6 +369,45 @@ export class AssistantRuntime {
 
   async readSkill(skillId: string): Promise<SkillPackageDetails> {
     return await this.skills.readSkill(skillId);
+  }
+
+  async listSkillInstallations(): Promise<readonly SkillInstallationRecord[]> {
+    return await this.skills.listInstallations();
+  }
+
+  async installSkill(request: InstallSkillRequest): Promise<SkillInstallationRecord> {
+    return await this.skills.installSkill(request);
+  }
+
+  async inspectSkillUpdate(
+    skillId: string,
+    enabledCapabilities: readonly string[] = [],
+  ): Promise<SkillUpdatePreview> {
+    return await this.skills.inspectSkillUpdate(skillId, enabledCapabilities);
+  }
+
+  async applySkillUpdate(
+    skillId: string,
+    expectedContentHash: string,
+    enabledCapabilities: readonly string[] = [],
+  ): Promise<SkillInstallationRecord> {
+    return await this.skills.applySkillUpdate(skillId, expectedContentHash, enabledCapabilities);
+  }
+
+  async setSkillPinned(skillId: string, pinned: boolean): Promise<SkillInstallationRecord> {
+    return await this.skills.setSkillPinned(skillId, pinned);
+  }
+
+  async rollbackSkill(skillId: string, contentHash?: string): Promise<SkillInstallationRecord> {
+    return await this.skills.rollbackSkill(skillId, contentHash);
+  }
+
+  async searchSkillCatalog(
+    catalogId: string,
+    query: string,
+    limit?: number,
+  ): Promise<CatalogSearchResponse> {
+    return await this.skills.searchCatalog(catalogId, query, limit);
   }
 
   async agentSkillsResponse(agentId: string): Promise<AgentSkillsResponse> {

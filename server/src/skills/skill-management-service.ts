@@ -1,18 +1,31 @@
 import type {
   AgentSkillsResponse,
+  CatalogSearchResponse,
+  InstallSkillRequest,
+  SkillInstallationRecord,
   SkillPackageDetails,
   SkillPackageSummary,
+  SkillUpdatePreview,
   SkillsResponse,
   UpdateAgentSkillsRequest,
 } from '../../../shared/agent-contracts';
 import type { AgentRegistry } from '../agents/agent-registry';
+import { ClawHubCatalogAdapter } from './skill-catalog';
 import { normalizeSkillIds, type SkillLibrary } from './skill-library';
+import { SkillPackageInstaller } from './skill-package-installer';
 
 export class SkillManagementService {
+  private readonly installer: SkillPackageInstaller;
+
   constructor(
     private readonly library: SkillLibrary,
     private readonly agents: AgentRegistry,
-  ) {}
+    installer?: SkillPackageInstaller,
+  ) {
+    this.installer =
+      installer ??
+      new SkillPackageInstaller(library.dataDir, library, [new ClawHubCatalogAdapter()]);
+  }
 
   async listSkills(): Promise<SkillsResponse> {
     return {
@@ -28,6 +41,45 @@ export class SkillManagementService {
       skillMarkdown: skill.skillMarkdown,
       files: skill.files,
     };
+  }
+
+  async listInstallations(): Promise<readonly SkillInstallationRecord[]> {
+    return await this.installer.listInstallations();
+  }
+
+  async installSkill(request: InstallSkillRequest): Promise<SkillInstallationRecord> {
+    return await this.installer.install(request);
+  }
+
+  async inspectSkillUpdate(
+    skillId: string,
+    enabledCapabilities: readonly string[] = [],
+  ): Promise<SkillUpdatePreview> {
+    return await this.installer.inspectUpdate(skillId, enabledCapabilities);
+  }
+
+  async applySkillUpdate(
+    skillId: string,
+    expectedContentHash: string,
+    enabledCapabilities: readonly string[] = [],
+  ): Promise<SkillInstallationRecord> {
+    return await this.installer.applyUpdate(skillId, expectedContentHash, enabledCapabilities);
+  }
+
+  async setSkillPinned(skillId: string, pinned: boolean): Promise<SkillInstallationRecord> {
+    return await this.installer.setPinned(skillId, pinned);
+  }
+
+  async rollbackSkill(skillId: string, contentHash?: string): Promise<SkillInstallationRecord> {
+    return await this.installer.rollback(skillId, contentHash);
+  }
+
+  async searchCatalog(
+    catalogId: string,
+    query: string,
+    limit?: number,
+  ): Promise<CatalogSearchResponse> {
+    return await this.installer.searchCatalog(catalogId, query, limit);
   }
 
   async readAgentSkills(agentId: string): Promise<AgentSkillsResponse> {

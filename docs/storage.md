@@ -20,6 +20,11 @@ backend owns this directory; browser code does not access it directly.
       <skill-id>/
     user/
       <skill-id>/
+    external/
+      <skill-id>/
+        <content-hash>/
+    installations/
+      <skill-id>.json
   user/
     memory/
   agents/

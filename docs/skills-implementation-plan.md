@@ -108,6 +108,9 @@ attachment. Other new agents start with no attached skills.
 
 ## Milestone 2: Installation And Compatibility
 
+Status: implemented and verified on `codex/skill-installation-compatibility`;
+ready for review.
+
 - Add immutable external-package storage and installation records with source,
   revision, version, content hash, author, license, timestamps, and pin state.
 - Implement safe local-directory and single-package archive import.
@@ -128,8 +131,10 @@ attachment. Other new agents start with no attached skills.
 ## Milestone 3: Shared Service, API, And CLI
 
 Status: the installed-library inspection and agent-attachment slice is
-implemented and verified on `codex/skill-management-api`. Installation, update,
-clone, and proposal operations remain blocked on Milestones 2 and 4.
+implemented and verified on `codex/skill-management-api`. Milestone 2 now adds
+installation and update methods to the shared service and runtime; their HTTP
+and CLI surfaces, plus clone and proposal operations, remain here or in
+Milestone 4.
 
 - Expose typed library, package, installation, update, clone, proposal, and
   attachment operations through `AssistantRuntime`.

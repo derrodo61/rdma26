@@ -7,6 +7,7 @@ import { parse } from 'yaml';
 import { pricingSourceAnalysisSkillContent } from '../storage/assistant-storage';
 
 import type { SkillFileSummary, SkillOwnership } from '../../../shared/agent-contracts';
+import { SkillInstallationStore } from './skill-installation-store';
 
 export interface SkillPackageDefinition {
   readonly id: string;
@@ -14,6 +15,7 @@ export interface SkillPackageDefinition {
   readonly description: string;
   readonly ownership: SkillOwnership;
   readonly directory: string;
+  readonly frontmatter: Readonly<Record<string, unknown>>;
 }
 
 export interface AgentSkillSource {
@@ -34,19 +36,25 @@ export class SkillLibrary {
   private readonly libraryDir: string;
   private readonly bundledDir: string;
   private readonly userDir: string;
+  private readonly externalDir: string;
   private readonly emptyRuntimeDir: string;
+  private readonly installations: SkillInstallationStore;
 
   constructor(readonly dataDir: string) {
     this.libraryDir = join(dataDir, 'skills');
     this.bundledDir = join(this.libraryDir, 'bundled');
     this.userDir = join(this.libraryDir, 'user');
+    this.externalDir = join(this.libraryDir, 'external');
     this.emptyRuntimeDir = join(this.libraryDir, '.runtime-empty');
+    this.installations = new SkillInstallationStore(dataDir);
   }
 
   async ensureReady(): Promise<void> {
     await mkdir(this.bundledDir, { recursive: true });
     await mkdir(this.userDir, { recursive: true });
+    await mkdir(this.externalDir, { recursive: true });
     await mkdir(this.emptyRuntimeDir, { recursive: true });
+    await this.installations.ensureReady();
     const pricingSkillDir = join(this.bundledDir, pricingSourceAnalysisSkillId);
     await mkdir(pricingSkillDir, { recursive: true });
     await writeFile(join(pricingSkillDir, 'SKILL.md'), pricingSourceAnalysisSkillContent, 'utf8');
@@ -65,6 +73,7 @@ export class SkillLibrary {
     const definitions = [
       ...(await this.readPackagesFromRoot(this.bundledDir, 'bundled')),
       ...(await this.readPackagesFromRoot(this.userDir, 'user')),
+      ...(await this.readExternalPackages()),
     ];
     const seen = new Set<string>();
 
@@ -202,6 +211,24 @@ export class SkillLibrary {
         .map(async (entry) => await readSkillPackage(join(rootDir, entry.name), ownership)),
     );
   }
+
+  private async readExternalPackages(): Promise<readonly SkillPackageDefinition[]> {
+    return await Promise.all(
+      (await this.installations.list()).map(async (installation) => {
+        const directory = join(
+          this.externalDir,
+          installation.skillId,
+          installation.activeContentHash,
+        );
+
+        if ((await hashDirectory(directory)) !== installation.activeContentHash) {
+          throw new Error(`Installed skill ${installation.skillId} failed its content hash check.`);
+        }
+
+        return await readSkillPackage(directory, 'external', installation.skillId);
+      }),
+    );
+  }
 }
 
 async function archiveLegacySkills(sourceDir: string, backupDir: string): Promise<void> {
@@ -247,9 +274,10 @@ export function normalizeSkillIds(ids: readonly unknown[]): readonly string[] {
   ).sort();
 }
 
-async function readSkillPackage(
+export async function readSkillPackage(
   directory: string,
   ownership: SkillOwnership,
+  expectedName = basename(directory),
 ): Promise<SkillPackageDefinition> {
   const skillPath = join(directory, 'SKILL.md');
   let content: string;
@@ -272,8 +300,8 @@ async function readSkillPackage(
     throw new Error(`Skill description in ${skillPath} exceeds 1024 characters.`);
   }
 
-  if (basename(directory) !== name) {
-    throw new Error(`Skill name ${name} must match its directory name ${basename(directory)}.`);
+  if (expectedName !== name) {
+    throw new Error(`Skill name ${name} must match its directory name ${expectedName}.`);
   }
 
   return {
@@ -282,6 +310,7 @@ async function readSkillPackage(
     description,
     ownership,
     directory,
+    frontmatter,
   };
 }
 
@@ -330,7 +359,7 @@ async function readDirectories(path: string): Promise<readonly import('node:fs')
   }
 }
 
-async function hashDirectory(rootDir: string): Promise<string> {
+export async function hashDirectory(rootDir: string): Promise<string> {
   const hash = createHash('sha256');
 
   for (const filePath of await listFiles(rootDir)) {
@@ -343,7 +372,7 @@ async function hashDirectory(rootDir: string): Promise<string> {
   return hash.digest('hex');
 }
 
-async function listFiles(rootDir: string): Promise<readonly string[]> {
+export async function listFiles(rootDir: string): Promise<readonly string[]> {
   const entries = await readdir(rootDir, { withFileTypes: true });
   const files: string[] = [];
 
