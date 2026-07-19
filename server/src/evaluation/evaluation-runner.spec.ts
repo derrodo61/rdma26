@@ -45,4 +45,13 @@ describe('evaluation assertions', () => {
       }),
     ).toEqual([]);
   });
+
+  it('checks observed skill usage independently from tool names', () => {
+    expect(
+      evaluateAssertions('Done.', [], [], { minimumSkillsUsed: 1 }, ['invoice-triage']),
+    ).toEqual([]);
+    expect(
+      evaluateAssertions('Done.', [], [], { maximumSkillsUsed: 0 }, ['invoice-triage']),
+    ).toEqual(['Expected at most 0 skills to be used, received 1.']);
+  });
 });

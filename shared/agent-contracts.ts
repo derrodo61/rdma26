@@ -161,8 +161,28 @@ export interface SkillFileSummary {
 }
 
 export interface SkillPackageDetails extends SkillPackageSummary {
+  readonly contentHash: string;
   readonly skillMarkdown: string;
   readonly files: readonly SkillFileSummary[];
+}
+
+export interface CloneSkillRequest {
+  readonly targetSkillId: string;
+  readonly expectedSourceHash: string;
+}
+
+export interface UpdateUserSkillRequest {
+  readonly skillMarkdown: string;
+  readonly expectedContentHash: string;
+}
+
+export interface DeleteSkillRequest {
+  readonly expectedContentHash: string;
+}
+
+export interface DeleteSkillResponse {
+  readonly deleted: true;
+  readonly skillId: string;
 }
 
 export interface SkillsResponse {
@@ -607,6 +627,7 @@ export interface RunContextToolCall {
 export interface RunContextSkillUsage {
   readonly name: string;
   readonly path: string;
+  readonly supportingPaths?: readonly string[];
 }
 
 export interface RunContextTokenUsage {
@@ -895,6 +916,8 @@ export interface RunContextDetails {
   readonly tools: readonly RunContextTool[];
   readonly withheldCapabilities?: readonly RunContextWithheldCapability[];
   readonly toolCalls?: readonly RunContextToolCall[];
+  readonly installedSkills?: readonly SkillPackageSummary[];
+  readonly attachedSkills?: readonly SkillPackageSummary[];
   readonly skillsUsed?: readonly RunContextSkillUsage[];
   readonly tokenUsage?: RunContextTokenUsage;
   readonly llmCalls?: readonly LlmCallRecord[];

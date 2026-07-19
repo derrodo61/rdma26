@@ -390,11 +390,94 @@
                 <h2 class="text-base font-semibold">{{ skill.name }}</h2>
                 <p class="mt-1 font-mono text-xs text-text-muted">{{ skill.id }}</p>
               </div>
-              <span class="border border-border px-2 py-1 text-xs uppercase text-text-muted">{{
-                skill.ownership
-              }}</span>
+              <div class="flex items-center gap-1">
+                <span class="border border-border px-2 py-1 text-xs uppercase text-text-muted">{{
+                  skill.ownership
+                }}</span>
+                @if (skill.ownership === 'user') {
+                  <button
+                    type="button"
+                    class="grid h-8 w-8 place-items-center text-text-muted hover:bg-surface-muted"
+                    (click)="startEditing(skill)"
+                    aria-label="Edit skill"
+                    title="Edit skill"
+                  >
+                    <ng-icon name="lucidePencil" size="15" />
+                  </button>
+                }
+                @if (skill.ownership !== 'bundled') {
+                  <button
+                    type="button"
+                    class="grid h-8 w-8 place-items-center text-text-muted hover:bg-danger-soft hover:text-danger disabled:text-control-disabled"
+                    [disabled]="selectedAttachmentAgents().length > 0 || isWorking()"
+                    (click)="deleteSkill(skill)"
+                    aria-label="Delete skill"
+                    title="Delete unattached skill"
+                  >
+                    <ng-icon name="lucideTrash2" size="15" />
+                  </button>
+                }
+              </div>
             </div>
             <p class="mt-4 text-sm leading-6 text-text-muted">{{ skill.description }}</p>
+
+            @if (skill.ownership !== 'user') {
+              <section class="mt-5 border-y border-border py-4">
+                <h3 class="text-sm font-semibold">Create an editable copy</h3>
+                <div class="mt-3 flex gap-2">
+                  <label class="min-w-0 flex-1">
+                    <span class="sr-only">New skill id</span>
+                    <input
+                      type="text"
+                      class="h-10 w-full border border-border bg-surface px-3 font-mono text-sm outline-none focus:border-accent"
+                      placeholder="my-custom-skill"
+                      [ngModel]="cloneTargetId()"
+                      (ngModelChange)="cloneTargetId.set($event)"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    class="flex h-10 items-center gap-2 bg-accent px-3 text-sm font-semibold text-white hover:bg-accent-hover disabled:bg-control-disabled"
+                    [disabled]="isWorking()"
+                    (click)="cloneSkill(skill)"
+                  >
+                    <ng-icon name="lucideCopy" size="16" /> Clone
+                  </button>
+                </div>
+              </section>
+            }
+
+            @if (isEditingSkill()) {
+              <section class="mt-5">
+                <div class="flex items-center justify-between gap-3">
+                  <h3 class="text-sm font-semibold">SKILL.md</h3>
+                  <div class="flex gap-2">
+                    <button
+                      type="button"
+                      class="h-9 border border-border px-3 text-sm text-text-muted hover:bg-surface-muted"
+                      [disabled]="isWorking()"
+                      (click)="cancelEditing()"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      class="flex h-9 items-center gap-2 bg-accent px-3 text-sm font-semibold text-white hover:bg-accent-hover disabled:bg-control-disabled"
+                      [disabled]="isWorking()"
+                      (click)="saveSkill(skill)"
+                    >
+                      <ng-icon name="lucideSave" size="16" /> Save
+                    </button>
+                  </div>
+                </div>
+                <textarea
+                  class="mt-3 min-h-80 w-full resize-y border border-border bg-surface p-3 font-mono text-xs leading-5 outline-none focus:border-accent"
+                  spellcheck="false"
+                  [ngModel]="skillMarkdownDraft()"
+                  (ngModelChange)="skillMarkdownDraft.set($event)"
+                ></textarea>
+              </section>
+            }
 
             <dl
               class="mt-5 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 border-y border-border py-4 text-sm"

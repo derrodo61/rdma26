@@ -529,15 +529,61 @@
           </section>
 
           <section class="border border-border bg-surface p-4">
-            <h2 class="text-sm font-semibold">Skills used</h2>
-            @if (!run.skillsUsed?.length) {
-              <p class="mt-3 text-sm text-text-muted">No skill was loaded during this run.</p>
+            <h2 class="text-sm font-semibold">Skill state</h2>
+            <dl class="mt-3 grid grid-cols-3 gap-3 text-center">
+              <div>
+                <dt class="text-xs text-text-muted">Installed</dt>
+                <dd class="mt-1 text-lg font-semibold">
+                  {{ run.installedSkills === undefined ? '—' : run.installedSkills.length }}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-xs text-text-muted">Attached</dt>
+                <dd class="mt-1 text-lg font-semibold">
+                  {{ run.attachedSkills === undefined ? '—' : run.attachedSkills.length }}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-xs text-text-muted">Used</dt>
+                <dd class="mt-1 text-lg font-semibold">
+                  {{ run.skillsUsed === undefined ? '—' : run.skillsUsed.length }}
+                </dd>
+              </div>
+            </dl>
+
+            @if (run.installedSkills === undefined || run.attachedSkills === undefined) {
+              <p class="mt-3 text-xs text-text-muted">
+                Skill-state metadata was not recorded for this historical run.
+              </p>
+            }
+
+            @if (run.attachedSkills?.length) {
+              <h3 class="mt-5 text-xs font-semibold uppercase text-text-muted">Attached</h3>
+              <ul class="mt-2 divide-y divide-border text-sm">
+                @for (skill of run.attachedSkills ?? []; track skill.id) {
+                  <li class="flex items-center justify-between gap-3 py-2">
+                    <span class="min-w-0 truncate font-medium">{{ skill.name }}</span>
+                    <span class="shrink-0 text-xs uppercase text-text-muted">{{
+                      skill.ownership
+                    }}</span>
+                  </li>
+                }
+              </ul>
+            }
+
+            <h3 class="mt-5 text-xs font-semibold uppercase text-text-muted">Used</h3>
+            @if (run.skillsUsed === undefined) {
+              <p class="mt-2 text-sm text-text-muted">Usage was not recorded for this run.</p>
+            } @else if (!run.skillsUsed.length) {
+              <p class="mt-2 text-sm text-text-muted">No skill was loaded during this run.</p>
             } @else {
-              <ul class="mt-4 space-y-3 text-sm">
+              <ul class="mt-2 space-y-3 text-sm">
                 @for (skill of run.skillsUsed ?? []; track skill.path) {
                   <li class="min-w-0">
                     <p class="truncate font-medium">{{ skill.name }}</p>
-                    <p class="mt-1 truncate font-mono text-xs text-text-muted">{{ skill.path }}</p>
+                    @for (path of skill.supportingPaths ?? [skill.path]; track path) {
+                      <p class="mt-1 truncate font-mono text-xs text-text-muted">{{ path }}</p>
+                    }
                   </li>
                 }
               </ul>

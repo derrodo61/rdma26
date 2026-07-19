@@ -63,6 +63,32 @@ async function main(): Promise<void> {
     case 'skills:show':
       printJson(await runtime.readSkill(requiredOption(options, 'skill')));
       return;
+    case 'skills:clone':
+      printJson(
+        await runtime.cloneSkill(
+          requiredOption(options, 'skill'),
+          requiredOption(options, 'target'),
+          requiredOption(options, 'hash'),
+        ),
+      );
+      return;
+    case 'skills:edit':
+      printJson(
+        await runtime.updateUserSkill(
+          requiredOption(options, 'skill'),
+          await readFile(requiredOption(options, 'path'), 'utf8'),
+          requiredOption(options, 'hash'),
+        ),
+      );
+      return;
+    case 'skills:delete':
+      printJson(
+        await runtime.deleteSkill(
+          requiredOption(options, 'skill'),
+          requiredOption(options, 'hash'),
+        ),
+      );
+      return;
     case 'skills:installations':
       printJson({ installations: await runtime.listSkillInstallations() });
       return;
@@ -838,11 +864,17 @@ function parseEvaluationSuite(value: string | undefined): EvaluationSuiteId | un
     return undefined;
   }
 
-  if (value === 'smoke' || value === 'research' || value === 'memory' || value === 'core') {
+  if (
+    value === 'smoke' ||
+    value === 'research' ||
+    value === 'memory' ||
+    value === 'skills' ||
+    value === 'core'
+  ) {
     return value;
   }
 
-  throw new Error('--suite must be smoke, research, memory, or core.');
+  throw new Error('--suite must be smoke, research, memory, skills, or core.');
 }
 
 function parseTheme(value: string | undefined): ThemePreference | undefined {
@@ -905,6 +937,9 @@ Usage:
   rdma26 capabilities:list
   rdma26 skills:list
   rdma26 skills:show --skill pricing-source-analysis
+  rdma26 skills:clone --skill pricing-source-analysis --target my-pricing-analysis --hash <content-hash>
+  rdma26 skills:edit --skill my-pricing-analysis --path ./SKILL.md --hash <content-hash>
+  rdma26 skills:delete --skill my-pricing-analysis --hash <content-hash>
   rdma26 skills:installations
   rdma26 skills:install:directory --path ./my-skill
   rdma26 skills:install:archive --path ./my-skill.zip
@@ -953,6 +988,7 @@ Usage:
   rdma26 evals:list
   rdma26 evals:run --suite smoke --model gpt-5.4-mini
   rdma26 evals:run --suite research --model gpt-5.4
+  rdma26 evals:run --suite skills --model gpt-5.4
   rdma26 evals:run --cases direct-known-fact,thread-follow-up --keep-data true
   rdma26 optimizer:ask --prompt "Which agent cost the most this week?"
   rdma26 runs:context --run <run-id>

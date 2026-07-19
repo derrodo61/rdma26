@@ -1,6 +1,7 @@
 import type {
   AgentSkillsResponse,
   CatalogSearchResponse,
+  DeleteSkillResponse,
   InstallSkillRequest,
   SkillInstallationRecord,
   SkillInstallationPreview,
@@ -14,6 +15,7 @@ import type { AgentRegistry } from '../agents/agent-registry';
 import { ClawHubCatalogAdapter } from './skill-catalog';
 import { normalizeSkillIds, type SkillLibrary } from './skill-library';
 import { SkillPackageInstaller } from './skill-package-installer';
+import { scanSkillPackage } from './skill-package-scanner';
 
 export class SkillManagementService {
   private readonly installer: SkillPackageInstaller;
@@ -39,9 +41,61 @@ export class SkillManagementService {
 
     return {
       ...toSummary(skill),
+      contentHash: skill.contentHash,
       skillMarkdown: skill.skillMarkdown,
       files: skill.files,
     };
+  }
+
+  async cloneSkill(
+    sourceSkillId: string,
+    targetSkillId: string,
+    expectedSourceHash: string,
+  ): Promise<SkillPackageDetails> {
+    await this.library.cloneToUser(sourceSkillId, targetSkillId, expectedSourceHash);
+    return await this.readSkill(targetSkillId);
+  }
+
+  async updateUserSkill(
+    skillId: string,
+    skillMarkdown: string,
+    expectedContentHash: string,
+  ): Promise<SkillPackageDetails> {
+    await this.library.updateUserSkill(
+      skillId,
+      skillMarkdown,
+      expectedContentHash,
+      async (directory) => {
+        await scanSkillPackage(directory, [], skillId);
+      },
+    );
+    return await this.readSkill(skillId);
+  }
+
+  async deleteSkill(skillId: string, expectedContentHash: string): Promise<DeleteSkillResponse> {
+    const skill = await this.library.inspectPackage(skillId);
+    const attachedAgents = (await this.agents.listAgents()).filter((agent) =>
+      agent.attachedSkills.includes(skill.id),
+    );
+
+    if (attachedAgents.length) {
+      throw new Error(
+        `Skill ${skill.id} is attached to ${attachedAgents.map((agent) => agent.name).join(', ')} and cannot be deleted.`,
+      );
+    }
+
+    switch (skill.ownership) {
+      case 'bundled':
+        throw new Error(`Bundled skill ${skill.id} cannot be deleted.`);
+      case 'user':
+        await this.library.deleteUserSkill(skill.id, expectedContentHash);
+        break;
+      case 'external':
+        await this.installer.uninstall(skill.id, expectedContentHash);
+        break;
+    }
+
+    return { deleted: true, skillId: skill.id };
   }
 
   async listInstallations(): Promise<readonly SkillInstallationRecord[]> {

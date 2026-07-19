@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { cp, lstat, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, relative, sep } from 'node:path';
 
-import { parse } from 'yaml';
+import { parse, parseDocument } from 'yaml';
 
 import { pricingSourceAnalysisSkillContent } from '../storage/assistant-storage';
 
@@ -25,6 +25,7 @@ export interface AgentSkillSource {
 }
 
 export interface SkillPackageInspection extends SkillPackageDefinition {
+  readonly contentHash: string;
   readonly skillMarkdown: string;
   readonly files: readonly SkillFileSummary[];
 }
@@ -120,6 +121,7 @@ export class SkillLibrary {
 
     return {
       ...skill,
+      contentHash: await hashDirectory(skill.directory),
       skillMarkdown: await readFile(join(skill.directory, 'SKILL.md'), 'utf8'),
       files: await Promise.all(
         filePaths.map(async (filePath) => ({
@@ -128,6 +130,104 @@ export class SkillLibrary {
         })),
       ),
     };
+  }
+
+  async cloneToUser(
+    sourceSkillId: string,
+    targetSkillId: string,
+    expectedSourceHash: string,
+  ): Promise<void> {
+    const [normalizedSourceId] = normalizeSkillIds([sourceSkillId]);
+    const [normalizedTargetId] = normalizeSkillIds([targetSkillId]);
+    const source = (await this.listPackages()).find((skill) => skill.id === normalizedSourceId);
+
+    if (!source) {
+      throw new Error(`Skill ${normalizedSourceId} is not installed.`);
+    }
+    if (source.ownership === 'user') {
+      throw new Error(
+        `Skill ${normalizedSourceId} is already user-owned and can be edited directly.`,
+      );
+    }
+    if ((await hashDirectory(source.directory)) !== expectedSourceHash) {
+      throw new Error(`Skill ${normalizedSourceId} changed after it was inspected.`);
+    }
+    if ((await this.listPackages()).some((skill) => skill.id === normalizedTargetId)) {
+      throw new Error(`Skill ${normalizedTargetId} is already installed.`);
+    }
+
+    const staging = join(this.userDir, `.cloning-${normalizedTargetId}-${crypto.randomUUID()}`);
+
+    try {
+      await cp(source.directory, staging, {
+        recursive: true,
+        errorOnExist: true,
+        force: false,
+        verbatimSymlinks: true,
+      });
+      const skillPath = join(staging, 'SKILL.md');
+      const content = await readFile(skillPath, 'utf8');
+      await writeFile(skillPath, rewriteSkillName(content, skillPath, normalizedTargetId), 'utf8');
+      await readSkillPackage(staging, 'user', normalizedTargetId);
+      await rename(staging, join(this.userDir, normalizedTargetId));
+    } catch (error) {
+      await rm(staging, { recursive: true, force: true });
+      throw error;
+    }
+  }
+
+  async updateUserSkill(
+    skillId: string,
+    skillMarkdown: string,
+    expectedContentHash: string,
+    validate?: (directory: string) => Promise<void>,
+  ): Promise<void> {
+    const [normalizedId] = normalizeSkillIds([skillId]);
+    const existing = (await this.listPackages()).find((skill) => skill.id === normalizedId);
+
+    if (!existing) {
+      throw new Error(`Skill ${normalizedId} is not installed.`);
+    }
+    if (existing.ownership !== 'user') {
+      throw new Error(`Skill ${normalizedId} is ${existing.ownership} and cannot be edited.`);
+    }
+    if ((await hashDirectory(existing.directory)) !== expectedContentHash) {
+      throw new Error(`Skill ${normalizedId} changed after it was inspected.`);
+    }
+
+    const staging = join(this.userDir, `.editing-${normalizedId}-${crypto.randomUUID()}`);
+
+    try {
+      await cp(existing.directory, staging, {
+        recursive: true,
+        errorOnExist: true,
+        force: false,
+        verbatimSymlinks: true,
+      });
+      await writeFile(join(staging, 'SKILL.md'), skillMarkdown, 'utf8');
+      await readSkillPackage(staging, 'user', normalizedId);
+      await validate?.(staging);
+      await this.applyUserPackage(staging, normalizedId, expectedContentHash);
+    } finally {
+      await rm(staging, { recursive: true, force: true });
+    }
+  }
+
+  async deleteUserSkill(skillId: string, expectedContentHash: string): Promise<void> {
+    const [normalizedId] = normalizeSkillIds([skillId]);
+    const existing = (await this.listPackages()).find((skill) => skill.id === normalizedId);
+
+    if (!existing) {
+      throw new Error(`Skill ${normalizedId} is not installed.`);
+    }
+    if (existing.ownership !== 'user') {
+      throw new Error(`Skill ${normalizedId} is ${existing.ownership} and cannot be deleted here.`);
+    }
+    if ((await hashDirectory(existing.directory)) !== expectedContentHash) {
+      throw new Error(`Skill ${normalizedId} changed after it was inspected.`);
+    }
+
+    await rm(existing.directory, { recursive: true, force: false });
   }
 
   async applyUserPackage(
@@ -263,9 +363,7 @@ export class SkillLibrary {
     const entries = await readDirectories(rootDir);
     return await Promise.all(
       entries
-        .filter(
-          (entry) => !entry.name.startsWith('.importing-') && !entry.name.startsWith('.replacing-'),
-        )
+        .filter((entry) => !entry.name.startsWith('.'))
         .map(async (entry) => await readSkillPackage(join(rootDir, entry.name), ownership)),
     );
   }
@@ -386,6 +484,21 @@ function parseFrontmatter(content: string, path: string): Record<string, unknown
   }
 
   return value as Record<string, unknown>;
+}
+
+function rewriteSkillName(content: string, path: string, name: string): string {
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---((?:\r?\n|$)[\s\S]*)$/);
+
+  if (!match?.[1] || match[2] === undefined) {
+    throw new Error(`Skill ${path} must start with YAML frontmatter.`);
+  }
+
+  const document = parseDocument(match[1]);
+  if (document.errors.length) {
+    throw new Error(`Skill ${path} has invalid YAML frontmatter.`);
+  }
+  document.set('name', name);
+  return `---\n${document.toString().trimEnd()}\n---${match[2]}`;
 }
 
 function readRequiredString(value: Record<string, unknown>, key: string, path: string): string {

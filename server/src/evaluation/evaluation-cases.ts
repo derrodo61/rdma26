@@ -1,7 +1,14 @@
-export const evaluationSuiteVersion = '2026-07-12-v5';
+export const evaluationSuiteVersion = '2026-07-19-v6';
 
 export type EvaluationCategory =
-  'direct' | 'research' | 'calculation' | 'planning' | 'uncertainty' | 'memory' | 'conversation';
+  | 'direct'
+  | 'research'
+  | 'calculation'
+  | 'planning'
+  | 'uncertainty'
+  | 'memory'
+  | 'conversation'
+  | 'skills';
 
 export type EvaluationScenario =
   | 'single'
@@ -20,6 +27,8 @@ export interface EvaluationAssertions {
   readonly sourceDomainsAny?: readonly string[];
   readonly requiredToolCalls?: readonly string[];
   readonly forbiddenToolCalls?: readonly string[];
+  readonly minimumSkillsUsed?: number;
+  readonly maximumSkillsUsed?: number;
 }
 
 export interface EvaluationStep {
@@ -39,6 +48,13 @@ export interface EvaluationMemorySeed {
   readonly pinned?: boolean;
 }
 
+export interface EvaluationSkillSeed {
+  readonly idPrefix: string;
+  readonly agent: 'primary' | 'secondary';
+  readonly description: string;
+  readonly instructions: string;
+}
+
 export interface EvaluationCaseDefinition {
   readonly id: string;
   readonly category: EvaluationCategory;
@@ -47,13 +63,74 @@ export interface EvaluationCaseDefinition {
   readonly suites: readonly EvaluationSuiteId[];
   readonly requiredCapabilities: readonly string[];
   readonly memorySeeds?: readonly EvaluationMemorySeed[];
+  readonly skillSeeds?: readonly EvaluationSkillSeed[];
   readonly steps: readonly EvaluationStep[];
   readonly humanReview?: readonly string[];
 }
 
-export type EvaluationSuiteId = 'smoke' | 'research' | 'memory' | 'core';
+export type EvaluationSuiteId = 'smoke' | 'research' | 'memory' | 'skills' | 'core';
 
 const cases: readonly EvaluationCaseDefinition[] = [
+  {
+    id: 'relevant-skill-selection',
+    category: 'skills',
+    description: 'Load a relevant attached skill through progressive disclosure.',
+    scenario: 'single',
+    suites: ['skills', 'core'],
+    requiredCapabilities: [],
+    skillSeeds: [
+      {
+        idPrefix: 'eval-invoice-triage',
+        agent: 'primary',
+        description: 'Use this skill when triaging invoice records by urgency and payment status.',
+        instructions:
+          'For invoice triage requests, group overdue items first and include the marker TRIAGE-SKILL-USED.',
+      },
+    ],
+    steps: [
+      {
+        id: 'answer',
+        agent: 'primary',
+        thread: 'case',
+        prompt:
+          'Triage these invoices by urgency: A is paid, B is 20 days overdue, and C is 3 days overdue.',
+        assertions: {
+          containsAll: ['TRIAGE-SKILL-USED'],
+          minimumSkillsUsed: 1,
+        },
+      },
+    ],
+  },
+  {
+    id: 'irrelevant-skill-non-selection',
+    category: 'skills',
+    description: 'Keep an irrelevant attached skill unloaded.',
+    scenario: 'single',
+    suites: ['skills', 'core'],
+    requiredCapabilities: [],
+    skillSeeds: [
+      {
+        idPrefix: 'eval-invoice-triage',
+        agent: 'primary',
+        description: 'Use this skill when triaging invoice records by urgency and payment status.',
+        instructions:
+          'For invoice triage requests, group overdue items first and include the marker TRIAGE-SKILL-USED.',
+      },
+    ],
+    steps: [
+      {
+        id: 'answer',
+        agent: 'primary',
+        thread: 'case',
+        prompt: 'What is the capital of France? Answer in one short sentence.',
+        assertions: {
+          containsAll: ['Paris'],
+          excludesAll: ['TRIAGE-SKILL-USED'],
+          maximumSkillsUsed: 0,
+        },
+      },
+    ],
+  },
   {
     id: 'direct-known-fact',
     category: 'direct',

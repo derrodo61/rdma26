@@ -237,6 +237,17 @@ export class SkillPackageInstaller {
     return updated;
   }
 
+  async uninstall(skillId: string, expectedContentHash: string): Promise<void> {
+    const record = await this.installations.require(skillId);
+
+    if (record.activeContentHash !== expectedContentHash) {
+      throw new Error(`Skill ${record.skillId} changed after it was inspected.`);
+    }
+
+    await this.installations.delete(record.skillId);
+    await rm(join(this.externalDir, record.skillId), { recursive: true, force: true });
+  }
+
   private async resolveRequest(request: InstallSkillRequest): Promise<ResolvedInstallSource> {
     switch (request.sourceType) {
       case 'local-directory':

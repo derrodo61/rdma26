@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import type { SkillInstallationRecord } from '../../../shared/agent-contracts';
@@ -62,6 +62,11 @@ export class SkillInstallationStore {
     const temporary = `${target}.${crypto.randomUUID()}.tmp`;
     await writeFile(temporary, `${JSON.stringify(record, null, 2)}\n`, 'utf8');
     await rename(temporary, target);
+  }
+
+  async delete(skillId: string): Promise<void> {
+    const normalizedId = normalizeSkillId(skillId);
+    await rm(this.recordPath(normalizedId), { force: false });
   }
 
   private recordPath(skillId: string): string {

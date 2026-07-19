@@ -6,12 +6,16 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideArrowLeft,
   lucideCheck,
+  lucideCopy,
   lucideDownload,
   lucideExternalLink,
   lucidePin,
+  lucidePencil,
   lucideRefreshCw,
   lucideRotateCcw,
   lucideSearch,
+  lucideSave,
+  lucideTrash2,
   lucideX,
 } from '@ng-icons/lucide';
 
@@ -37,12 +41,16 @@ type InstallSourceType = InstallSkillRequest['sourceType'];
     provideIcons({
       lucideArrowLeft,
       lucideCheck,
+      lucideCopy,
       lucideDownload,
       lucideExternalLink,
       lucidePin,
+      lucidePencil,
       lucideRefreshCw,
       lucideRotateCcw,
       lucideSearch,
+      lucideSave,
+      lucideTrash2,
       lucideX,
     }),
   ],
@@ -67,6 +75,9 @@ export class SkillSettingsPage {
   protected readonly revision = signal('');
   protected readonly catalogQuery = signal('');
   protected readonly catalogResults = signal<readonly CatalogSkillSummary[]>([]);
+  protected readonly cloneTargetId = signal('');
+  protected readonly isEditingSkill = signal(false);
+  protected readonly skillMarkdownDraft = signal('');
   protected readonly isLoading = signal(true);
   protected readonly isWorking = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -121,8 +132,12 @@ export class SkillSettingsPage {
     this.selectedProposalId.set(null);
     this.selectedSkillId.set(skillId);
     this.updatePreview.set(null);
+    this.cloneTargetId.set('');
+    this.isEditingSkill.set(false);
     await this.run(async () => {
-      this.selectedSkill.set(await this.api.readSkill(skillId));
+      const skill = await this.api.readSkill(skillId);
+      this.selectedSkill.set(skill);
+      this.skillMarkdownDraft.set(skill.skillMarkdown);
     });
   }
 
@@ -253,6 +268,68 @@ export class SkillSettingsPage {
       await this.api.rollbackSkill(record.skillId, { contentHash: version.contentHash });
       await this.refreshLibrary();
       this.notice.set(`Restored ${record.skillId}.`);
+    });
+  }
+
+  protected startEditing(skill: SkillPackageDetails): void {
+    this.skillMarkdownDraft.set(skill.skillMarkdown);
+    this.isEditingSkill.set(true);
+    this.clearMessages();
+  }
+
+  protected cancelEditing(): void {
+    this.skillMarkdownDraft.set(this.selectedSkill()?.skillMarkdown ?? '');
+    this.isEditingSkill.set(false);
+    this.clearMessages();
+  }
+
+  protected async saveSkill(skill: SkillPackageDetails): Promise<void> {
+    await this.run(async () => {
+      const updated = await this.api.updateUserSkill(skill.id, {
+        skillMarkdown: this.skillMarkdownDraft(),
+        expectedContentHash: skill.contentHash,
+      });
+      this.selectedSkill.set(updated);
+      this.skillMarkdownDraft.set(updated.skillMarkdown);
+      this.isEditingSkill.set(false);
+      await this.refreshLibrary();
+      this.notice.set(`Saved ${updated.id}.`);
+    });
+  }
+
+  protected async cloneSkill(skill: SkillPackageDetails): Promise<void> {
+    const targetSkillId = this.cloneTargetId().trim();
+    if (!targetSkillId) {
+      this.error.set('Enter an id for the user-owned copy.');
+      return;
+    }
+
+    await this.run(async () => {
+      const cloned = await this.api.cloneSkill(skill.id, {
+        targetSkillId,
+        expectedSourceHash: skill.contentHash,
+      });
+      await this.refreshLibrary();
+      this.selectedSkillId.set(cloned.id);
+      this.selectedSkill.set(cloned);
+      this.skillMarkdownDraft.set(cloned.skillMarkdown);
+      this.cloneTargetId.set('');
+      this.notice.set(`Cloned ${skill.id} as ${cloned.id}.`);
+    });
+  }
+
+  protected async deleteSkill(skill: SkillPackageDetails): Promise<void> {
+    if (!globalThis.confirm(`Delete ${skill.id} from the skill library?`)) {
+      return;
+    }
+
+    await this.run(async () => {
+      await this.api.deleteSkill(skill.id, { expectedContentHash: skill.contentHash });
+      this.selectedSkillId.set(null);
+      this.selectedSkill.set(null);
+      this.isEditingSkill.set(false);
+      await this.refreshLibrary();
+      this.notice.set(`Deleted ${skill.id}.`);
     });
   }
 

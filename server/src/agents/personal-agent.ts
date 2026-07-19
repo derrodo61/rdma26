@@ -258,18 +258,26 @@ export function summarizeSystemPrompt(systemPrompt: string): RunContextSystemPro
 export function extractSkillUsages(
   toolCalls: readonly RunContextToolCall[],
 ): readonly RunContextSkillUsage[] {
-  const skills = new Map<string, RunContextSkillUsage>();
+  const loadedSkills = new Map<string, string>();
+  const supportingPaths = new Map<string, Set<string>>();
 
   for (const toolCall of toolCalls) {
     if (toolCall.name !== 'read_file' || !isRecord(toolCall.args)) continue;
     const path = toolCall.args['file_path'];
     if (typeof path !== 'string') continue;
-    const match = path.match(/^\/skills\/([^/]+)\/SKILL\.md$/);
+    const match = path.match(/^\/skills\/([^/]+)\/(.+)$/);
     if (!match?.[1]) continue;
-    skills.set(match[1], { name: match[1], path });
+    const paths = supportingPaths.get(match[1]) ?? new Set<string>();
+    paths.add(path);
+    supportingPaths.set(match[1], paths);
+    if (match[2] === 'SKILL.md') loadedSkills.set(match[1], path);
   }
 
-  return [...skills.values()];
+  return [...loadedSkills.entries()].map(([name, path]) => ({
+    name,
+    path,
+    supportingPaths: [...(supportingPaths.get(name) ?? [])].sort(),
+  }));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

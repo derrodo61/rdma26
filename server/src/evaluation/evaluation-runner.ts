@@ -14,6 +14,7 @@ import {
   type EvaluationAssertions,
   type EvaluationCaseDefinition,
   type EvaluationMemorySeed,
+  type EvaluationSkillSeed,
   type EvaluationStep,
   type EvaluationSuiteId,
 } from './evaluation-cases';
@@ -51,6 +52,8 @@ export interface EvaluationSummary {
   readonly outputTokens: number;
   readonly cachedInputTokens: number;
   readonly maxInputTokensPerCall: number;
+  readonly maxSystemPromptCharacters: number;
+  readonly maxAttachedSkillCount: number;
   readonly unpricedCallCount: number;
   readonly estimatedCosts: Readonly<Record<string, number>>;
 }
@@ -75,6 +78,7 @@ export interface EvaluationStepResult {
   readonly response: string;
   readonly sourceUrls: readonly string[];
   readonly toolCalls: readonly string[];
+  readonly skillsUsed: readonly string[];
   readonly failures: readonly string[];
   readonly durationMs: number;
   readonly metrics: EvaluationRunMetrics;
@@ -87,6 +91,8 @@ export interface EvaluationRunMetrics {
   readonly outputTokens: number;
   readonly cachedInputTokens: number;
   readonly maxInputTokensPerCall: number;
+  readonly maxSystemPromptCharacters: number;
+  readonly maxAttachedSkillCount: number;
   readonly unpricedCallCount: number;
   readonly estimatedCosts: Readonly<Record<string, number>>;
 }
@@ -222,12 +228,16 @@ async function runEvaluationCase(
   model: string,
 ): Promise<EvaluationCaseResult> {
   const memories: MemoryRecord[] = [];
+  const skills: Array<{ readonly agentId: string; readonly skillId: string }> = [];
   const threads = new Map<string, string>();
   const runs: EvaluationStepResult[] = [];
 
   try {
     for (const seed of definition.memorySeeds ?? []) {
       memories.push(await createMemorySeed(runtime, seed, agents));
+    }
+    for (const seed of definition.skillSeeds ?? []) {
+      skills.push(await createSkillSeed(runtime, seed, agents));
     }
 
     for (const step of definition.steps) {
@@ -244,6 +254,7 @@ async function runEvaluationCase(
       response: '',
       sourceUrls: [],
       toolCalls: [],
+      skillsUsed: [],
       failures: [`Evaluation runtime error: ${message}`],
       durationMs: 0,
       metrics: emptyMetrics(),
@@ -251,6 +262,11 @@ async function runEvaluationCase(
   } finally {
     for (const memory of memories) {
       await runtime.deleteMemory(memory.id);
+    }
+    for (const skill of skills) {
+      await runtime.detachAgentSkill(skill.agentId, skill.skillId);
+      const details = await runtime.readSkill(skill.skillId);
+      await runtime.deleteSkill(skill.skillId, details.contentHash);
     }
   }
 
@@ -271,6 +287,36 @@ async function runEvaluationCase(
     runs,
     metrics: summarizeMetrics(runs.map((run) => run.metrics)),
   };
+}
+
+async function createSkillSeed(
+  runtime: AssistantRuntime,
+  seed: EvaluationSkillSeed,
+  agents: EvaluationAgents,
+): Promise<{ readonly agentId: string; readonly skillId: string }> {
+  const agent = agents[seed.agent];
+  const suffix = agent.id.slice(-8);
+  const skillId = `${seed.idPrefix}-${suffix}`;
+  const proposal = await runtime.proposeSkillCreate(
+    {
+      skillId,
+      skillMarkdown: [
+        '---',
+        `name: ${skillId}`,
+        `description: ${seed.description}`,
+        '---',
+        '',
+        '# Evaluation skill',
+        '',
+        seed.instructions,
+        '',
+      ].join('\n'),
+    },
+    { agentId: agent.id, threadId: `evaluation-${suffix}` },
+  );
+  await runtime.applySkillProposal(proposal.id);
+  await runtime.attachAgentSkill(agent.id, skillId);
+  return { agentId: agent.id, skillId };
 }
 
 async function createMemorySeed(
@@ -327,11 +373,13 @@ async function runEvaluationStep(
   const toolCalls = runToolCalls
     .map((toolCall) => toolCall.name)
     .filter((name): name is string => Boolean(name));
+  const skillsUsed = (result.runContext.skillsUsed ?? []).map((skill) => skill.name);
   const failures = evaluateAssertions(
     result.agentResponse.content,
     sourceUrls,
     toolCalls,
     step.assertions,
+    skillsUsed,
   );
 
   return {
@@ -343,9 +391,14 @@ async function runEvaluationStep(
     response: result.agentResponse.content,
     sourceUrls,
     toolCalls,
+    skillsUsed,
     failures,
     durationMs,
-    metrics: metricsForCalls(calls),
+    metrics: metricsForCalls(
+      calls,
+      result.runContext.systemPromptDiagnostics?.characterCount ?? 0,
+      result.runContext.attachedSkills?.length ?? 0,
+    ),
   };
 }
 
@@ -354,6 +407,7 @@ export function evaluateAssertions(
   sourceUrls: readonly string[],
   toolCalls: readonly string[],
   assertions: EvaluationAssertions,
+  skillsUsed: readonly string[] = [],
 ): readonly string[] {
   const failures: string[] = [];
   const normalizeText = (value: string) =>
@@ -403,6 +457,21 @@ export function evaluateAssertions(
     if (toolCalls.includes(toolName)) failures.push(`Forbidden tool was called: ${toolName}`);
   }
 
+  if ((assertions.minimumSkillsUsed ?? 0) > skillsUsed.length) {
+    failures.push(
+      `Expected at least ${assertions.minimumSkillsUsed} skills to be used, received ${skillsUsed.length}.`,
+    );
+  }
+
+  if (
+    assertions.maximumSkillsUsed !== undefined &&
+    skillsUsed.length > assertions.maximumSkillsUsed
+  ) {
+    failures.push(
+      `Expected at most ${assertions.maximumSkillsUsed} skills to be used, received ${skillsUsed.length}.`,
+    );
+  }
+
   return failures;
 }
 
@@ -448,7 +517,11 @@ function visitStructuredValue(value: unknown, urls: Set<string>, depth: number):
   }
 }
 
-function metricsForCalls(calls: readonly LlmCallRecord[]): EvaluationRunMetrics {
+function metricsForCalls(
+  calls: readonly LlmCallRecord[],
+  systemPromptCharacters: number,
+  attachedSkillCount: number,
+): EvaluationRunMetrics {
   const estimatedCosts: Record<string, number> = {};
   let unpricedCallCount = 0;
 
@@ -468,6 +541,8 @@ function metricsForCalls(calls: readonly LlmCallRecord[]): EvaluationRunMetrics 
     outputTokens: sum(calls, (call) => call.outputTokens),
     cachedInputTokens: sum(calls, (call) => call.cachedInputTokens),
     maxInputTokensPerCall: Math.max(0, ...calls.map((call) => call.inputTokens ?? 0)),
+    maxSystemPromptCharacters: systemPromptCharacters,
+    maxAttachedSkillCount: attachedSkillCount,
     unpricedCallCount,
     estimatedCosts,
   };
@@ -501,6 +576,11 @@ function summarizeMetrics(metrics: readonly EvaluationRunMetrics[]): EvaluationR
     outputTokens: metrics.reduce((total, metric) => total + metric.outputTokens, 0),
     cachedInputTokens: metrics.reduce((total, metric) => total + metric.cachedInputTokens, 0),
     maxInputTokensPerCall: Math.max(0, ...metrics.map((metric) => metric.maxInputTokensPerCall)),
+    maxSystemPromptCharacters: Math.max(
+      0,
+      ...metrics.map((metric) => metric.maxSystemPromptCharacters),
+    ),
+    maxAttachedSkillCount: Math.max(0, ...metrics.map((metric) => metric.maxAttachedSkillCount)),
     unpricedCallCount: metrics.reduce((total, metric) => total + metric.unpricedCallCount, 0),
     estimatedCosts,
   };
@@ -514,6 +594,8 @@ function emptyMetrics(): EvaluationRunMetrics {
     outputTokens: 0,
     cachedInputTokens: 0,
     maxInputTokensPerCall: 0,
+    maxSystemPromptCharacters: 0,
+    maxAttachedSkillCount: 0,
     unpricedCallCount: 0,
     estimatedCosts: {},
   };

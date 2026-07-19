@@ -110,7 +110,7 @@ sequenceDiagram
     M->>M: Apply workflow using allowed tools
 ```
 
-The current implementation has these limits:
+The current implementation provides:
 
 - The authenticated API, CLI, and Angular settings UI can list and inspect
   installed packages, install external packages, search ClawHub, inspect and
@@ -118,12 +118,15 @@ The current implementation has these limits:
   surfaces call the same `SkillManagementService` through `AssistantRuntime`.
 - The agent editor has a Skills tab, and the separate skill library is available
   at `/settings/skills`.
-- The user library can be populated by migration or an explicitly approved
-  authoring proposal. There is no direct editor, clone, or delete operation yet.
+- The user library can be populated by migration, an explicitly approved
+  authoring proposal, or a clone of a bundled or external package. User-owned
+  `SKILL.md` files can be edited directly. Unattached user and external packages
+  can be deleted; bundled packages cannot.
 - `skill_authoring` and `skill_acquisition` are independently configurable and
   create persisted, scanned proposals only. Authenticated API, CLI, and Angular
   review actions apply or reject proposals explicitly.
-- The run inspector does not yet display attached-versus-used skill metadata.
+- The run inspector records installed, attached, and used skills separately,
+  including supporting files read from a used package.
 - Only the protected Cost Analyst currently receives a bundled skill,
   `pricing-source-analysis`.
 
@@ -178,14 +181,15 @@ without rewriting or deleting the others.
 
 A skill being listed in the catalog does not mean it was used. rdma26 records a
 skill as used only when it observes the agent reading that skill's `SKILL.md`.
-The run inspector then shows the skill name and its virtual path under **Skills
-used**.
+At the start of each run, rdma26 also records a snapshot of the installed
+library and the packages attached to the active agent. The run inspector shows
+the three counts separately under **Skill state**.
 
 This is useful evidence that the full instructions were loaded. It does not
-prove that every instruction was followed, and reads of supporting files are
-not currently summarized as separate skill usage.
+prove that every instruction was followed. When a used skill reads supporting
+files, their virtual paths are retained with that skill's usage record.
 
-## Planned Management Model
+## Management Model
 
 The lasting product model has two levels:
 
@@ -384,24 +388,22 @@ it becomes stale if its source or target changes before approval. Invalid
 proposals are rejected, and suspicious proposals are quarantined for
 inspection.
 
-## Planned User Experience
+## User Experience
 
 The agent editor has a **Skills** section that shows the skills attached to that
-agent. It currently supports:
+agent. It supports:
 
 - attach an installed skill;
 - detach a skill without deleting it;
 - open the library to inspect a skill's description, ownership, source, and
   files.
 
-Later user-skill management should add:
-
-- create a user skill;
-- edit or delete a user-owned skill;
-- clone a bundled or external skill before customizing it.
-
-A separate library view should manage all installed skills. The UI must clearly
-distinguish **installed**, **attached**, and **used**:
+A separate library view manages all installed skills. It can clone a bundled or
+external package into a complete user-owned copy, edit a user-owned `SKILL.md`,
+and delete an unattached user or external package. Clone, edit, and delete
+requests carry the content hash shown during inspection, so a concurrent change
+must be reviewed again instead of being overwritten. The UI clearly
+distinguishes **installed**, **attached**, and **used**:
 
 - **Installed** means the package exists in the local library.
 - **Attached** means the selected agent can discover it.
@@ -438,31 +440,6 @@ Before a skill can enter the library, rdma26 should validate that:
 Skill instructions remain subordinate to the agent's system instructions,
 capability grants, memory permissions, and protected-tool rules.
 
-## Implementation Sequence
-
-The management feature should be implemented in reviewable stages:
-
-1. Add an Agent Skills-compatible library service, package validation,
-   provenance records, ownership metadata, version pinning, compatibility
-   inspection, and agent attachment persistence.
-2. Add local-directory, archive, and Git installation, followed by a ClawHub
-   catalog adapter. Verify representative public Anthropic and OpenAI/Codex
-   packages through those common source paths.
-3. Expose the same typed library, installation, proposal, and attachment
-   operations through `AssistantRuntime`, API, and CLI.
-4. Resolve attached library skills into each agent's virtual `/skills/`
-   directory and add focused runtime and migration tests.
-5. Implement `skill_authoring` and `skill_acquisition` with proposal-only tools,
-   validation, stale-target detection, scanning, quarantine, and explicit apply.
-6. Add the Skills section to the agent editor and a library view with catalog
-   search, install, update, pin, attach, detach, create, inspect, edit, clone,
-   proposal review, and delete flows.
-7. Extend run observability with installed and attached skill metadata while
-   preserving the existing evidence of skills actually loaded.
-8. Add behavioral evaluations proving that agents prefer suitable existing
-   skills, relevant skills are selected, irrelevant skills stay unloaded, and
-   skills cannot bypass capability or permission boundaries.
-
 Migration must preserve existing local data. The Cost Analyst's current
 `pricing-source-analysis` directory becomes an attachment to the bundled
 version. Any other valid skill found in an agent-local directory must be
@@ -471,9 +448,7 @@ the old package until the library copy and attachment have been verified, and
 name collisions must produce a clear migration error rather than silently
 overwriting either package.
 
-## Acceptance Criteria
-
-The first complete skill-management release is ready when:
+## Current Guarantees
 
 - users can manage local user skills without editing `.assistant-data` by hand;
 - rdma26 validates the core Agent Skills format rather than introducing a
@@ -493,5 +468,7 @@ The first complete skill-management release is ready when:
 - the agent searches installed skills and trusted catalogs before creating a
   duplicate workflow when both management capabilities are enabled;
 - run details distinguish attached skills from skills actually loaded;
+- the live `skills` evaluation suite checks relevant skill selection and
+  irrelevant skill non-selection;
 - invalid or unsafe packages are rejected with a clear explanation;
 - existing Cost Analyst behavior survives migration.

@@ -15,6 +15,7 @@ import type {
   CatalogSearchResponse,
   ChatThread,
   ChatThreadSummary,
+  CloneSkillRequest,
   CostSummaryRequest,
   CostSummaryResponse,
   CreateAgentRequest,
@@ -24,6 +25,8 @@ import type {
   DeleteMemoryResponse,
   DeleteModelPricingResponse,
   DeleteThreadResponse,
+  DeleteSkillRequest,
+  DeleteSkillResponse,
   HealthResponse,
   InstallSkillRequest,
   LlmCallListRequest,
@@ -61,6 +64,7 @@ import type {
   UpdateAgentCapabilitiesRequest,
   UpdateModelPricingRequest,
   UpdateUserProfileRequest,
+  UpdateUserSkillRequest,
   UserProfile,
 } from '../../../shared/agent-contracts';
 
@@ -143,6 +147,27 @@ export class AssistantApi {
 
   async readSkill(skillId: string): Promise<SkillPackageDetails> {
     return await firstValueFrom(this.http.get<SkillPackageDetails>(`/api/skills/${skillId}`));
+  }
+
+  async cloneSkill(skillId: string, request: CloneSkillRequest): Promise<SkillPackageDetails> {
+    return await firstValueFrom(
+      this.http.post<SkillPackageDetails>(`/api/skills/${skillId}/clone`, request),
+    );
+  }
+
+  async updateUserSkill(
+    skillId: string,
+    request: UpdateUserSkillRequest,
+  ): Promise<SkillPackageDetails> {
+    return await firstValueFrom(
+      this.http.put<SkillPackageDetails>(`/api/skills/${skillId}`, request),
+    );
+  }
+
+  async deleteSkill(skillId: string, request: DeleteSkillRequest): Promise<DeleteSkillResponse> {
+    return await firstValueFrom(
+      this.http.delete<DeleteSkillResponse>(`/api/skills/${skillId}`, { body: request }),
+    );
   }
 
   async skillInstallations(): Promise<SkillInstallationsResponse> {

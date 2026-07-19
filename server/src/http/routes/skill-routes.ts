@@ -1,9 +1,12 @@
 import type {
   ApplySkillUpdateRequest,
+  CloneSkillRequest,
+  DeleteSkillRequest,
   InstallSkillRequest,
   InspectSkillUpdateRequest,
   RollbackSkillRequest,
   SetSkillPinnedRequest,
+  UpdateUserSkillRequest,
   UpdateAgentSkillsRequest,
 } from '../../../../shared/agent-contracts';
 import { getErrorMessage } from '../errors';
@@ -13,6 +16,8 @@ import {
   agentParamsSchema,
   agentSkillParamsSchema,
   applySkillUpdateRequestSchema,
+  cloneSkillRequestSchema,
+  deleteSkillRequestSchema,
   inspectSkillUpdateRequestSchema,
   installSkillRequestSchema,
   rollbackSkillRequestSchema,
@@ -23,6 +28,7 @@ import {
   skillParamsSchema,
   skillProposalParamsSchema,
   updateAgentSkillsRequestSchema,
+  updateUserSkillRequestSchema,
 } from '../schemas';
 
 export const registerSkillRoutes: RouteRegistrar = (server, { runtime }) => {
@@ -30,6 +36,87 @@ export const registerSkillRoutes: RouteRegistrar = (server, { runtime }) => {
     '/api/skill-proposals',
     routeDocs({ tags: ['skills'], summary: 'List reviewable skill proposals.' }),
     async () => await runtime.listSkillProposals(),
+  );
+
+  server.post(
+    '/api/skills/:skillId/clone',
+    routeDocs({
+      tags: ['skills'],
+      summary: 'Clone a bundled or external skill as a user-owned skill.',
+      params: skillParamsSchema,
+      body: cloneSkillRequestSchema,
+    }),
+    async (request, reply) => {
+      const params = skillParamsSchema.safeParse(request.params);
+      const body = cloneSkillRequestSchema.safeParse(request.body);
+      if (!params.success || !body.success) {
+        return reply
+          .code(400)
+          .send({ message: 'Valid source, target, and content hash are required.' });
+      }
+      try {
+        const input = body.data satisfies CloneSkillRequest;
+        return await runtime.cloneSkill(
+          params.data.skillId,
+          input.targetSkillId,
+          input.expectedSourceHash,
+        );
+      } catch (error) {
+        return reply.code(400).send({ message: getErrorMessage(error) });
+      }
+    },
+  );
+
+  server.put(
+    '/api/skills/:skillId',
+    routeDocs({
+      tags: ['skills'],
+      summary: 'Edit the SKILL.md entry point of a user-owned skill.',
+      params: skillParamsSchema,
+      body: updateUserSkillRequestSchema,
+    }),
+    async (request, reply) => {
+      const params = skillParamsSchema.safeParse(request.params);
+      const body = updateUserSkillRequestSchema.safeParse(request.body);
+      if (!params.success || !body.success) {
+        return reply
+          .code(400)
+          .send({ message: 'Valid skill content and content hash are required.' });
+      }
+      try {
+        const input = body.data satisfies UpdateUserSkillRequest;
+        return await runtime.updateUserSkill(
+          params.data.skillId,
+          input.skillMarkdown,
+          input.expectedContentHash,
+        );
+      } catch (error) {
+        return reply.code(400).send({ message: getErrorMessage(error) });
+      }
+    },
+  );
+
+  server.delete(
+    '/api/skills/:skillId',
+    routeDocs({
+      tags: ['skills'],
+      summary: 'Delete an unattached user-owned or external skill.',
+      params: skillParamsSchema,
+      body: deleteSkillRequestSchema,
+    }),
+    async (request, reply) => {
+      const params = skillParamsSchema.safeParse(request.params);
+      const body = deleteSkillRequestSchema.safeParse(request.body);
+      if (!params.success || !body.success) {
+        return reply.code(400).send({ message: 'A valid skill id and content hash are required.' });
+      }
+      try {
+        const input = body.data satisfies DeleteSkillRequest;
+        return await runtime.deleteSkill(params.data.skillId, input.expectedContentHash);
+      } catch (error) {
+        return reply.code(400).send({ message: getErrorMessage(error) });
+      }
+    },
   );
 
   server.get(

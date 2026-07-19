@@ -62,6 +62,14 @@ export class ChatRunService {
     const memoryReadsEnabled = storage.agent.memory.canRead;
     const memoryWritesEnabled = storage.agent.memory.canWrite;
     const enabledCapabilityIds = storage.agent.enabledCapabilities;
+    const installedSkills = (await this.skillLibrary.listPackages()).map((skill) => ({
+      id: skill.id,
+      name: skill.name,
+      description: skill.description,
+      ownership: skill.ownership,
+    }));
+    const attachedSkillIds = new Set(storage.agent.attachedSkills);
+    const attachedSkills = installedSkills.filter((skill) => attachedSkillIds.has(skill.id));
     const skillSources = await this.skillLibrary.resolveAttachedSkills(
       storage.agent.attachedSkills,
     );
@@ -112,6 +120,8 @@ export class ChatRunService {
       capabilities: capabilityContext,
       tools: toolContext,
       withheldCapabilities: [],
+      installedSkills,
+      attachedSkills,
       memoryReadsEnabled,
       memoryWritesEnabled,
     };

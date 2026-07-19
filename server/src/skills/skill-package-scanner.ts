@@ -67,11 +67,12 @@ export class SkillPackageValidationError extends Error {
 export async function scanSkillPackage(
   directory: string,
   enabledCapabilities: readonly string[] = [],
+  expectedName = basename(directory),
 ): Promise<ScannedSkillPackage> {
   let definition: SkillPackageDefinition;
 
   try {
-    definition = await readSkillPackage(directory, 'external');
+    definition = await readSkillPackage(directory, 'external', expectedName);
   } catch (error) {
     const report = unsafeReport([
       finding('invalid_package', 'error', error instanceof Error ? error.message : String(error)),

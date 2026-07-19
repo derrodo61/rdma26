@@ -70,6 +70,8 @@ describe('ChatRunRecorder', () => {
           reason: 'Unavailable for this model provider.',
         },
       ],
+      installedSkills: [expect.objectContaining({ id: 'web' })],
+      attachedSkills: [expect.objectContaining({ id: 'web' })],
     });
     expect(writeRunContext).toHaveBeenCalledWith(recorded);
   });
@@ -175,6 +177,22 @@ function recordingContext(): ChatRunRecordingContext {
       {
         id: 'web_search',
         reason: 'Unavailable for this model provider.',
+      },
+    ],
+    installedSkills: [
+      {
+        id: 'web',
+        name: 'web',
+        description: 'Research the web.',
+        ownership: 'user',
+      },
+    ],
+    attachedSkills: [
+      {
+        id: 'web',
+        name: 'web',
+        description: 'Research the web.',
+        ownership: 'user',
       },
     ],
     memoryReadsEnabled: true,

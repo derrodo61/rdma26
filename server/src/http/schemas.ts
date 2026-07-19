@@ -51,6 +51,25 @@ export const skillParamsSchema = z.object({
   skillId: skillIdSchema,
 });
 
+const contentHashSchema = z
+  .string()
+  .trim()
+  .regex(/^[a-f0-9]{64}$/);
+
+export const cloneSkillRequestSchema = z.object({
+  targetSkillId: skillIdSchema,
+  expectedSourceHash: contentHashSchema,
+});
+
+export const updateUserSkillRequestSchema = z.object({
+  skillMarkdown: z.string().min(1),
+  expectedContentHash: contentHashSchema,
+});
+
+export const deleteSkillRequestSchema = z.object({
+  expectedContentHash: contentHashSchema,
+});
+
 export const agentSkillParamsSchema = z.object({
   agentId: z.string().trim().min(1),
   skillId: skillIdSchema,

@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { vi } from 'vitest';
 
-import type { SkillProposalRecord } from '../../../../shared/agent-contracts';
+import type { SkillPackageDetails, SkillProposalRecord } from '../../../../shared/agent-contracts';
 import { AssistantApi } from '../../chat/assistant-api';
 import { SkillSettingsPage } from './skill-settings-page';
 
@@ -61,6 +61,139 @@ describe('SkillSettingsPage', () => {
     return button;
   }
 });
+
+describe('SkillSettingsPage lifecycle', () => {
+  it('clones an immutable skill with an explicit user-owned id', async () => {
+    const source = skillDetails('pricing-analysis', 'bundled');
+    const cloned = skillDetails('custom-pricing', 'user');
+    const api = lifecycleApi(source, cloned);
+    const fixture = await createLifecycleFixture(api);
+
+    buttonContaining(fixture, source.id).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector(
+      'input[placeholder="my-custom-skill"]',
+    ) as HTMLInputElement;
+    input.value = cloned.id;
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    buttonContaining(fixture, 'Clone').click();
+    await fixture.whenStable();
+
+    expect(api.cloneSkill).toHaveBeenCalledWith(source.id, {
+      targetSkillId: cloned.id,
+      expectedSourceHash: source.contentHash,
+    });
+  });
+
+  it('edits and deletes an unattached user-owned skill', async () => {
+    const skill = skillDetails('invoice-review', 'user');
+    const updated = {
+      ...skill,
+      description: 'Review invoices carefully.',
+      contentHash: 'b'.repeat(64),
+      skillMarkdown: skill.skillMarkdown.replace(
+        'Review invoice batches.',
+        'Review invoices carefully.',
+      ),
+    };
+    const api = lifecycleApi(skill, updated);
+    const fixture = await createLifecycleFixture(api);
+
+    buttonContaining(fixture, skill.id).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    buttonWithLabel(fixture, 'Edit skill').click();
+    fixture.detectChanges();
+
+    const textarea = fixture.nativeElement.querySelector('textarea') as HTMLTextAreaElement;
+    textarea.value = updated.skillMarkdown;
+    textarea.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    buttonContaining(fixture, 'Save').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(api.updateUserSkill).toHaveBeenCalledWith(skill.id, {
+      skillMarkdown: updated.skillMarkdown,
+      expectedContentHash: skill.contentHash,
+    });
+
+    vi.spyOn(globalThis, 'confirm').mockReturnValue(true);
+    buttonWithLabel(fixture, 'Delete skill').click();
+    await fixture.whenStable();
+    expect(api.deleteSkill).toHaveBeenCalledWith(skill.id, {
+      expectedContentHash: updated.contentHash,
+    });
+  });
+});
+
+async function createLifecycleFixture(api: ReturnType<typeof lifecycleApi>) {
+  await TestBed.configureTestingModule({
+    imports: [SkillSettingsPage],
+    providers: [provideRouter([]), { provide: AssistantApi, useValue: api }],
+  }).compileComponents();
+  const fixture = TestBed.createComponent(SkillSettingsPage);
+  fixture.detectChanges();
+  await vi.waitFor(() => {
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(api.initial.id);
+  });
+  return fixture;
+}
+
+function lifecycleApi(initial: SkillPackageDetails, result: SkillPackageDetails) {
+  return {
+    initial,
+    skills: vi.fn(async () => ({ skills: [initial] })),
+    skillInstallations: vi.fn(async () => ({ installations: [] })),
+    agents: vi.fn(async () => ({ agents: [], defaultAgentId: 'scotty' })),
+    skillProposals: vi.fn(async () => ({ proposals: [] })),
+    readSkill: vi.fn(async () => initial),
+    cloneSkill: vi.fn(async () => result),
+    updateUserSkill: vi.fn(async () => result),
+    deleteSkill: vi.fn(async () => ({ deleted: true as const, skillId: initial.id })),
+  };
+}
+
+function skillDetails(
+  id: string,
+  ownership: SkillPackageDetails['ownership'],
+): SkillPackageDetails {
+  return {
+    id,
+    name: id,
+    description: 'Review invoice batches.',
+    ownership,
+    contentHash: 'a'.repeat(64),
+    skillMarkdown: `---\nname: ${id}\ndescription: Review invoice batches.\n---\n\n# Review\n`,
+    files: [{ path: 'SKILL.md', sizeBytes: 100 }],
+  };
+}
+
+function buttonContaining(
+  fixture: ComponentFixture<SkillSettingsPage>,
+  text: string,
+): HTMLButtonElement {
+  const root = fixture.nativeElement as HTMLElement;
+  const button = [...root.querySelectorAll<HTMLButtonElement>('button')].find((candidate) =>
+    candidate.textContent?.includes(text),
+  );
+  if (!button) throw new Error(`Button containing ${text} was not found.`);
+  return button;
+}
+
+function buttonWithLabel(
+  fixture: ComponentFixture<SkillSettingsPage>,
+  label: string,
+): HTMLButtonElement {
+  const root = fixture.nativeElement as HTMLElement;
+  const button = root.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
+  if (!button) throw new Error(`Button labeled ${label} was not found.`);
+  return button;
+}
 
 function pendingProposal(): SkillProposalRecord {
   return {

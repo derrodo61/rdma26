@@ -146,6 +146,42 @@ describe('skill routes', () => {
         installations: [expect.objectContaining({ skillId: 'invoice-review' })],
       });
 
+      const details = await server.inject({ method: 'GET', url: '/api/skills/invoice-review' });
+      const sourceHash = String(details.json<{ contentHash: string }>().contentHash);
+      const clone = await server.inject({
+        method: 'POST',
+        url: '/api/skills/invoice-review/clone',
+        payload: {
+          targetSkillId: 'invoice-review-copy',
+          expectedSourceHash: sourceHash,
+        },
+      });
+      expect(clone.statusCode).toBe(200);
+      expect(clone.json()).toMatchObject({ id: 'invoice-review-copy', ownership: 'user' });
+
+      const cloned = clone.json<{ contentHash: string; skillMarkdown: string }>();
+      const edit = await server.inject({
+        method: 'PUT',
+        url: '/api/skills/invoice-review-copy',
+        payload: {
+          skillMarkdown: cloned.skillMarkdown.replace(
+            'Review invoice batches.',
+            'Review copied invoice batches.',
+          ),
+          expectedContentHash: cloned.contentHash,
+        },
+      });
+      expect(edit.statusCode).toBe(200);
+      expect(edit.json()).toMatchObject({ description: 'Review copied invoice batches.' });
+
+      const deleteCopy = await server.inject({
+        method: 'DELETE',
+        url: '/api/skills/invoice-review-copy',
+        payload: { expectedContentHash: edit.json<{ contentHash: string }>().contentHash },
+      });
+      expect(deleteCopy.statusCode).toBe(200);
+      expect(deleteCopy.json()).toEqual({ deleted: true, skillId: 'invoice-review-copy' });
+
       const pin = await server.inject({
         method: 'PATCH',
         url: '/api/skill-installations/invoice-review/pin',
@@ -153,6 +189,16 @@ describe('skill routes', () => {
       });
       expect(pin.statusCode).toBe(200);
       expect(pin.json()).toMatchObject({ skillId: 'invoice-review', pinned: true });
+
+      await runtime.attachAgentSkill('scotty', 'invoice-review');
+      const attachedDelete = await server.inject({
+        method: 'DELETE',
+        url: '/api/skills/invoice-review',
+        payload: { expectedContentHash: sourceHash },
+      });
+      expect(attachedDelete.statusCode).toBe(400);
+      expect(attachedDelete.json()).toMatchObject({ message: expect.stringContaining('attached') });
+      await runtime.detachAgentSkill('scotty', 'invoice-review');
 
       const invalidUpdate = await server.inject({
         method: 'POST',
@@ -184,6 +230,15 @@ describe('skill routes', () => {
       await expect(runtime.readSkill('review-checklist')).resolves.toMatchObject({
         ownership: 'user',
       });
+
+      const uninstall = await server.inject({
+        method: 'DELETE',
+        url: '/api/skills/invoice-review',
+        payload: { expectedContentHash: sourceHash },
+      });
+      expect(uninstall.statusCode).toBe(200);
+      expect(uninstall.json()).toEqual({ deleted: true, skillId: 'invoice-review' });
+      await expect(runtime.listSkillInstallations()).resolves.toEqual([]);
     } finally {
       await server.close();
       runtime.close();

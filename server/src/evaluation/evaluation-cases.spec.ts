@@ -21,6 +21,7 @@ describe('evaluation cases', () => {
         'uncertainty',
         'memory',
         'conversation',
+        'skills',
       ]),
     );
   });
@@ -33,6 +34,10 @@ describe('evaluation cases', () => {
       'thread-follow-up',
     ]);
     expect(selectEvaluationCases('core', ['agent-local-memory-recall'])).toHaveLength(1);
+    expect(selectEvaluationCases('skills').map((definition) => definition.id)).toEqual([
+      'relevant-skill-selection',
+      'irrelevant-skill-non-selection',
+    ]);
     expect(() => selectEvaluationCases('core', ['missing-case'])).toThrow(
       'Unknown evaluation case: missing-case.',
     );

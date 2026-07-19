@@ -11,6 +11,7 @@ import type {
   ChatThread,
   ChatThreadSummary,
   CatalogSearchResponse,
+  DeleteSkillResponse,
   CreateSkillAuthoringProposalRequest,
   CreateSkillInstallProposalRequest,
   CostSummaryRequest,
@@ -381,6 +382,26 @@ export class AssistantRuntime {
 
   async readSkill(skillId: string): Promise<SkillPackageDetails> {
     return await this.skills.readSkill(skillId);
+  }
+
+  async cloneSkill(
+    sourceSkillId: string,
+    targetSkillId: string,
+    expectedSourceHash: string,
+  ): Promise<SkillPackageDetails> {
+    return await this.skills.cloneSkill(sourceSkillId, targetSkillId, expectedSourceHash);
+  }
+
+  async updateUserSkill(
+    skillId: string,
+    skillMarkdown: string,
+    expectedContentHash: string,
+  ): Promise<SkillPackageDetails> {
+    return await this.skills.updateUserSkill(skillId, skillMarkdown, expectedContentHash);
+  }
+
+  async deleteSkill(skillId: string, expectedContentHash: string): Promise<DeleteSkillResponse> {
+    return await this.skills.deleteSkill(skillId, expectedContentHash);
   }
 
   async listSkillInstallations(): Promise<readonly SkillInstallationRecord[]> {

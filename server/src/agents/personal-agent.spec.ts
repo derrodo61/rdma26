@@ -157,11 +157,16 @@ describe('extractSkillUsages', () => {
           name: 'read_file',
           args: { file_path: '/configuration/soul.md' },
         },
+        {
+          name: 'read_file',
+          args: { file_path: '/skills/example/references/checklist.md' },
+        },
       ]),
     ).toEqual([
       {
         name: 'example',
         path: '/skills/example/SKILL.md',
+        supportingPaths: ['/skills/example/SKILL.md', '/skills/example/references/checklist.md'],
       },
     ]);
   });
