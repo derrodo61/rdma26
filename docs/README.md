@@ -23,8 +23,8 @@ features.
   boundaries.
 - [Memory](./memory.md): current thread state, long-term memory, semantic
   retrieval, and user controls.
-- [Skills](./skills.md): what skills are, how they currently load, and the
-  planned local library and agent-attachment model.
+- [Skills](./skills.md): open skill packages, current loading behavior, reusable
+  catalogs, agent-assisted management, and the planned library model.
 - [Web research](./research.md): hosted search, source handling, and known-URL readers.
 - [Interpreter capability](./interpreter.md): QuickJS interpreter boundary,
   runtime behavior, observability, and testing.
