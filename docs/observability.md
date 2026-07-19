@@ -93,9 +93,8 @@ needed for debugging and evaluation, including:
 Run context may contain sensitive prompts, messages, memory, and tool data. It
 is local application data and should not be exposed without authentication.
 
-The `skillsUsed` list records a skill only when the agent reads its full
-`SKILL.md` file. Skill metadata advertised in the system prompt is not counted
-as use. The Run context page shows the loaded skill name and virtual path.
+The meaning and limits of `skillsUsed` are documented in
+[Skills](./skills.md#what-the-run-inspector-records).
 
 ## Model Pricing
 

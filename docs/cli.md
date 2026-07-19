@@ -187,7 +187,7 @@ rdma26 pricing-sources:delete --source <source-id>
 
 Checking a source updates its last checked, last success, and last error fields.
 
-Cost Analyst can use configured pricing sources through its controlled tools and `pricing-source-analysis` Deep Agents skill. For OpenAI model-price checks it has a dedicated `admin_sync_openai_model_pricing` tool that fetches the official OpenAI pricing page, extracts model prices deterministically, and returns a compact comparison without changing saved pricing records.
+Cost Analyst's reusable pricing workflow is described in [Skills](./skills.md). For OpenAI model-price checks it has a dedicated `admin_sync_openai_model_pricing` tool that fetches the official OpenAI pricing page, extracts model prices deterministically, and returns a compact comparison without changing saved pricing records.
 
 ## Observability
 

@@ -226,7 +226,7 @@ Optional body:
 }
 ```
 
-Cost Analyst can use configured pricing sources through controlled tools and its `pricing-source-analysis` Deep Agents skill before falling back to general web research. For OpenAI model-price comparison, it has a dedicated `admin_sync_openai_model_pricing` controlled tool that fetches the official OpenAI pricing page, extracts the model pricing table deterministically, and returns a compact comparison without changing saved pricing records.
+Cost Analyst's reusable pricing workflow is described in [Skills](./skills.md). For OpenAI model-price comparison, it has a dedicated `admin_sync_openai_model_pricing` controlled tool that fetches the official OpenAI pricing page, extracts the model pricing table deterministically, and returns a compact comparison without changing saved pricing records.
 
 ### `GET /api/capabilities`
 

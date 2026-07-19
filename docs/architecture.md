@@ -109,21 +109,19 @@ sequenceDiagram
 LangGraph checkpoints preserve the Deep Agent state for a thread. The
 application database separately stores messages as a UI/API/CLI read model.
 
-## Capabilities, Tools, And Skills
+## Capabilities And Tools
 
 rdma26 uses these terms for different architectural layers. They are related,
 but they are not interchangeable.
 
-| Concept        | Definition                                                                                                                                                        | Deep Agents representation                                                                                             |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| **Capability** | A user-configurable agent ability and authorization boundary. It is an rdma26 application concept, not a model-callable operation.                                | A configured combination of tools, middleware, system instructions, backend access, or permissions.                    |
-| **Tool**       | One concrete operation that the model can choose to call. Its name, description, and input schema form a model-visible interface.                                 | A LangChain tool, provider-hosted server tool, MCP tool, or built-in harness tool.                                     |
-| **Skill**      | A reusable package of workflow guidance, domain knowledge, and supporting resources. It teaches the agent how to approach work but does not authorize operations. | A Deep Agents-compatible skill directory containing `SKILL.md` and optional scripts, references, templates, or assets. |
+| Concept        | Definition                                                                                                                         | Deep Agents representation                                                               |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| **Capability** | A user-configurable agent ability and authorization boundary. It is an rdma26 application concept, not a model-callable operation. | A combination of tools, middleware, system instructions, backend access, or permissions. |
+| **Tool**       | One concrete operation that the model can choose to call. Its description and input schema form a model-visible interface.         | A LangChain tool, provider-hosted server tool, MCP tool, or built-in harness tool.       |
 
 ```mermaid
 flowchart TD
     A["Agent"] --> C["Granted rdma26 capabilities"]
-    A --> S["Available skills"]
     A --> R["Identity, model, memory, and permissions"]
 
     C --> T["Model-callable tools"]
@@ -131,8 +129,6 @@ flowchart TD
     C --> P["Instructions and policies"]
     C --> B["Backend access"]
 
-    S --> W["Workflow and domain guidance"]
-    W --> T
 ```
 
 The boundaries follow these rules:
@@ -146,8 +142,6 @@ The boundaries follow these rules:
   tools, memory tools controlled by memory permissions, and administration tools
   injected for protected agents can be available without a normal capability
   grant.
-- A skill may explain when and how to combine tools, but loading a skill never
-  grants a capability or bypasses a permission.
 - Middleware is an implementation mechanism rather than a separate user-facing
   agent feature.
 - Identity, model selection, conversation state, and memory configuration remain
@@ -155,13 +149,10 @@ The boundaries follow these rules:
 
 This model complements Deep Agents rather than replacing its terminology. Deep
 Agents uses _capabilities_ broadly when describing features of its agent harness,
-while its concrete configuration mechanisms are tools, middleware, skills,
-backends, and permissions. rdma26's capability is the stable product-level grant
-that resolves into one or more of those mechanisms. See the official Deep Agents
-[overview](https://docs.langchain.com/oss/javascript/deepagents/overview),
-[tools](https://docs.langchain.com/oss/javascript/deepagents/tools), and
-[skills](https://docs.langchain.com/oss/javascript/deepagents/skills)
-documentation.
+while rdma26's capability is the stable product-level grant that resolves into
+one or more runtime mechanisms. Skills are a separate form of reusable guidance;
+their definition, current runtime behavior, and planned management model are
+documented in [skills.md](./skills.md).
 
 Current examples illustrate the relationship:
 

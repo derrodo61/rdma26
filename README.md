@@ -15,6 +15,7 @@ The project is designed around one shared backend runtime. API endpoints and CLI
 - [Documentation index](./docs/README.md)
 - [Product vision](./docs/vision.md)
 - [Current architecture](./docs/architecture.md)
+- [Skills](./docs/skills.md)
 - [API reference](./docs/api.md)
 - [CLI reference](./docs/cli.md)
 - [Changelog](./CHANGELOG.md)

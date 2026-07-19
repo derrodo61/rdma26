@@ -16,9 +16,8 @@ to the model at once:
 - Long-term memories are stored as scoped Markdown files. **Pinned** memories
   are loaded automatically; unpinned memories remain on disk until the agent
   searches for them.
-- Installed skills have `SKILL.md` files. At first, the model receives only a
-  catalog with each skill's name, description, and file path. The full content
-  of a skill is loaded only if the agent reads that file.
+- Installed skills contribute a compact catalog first; their complete
+  instructions are loaded only on demand. See [Skills](./skills.md).
 - An enabled capability adds capability-specific instructions, tool
   definitions, or both to the model request. This generated content is part of
   the context window and consumes tokens; the capability setting itself is not
@@ -30,11 +29,10 @@ to the model at once:
 rdma26 therefore loads a focused set of information at startup and gives the
 agent tools for finding more when it is needed.
 
-Capabilities, tools, and skills are distinct architectural concepts. Their
-canonical definitions and their mapping to Deep Agents are documented in
-[Capabilities, Tools, And Skills](./architecture.md#capabilities-tools-and-skills).
-This document focuses only on the content each mechanism contributes to a model
-request.
+Capabilities, tools, and skills are distinct architectural concepts. See
+[Architecture](./architecture.md#capabilities-and-tools) and
+[Skills](./skills.md). This document focuses only on the content each mechanism
+contributes to a model request.
 
 This document describes the current implementation. It explains what is loaded,
 in which order, what is only available on demand, and what happens when the
@@ -176,11 +174,8 @@ The Deep Agents SDK adds its general operating instructions. These currently
 cover planning with todos, the virtual filesystem, skills, and delegation to a
 general-purpose subagent.
 
-For skills, only a catalog containing each skill's name, description, and
-`SKILL.md` path is loaded initially. The full skill instructions enter the
-conversation only if the agent reads that file. This is progressive disclosure:
-the agent knows what skills exist without paying the context cost of every skill
-body.
+The available-skills catalog and on-demand loading behavior are described in
+[Skills](./skills.md#current-implementation).
 
 ### 7. Interpreter runtime guidance
 
