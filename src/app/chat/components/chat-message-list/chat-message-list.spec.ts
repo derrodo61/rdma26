@@ -104,6 +104,70 @@ describe('ChatMessageList', () => {
     expect(root.querySelector('a')?.getAttribute('href')).toBe('unsafe:javascript:alert(1)');
   });
 
+  it('shows inline source details on hover and offers an external link', () => {
+    fixture.componentRef.setInput('messages', [
+      assistantMessage(
+        'assistant-citation',
+        '<p>Supported by <a class="source-citation" href="https://example.com/report"><span class="source-citation__label">Source: Example report</span></a>.</p>',
+      ),
+    ]);
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    const trigger = root.querySelector<HTMLButtonElement>('.source-citation');
+    trigger?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    fixture.detectChanges();
+
+    const popover = root.querySelector<HTMLElement>('.inline-source-popover');
+    const openLink = popover?.querySelector<HTMLAnchorElement>('a');
+
+    expect(popover?.textContent).toContain('Example report');
+    expect(popover?.textContent).toContain('example.com');
+    expect(popover?.textContent).toContain('https://example.com/report');
+    expect(openLink?.href).toBe('https://example.com/report');
+    expect(openLink?.target).toBe('_blank');
+  });
+
+  it('closes the inline source popover with Escape', () => {
+    fixture.componentRef.setInput('messages', [
+      assistantMessage(
+        'assistant-citation',
+        '<a class="source-citation" href="https://example.com/report"><span class="source-citation__label">Source: Example report</span></a>',
+      ),
+    ]);
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    root
+      .querySelector<HTMLButtonElement>('.source-citation')
+      ?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    fixture.detectChanges();
+    expect(root.querySelector('.inline-source-popover')).toBeTruthy();
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    fixture.detectChanges();
+
+    expect(root.querySelector('.inline-source-popover')).toBeNull();
+  });
+
+  it('keeps a hovered source popover open when its trigger is clicked', () => {
+    fixture.componentRef.setInput('messages', [
+      assistantMessage(
+        'assistant-citation',
+        '<a class="source-citation" href="https://example.com/report"><span class="source-citation__label">Source: Example report</span></a>',
+      ),
+    ]);
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    const trigger = root.querySelector<HTMLAnchorElement>('.source-citation');
+    trigger?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    trigger?.click();
+    fixture.detectChanges();
+
+    expect(root.querySelector('.inline-source-popover')).toBeTruthy();
+  });
+
   function sourceButtons(): HTMLButtonElement[] {
     const root = fixture.nativeElement as HTMLElement;
 
