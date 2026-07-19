@@ -69,10 +69,10 @@ includes:
 
 - the selected accounting-aware model;
 - the agent's generated system prompt and `soul.md` identity;
-- granted application tools;
-- enabled Deep Agents middleware and skills;
+- configured application capabilities and the tools, middleware, and
+  instructions they contribute;
+- built-in Deep Agents tools, middleware, and skills;
 - scoped memory backends and permissions;
-- skills;
 - the persistent LangGraph checkpointer.
 
 Agents are stored separately by id. Threads belong to exactly one agent. Model,
@@ -109,24 +109,78 @@ sequenceDiagram
 LangGraph checkpoints preserve the Deep Agent state for a thread. The
 application database separately stores messages as a UI/API/CLI read model.
 
-## Capabilities And Skills
+## Capabilities, Tools, And Skills
 
-The capability registry owns application capabilities and their configuration
-requirements. Normal capabilities can be granted or revoked per agent.
-Protected capabilities are injected only for their system agent.
+rdma26 uses these terms for different architectural layers. They are related,
+but they are not interchangeable.
 
-The `web_search` capability adds OpenAI's provider-hosted search tool to the
-selected agent model. Hosted search stays inside the model's normal turn; the
-application records its actions and sources without adding a separate research
-agent, mandatory skill, citation gate, or repair workflow. Details are
-documented in [research.md](./research.md).
+| Concept        | Definition                                                                                                                                                        | Deep Agents representation                                                                                             |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **Capability** | A user-configurable agent ability and authorization boundary. It is an rdma26 application concept, not a model-callable operation.                                | A configured combination of tools, middleware, system instructions, backend access, or permissions.                    |
+| **Tool**       | One concrete operation that the model can choose to call. Its name, description, and input schema form a model-visible interface.                                 | A LangChain tool, provider-hosted server tool, MCP tool, or built-in harness tool.                                     |
+| **Skill**      | A reusable package of workflow guidance, domain knowledge, and supporting resources. It teaches the agent how to approach work but does not authorize operations. | A Deep Agents-compatible skill directory containing `SKILL.md` and optional scripts, references, templates, or assets. |
 
-The assignable `interpreter` capability adds the official Deep Agents QuickJS
-middleware. It gives an agent an isolated `eval` tool for calculations and
-deterministic structured-data transformations. Programmatic tool calling is not
-enabled, and the interpreter has no host filesystem, network, shell, package,
-credential, or clock access. It is not a replacement for a future sandbox used
-for file work or controlled application execution.
+```mermaid
+flowchart TD
+    A["Agent"] --> C["Granted rdma26 capabilities"]
+    A --> S["Available skills"]
+    A --> R["Identity, model, memory, and permissions"]
+
+    C --> T["Model-callable tools"]
+    C --> M["Runtime middleware"]
+    C --> P["Instructions and policies"]
+    C --> B["Backend access"]
+
+    S --> W["Workflow and domain guidance"]
+    W --> T
+```
+
+The boundaries follow these rules:
+
+- A capability is configurable when it represents a meaningful ability,
+  permission, security boundary, provider dependency, or cost boundary. A new
+  capability is not needed for every individual function.
+- One capability may contribute one tool, several tools, middleware,
+  instructions, backend configuration, or a combination of them.
+- Not every tool belongs to a configurable capability. Deep Agents harness
+  tools, memory tools controlled by memory permissions, and administration tools
+  injected for protected agents can be available without a normal capability
+  grant.
+- A skill may explain when and how to combine tools, but loading a skill never
+  grants a capability or bypasses a permission.
+- Middleware is an implementation mechanism rather than a separate user-facing
+  agent feature.
+- Identity, model selection, conversation state, and memory configuration remain
+  separate from capabilities, tools, and skills.
+
+This model complements Deep Agents rather than replacing its terminology. Deep
+Agents uses _capabilities_ broadly when describing features of its agent harness,
+while its concrete configuration mechanisms are tools, middleware, skills,
+backends, and permissions. rdma26's capability is the stable product-level grant
+that resolves into one or more of those mechanisms. See the official Deep Agents
+[overview](https://docs.langchain.com/oss/javascript/deepagents/overview),
+[tools](https://docs.langchain.com/oss/javascript/deepagents/tools), and
+[skills](https://docs.langchain.com/oss/javascript/deepagents/skills)
+documentation.
+
+Current examples illustrate the relationship:
+
+- The `web_search` capability adds search guidance and OpenAI's provider-hosted
+  `web_search` tool to the selected model. See [research.md](./research.md).
+- The `interpreter` capability adds QuickJS middleware, interpreter guidance,
+  and the `eval` tool. See [interpreter.md](./interpreter.md).
+- `read_web_page` and `read_web_page_structure` currently map directly from
+  individual configurable entries to tools.
+- Protected administration tools are injected by agent role and are not normal
+  configurable capabilities.
+- Memory tools are exposed according to the agent's memory read and write
+  permissions, not through ordinary capability grants.
+
+The current persistence model, API routes, CLI commands, and agent editor still
+use names such as `enabledTools` and **Tools** for the configurable capability
+list. That is legacy terminology in the present implementation; it should be
+aligned with this model across all interfaces rather than preserved as a second
+product concept.
 
 ## Memory And Context
 

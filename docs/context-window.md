@@ -30,18 +30,11 @@ to the model at once:
 rdma26 therefore loads a focused set of information at startup and gives the
 agent tools for finding more when it is needed.
 
-In this project, **capability** and **tool** are related but not synonymous:
-
-- A **capability** is a feature enabled in an agent's configuration. Enabling
-  it changes how the runtime is built.
-- A **tool** is a specific operation that the model can choose to call during a
-  run. Its name, description, and input schema are sent to the model.
-
-For example, enabling the interpreter capability installs QuickJS middleware,
-adds interpreter instructions, and exposes the `eval` tool. Enabling web search
-adds search guidance and exposes the provider-hosted `web_search` tool. Some
-capabilities, such as reading a web page, map more directly to one callable
-tool.
+Capabilities, tools, and skills are distinct architectural concepts. Their
+canonical definitions and their mapping to Deep Agents are documented in
+[Capabilities, Tools, And Skills](./architecture.md#capabilities-tools-and-skills).
+This document focuses only on the content each mechanism contributes to a model
+request.
 
 This document describes the current implementation. It explains what is loaded,
 in which order, what is only available on demand, and what happens when the
