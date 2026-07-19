@@ -21,11 +21,11 @@ export const registerSystemRoutes: RouteRegistrar = (server, { runtime }) => {
   );
 
   server.get(
-    '/api/tools',
+    '/api/capabilities',
     routeDocs({
-      tags: ['tools'],
-      summary: 'List registered tools.',
+      tags: ['capabilities'],
+      summary: 'List registered agent capabilities.',
     }),
-    async () => runtime.toolsResponse(),
+    async () => runtime.capabilitiesResponse(),
   );
 };

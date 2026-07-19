@@ -6,7 +6,7 @@ import type {
   AgentRunEvent,
   AgentRunRequest,
   AgentSoulResponse,
-  AgentToolsResponse,
+  AgentCapabilitiesResponse,
   AgentProfile,
   AgentsResponse,
   AuthSessionResponse,
@@ -39,12 +39,12 @@ import type {
   OptimizerRunResponse,
   PricingSourceListResponse,
   RunContextDetails,
-  ToolsResponse,
+  CapabilitiesResponse,
   SyncOpenAiModelPricingResult,
   UpdateAgentRequest,
   UpdateMemoryRequest,
   UpdateAgentSoulRequest,
-  UpdateAgentToolsRequest,
+  UpdateAgentCapabilitiesRequest,
   UpdateModelPricingRequest,
   UpdateUserProfileRequest,
   UserProfile,
@@ -95,8 +95,8 @@ export class AssistantApi {
     );
   }
 
-  async tools(): Promise<ToolsResponse> {
-    return await firstValueFrom(this.http.get<ToolsResponse>('/api/tools'));
+  async capabilities(): Promise<CapabilitiesResponse> {
+    return await firstValueFrom(this.http.get<CapabilitiesResponse>('/api/capabilities'));
   }
 
   async llmCalls(request: LlmCallListRequest = {}): Promise<LlmCallListResponse> {
@@ -260,16 +260,18 @@ export class AssistantApi {
     return await firstValueFrom(this.http.delete<DeleteAgentResponse>(`/api/agents/${agentId}`));
   }
 
-  async agentTools(agentId: string): Promise<AgentToolsResponse> {
-    return await firstValueFrom(this.http.get<AgentToolsResponse>(`/api/agents/${agentId}/tools`));
+  async agentCapabilities(agentId: string): Promise<AgentCapabilitiesResponse> {
+    return await firstValueFrom(
+      this.http.get<AgentCapabilitiesResponse>(`/api/agents/${agentId}/capabilities`),
+    );
   }
 
-  async updateAgentTools(
+  async updateAgentCapabilities(
     agentId: string,
-    request: UpdateAgentToolsRequest,
-  ): Promise<AgentToolsResponse> {
+    request: UpdateAgentCapabilitiesRequest,
+  ): Promise<AgentCapabilitiesResponse> {
     return await firstValueFrom(
-      this.http.put<AgentToolsResponse>(`/api/agents/${agentId}/tools`, request),
+      this.http.put<AgentCapabilitiesResponse>(`/api/agents/${agentId}/capabilities`, request),
     );
   }
 

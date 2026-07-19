@@ -6,7 +6,7 @@ The authoritative product direction is [docs/vision.md](./docs/vision.md).
 
 The backend runs currently on a MacBook and exposes a browser-friendly API for any frontend that can reach it. The first frontend is Angular. Conversations are organized as agent-specific threads, model selection starts with OpenAI model IDs, and each configured agent gets its own stable identity file at `.assistant-data/agents/<agent-id>/configuration/soul.md`.
 
-Agents can also have capabilities and tools assigned dynamically. Internet research uses OpenAI's hosted `web_search` capability with the model selected for the chat. Low-level `read_web_page` and `read_web_page_structure` tools remain available for known-URL inspection workflows. The protected operator agent is `Scotty` with id `scotty`, a local operator agent with controlled admin tools for managing agents and tool grants. The internal `cost-analyst` agent uses the same protected tool mechanism for advisory LLM usage and cost optimization.
+Agents can also have capabilities assigned dynamically. Internet research uses OpenAI's hosted `web_search` capability with the model selected for the chat. The `web_page_access` capability provides the low-level `read_web_page` and `read_web_page_structure` tools for known-URL inspection workflows. The protected operator agent is `Scotty` with id `scotty`, a local operator agent with controlled admin tools for managing agents and capability grants. The internal `cost-analyst` agent uses the same protected tool mechanism for advisory LLM usage and cost optimization.
 
 The project is designed around one shared backend runtime. API endpoints and CLI commands call the same `AssistantRuntime` service, so functionality exposed through the browser is also available from the command line without maintaining a second implementation.
 
@@ -98,13 +98,13 @@ Each agent gets isolated threads, history, identity configuration, and Deep Agen
 
 `POST /api/agent-runs` requires `agentId`, so a thread can only be read and continued through the agent it belongs to.
 
-Tool grants are agent-specific too. The agent profile stores `enabledTools`, while the backend registry owns the capability/tool implementation and required secrets. Protected system tools are injected only for protected system agents and are not part of the normal tool grant list. To enable internet research for an agent, configure OpenAI:
+Capability grants are agent-specific too. The agent profile stores `enabledCapabilities`, while the backend registry resolves each capability into its tools, middleware, instructions, and provider requirements. Protected system tools are injected only for protected system agents and are not part of the normal capability catalog. To enable internet research for an agent, configure OpenAI:
 
 ```bash
 OPENAI_API_KEY=sk-...
 ```
 
-Then grant `web_search` through the UI, API, or CLI. It uses the model selected for that chat run. If a capability or tool is enabled but its provider is not configured, the tool list reports it as unavailable and a chat run fails with a clear configuration error instead of silently pretending the capability exists.
+Then grant `web_search` through the UI, API, or CLI. It uses the model selected for that chat run. If a capability is enabled but its provider is not configured, the capability list reports it as unavailable and a chat run fails with a clear configuration error instead of silently pretending the capability exists.
 
 ## CLI
 

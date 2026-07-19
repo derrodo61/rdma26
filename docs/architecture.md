@@ -169,18 +169,12 @@ Current examples illustrate the relationship:
   `web_search` tool to the selected model. See [research.md](./research.md).
 - The `interpreter` capability adds QuickJS middleware, interpreter guidance,
   and the `eval` tool. See [interpreter.md](./interpreter.md).
-- `read_web_page` and `read_web_page_structure` currently map directly from
-  individual configurable entries to tools.
+- The `web_page_access` capability provides the `read_web_page` and
+  `read_web_page_structure` tools for known public URLs.
 - Protected administration tools are injected by agent role and are not normal
   configurable capabilities.
 - Memory tools are exposed according to the agent's memory read and write
   permissions, not through ordinary capability grants.
-
-The current persistence model, API routes, CLI commands, and agent editor still
-use names such as `enabledTools` and **Tools** for the configurable capability
-list. That is legacy terminology in the present implementation; it should be
-aligned with this model across all interfaces rather than preserved as a second
-product concept.
 
 ## Memory And Context
 

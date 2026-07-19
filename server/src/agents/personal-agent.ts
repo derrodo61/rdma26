@@ -34,7 +34,7 @@ interface PersonalAgentRequest {
   readonly threadId: string;
   readonly model: string;
   readonly tools: readonly StructuredToolInterface[];
-  readonly enabledToolIds: readonly string[];
+  readonly enabledCapabilityIds: readonly string[];
   readonly isOperatorAgent: boolean;
   readonly userProfile: UserProfile;
   readonly soulContent: string;
@@ -70,7 +70,7 @@ export class PersonalAgent {
 
     try {
       configuredModel = await this.modelFactory.createChatModel(request.model, {
-        includeWebSearchSources: request.enabledToolIds.includes('web_search'),
+        includeWebSearchSources: request.enabledCapabilityIds.includes('web_search'),
       });
     } catch (error) {
       if (!(error instanceof ModelProviderNotConfiguredError)) throw error;
@@ -113,7 +113,7 @@ export class PersonalAgent {
       request.isOperatorAgent,
       request.soulContent,
       request.memoryWritesEnabled,
-      request.enabledToolIds,
+      request.enabledCapabilityIds,
     );
     const systemPromptDiagnostics = summarizeSystemPrompt(systemPrompt);
     const agent = createDeepAgent({
@@ -135,8 +135,8 @@ export class PersonalAgent {
       memory: [...request.memoryPaths],
       permissions: createMemoryFilesystemPermissions(request.memoryReadsEnabled),
       skills: ['/skills/'],
-      tools: createAgentTools(request.tools, request.enabledToolIds),
-      middleware: await createEnabledAgentMiddleware(request.enabledToolIds),
+      tools: createAgentTools(request.tools, request.enabledCapabilityIds),
+      middleware: await createEnabledAgentMiddleware(request.enabledCapabilityIds),
       checkpointer: this.checkpointer,
       systemPrompt,
     });
@@ -158,7 +158,7 @@ export class PersonalAgent {
       },
     };
 
-    if (request.enabledToolIds.includes('web_search')) {
+    if (request.enabledCapabilityIds.includes('web_search')) {
       emitActivity(request.onActivity, {
         label: `${this.storage.agent.name} is checking sources and tools`,
       });
@@ -266,9 +266,9 @@ function extractPromptBlock(systemPrompt: string, label: string): string | undef
 
 function createAgentTools(
   runnableTools: readonly StructuredToolInterface[],
-  enabledToolIds: readonly string[],
+  enabledCapabilityIds: readonly string[],
 ): readonly (StructuredToolInterface | ServerTool)[] {
-  return enabledToolIds.includes('web_search')
+  return enabledCapabilityIds.includes('web_search')
     ? [
         ...runnableTools,
         openAiTools.webSearch({

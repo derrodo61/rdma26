@@ -60,7 +60,7 @@ export interface AgentProfile {
   readonly name: string;
   readonly kind: AgentKind;
   readonly chatEnabled: boolean;
-  readonly enabledTools: readonly string[];
+  readonly enabledCapabilities: readonly string[];
   readonly memory: AgentMemorySettings;
   readonly models: AgentModelSettings;
   readonly soulVirtualPath: string;
@@ -116,19 +116,29 @@ export interface ToolDefinition {
   readonly unavailableReason?: string;
 }
 
-export interface ToolsResponse {
-  readonly tools: readonly ToolDefinition[];
+export interface CapabilityDefinition {
+  readonly id: string;
+  readonly label: string;
+  readonly description: string;
+  readonly provider: string;
+  readonly available: boolean;
+  readonly unavailableReason?: string;
+  readonly providedTools: readonly ToolDefinition[];
 }
 
-export interface AgentToolsResponse {
+export interface CapabilitiesResponse {
+  readonly capabilities: readonly CapabilityDefinition[];
+}
+
+export interface AgentCapabilitiesResponse {
   readonly agentId: string;
-  readonly enabledTools: readonly string[];
-  readonly tools: readonly ToolDefinition[];
+  readonly enabledCapabilities: readonly string[];
+  readonly capabilities: readonly CapabilityDefinition[];
   readonly controlledTools: readonly ToolDefinition[];
 }
 
-export interface UpdateAgentToolsRequest {
-  readonly enabledTools: readonly string[];
+export interface UpdateAgentCapabilitiesRequest {
+  readonly enabledCapabilities: readonly string[];
 }
 
 export interface DeleteAgentResponse {
@@ -653,6 +663,7 @@ export interface RunContextDetails {
   readonly userProfile: UserProfile;
   readonly memories: readonly RunContextMemory[];
   readonly messages: readonly RunContextMessage[];
+  readonly capabilities?: readonly RunContextCapability[];
   readonly tools: readonly RunContextTool[];
   readonly withheldCapabilities?: readonly RunContextWithheldCapability[];
   readonly toolCalls?: readonly RunContextToolCall[];
@@ -662,6 +673,13 @@ export interface RunContextDetails {
   readonly memoryReadsEnabled: boolean;
   readonly memoryWritesEnabled: boolean;
   readonly systemPromptDiagnostics?: RunContextSystemPromptDiagnostics;
+}
+
+export interface RunContextCapability {
+  readonly id: string;
+  readonly label: string;
+  readonly description: string;
+  readonly provider: string;
 }
 
 export interface RunContextSystemPromptDiagnostics {

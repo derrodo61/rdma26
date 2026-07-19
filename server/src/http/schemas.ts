@@ -33,8 +33,8 @@ export const updateAgentSoulRequestSchema = z.object({
   content: z.string(),
 });
 
-export const updateAgentToolsRequestSchema = z.object({
-  enabledTools: z.array(z.string().trim().min(1)),
+export const updateAgentCapabilitiesRequestSchema = z.object({
+  enabledCapabilities: z.array(z.string().trim().min(1)),
 });
 
 const memoryScopeSchema = z.enum(['agent', 'agent_user', 'user']);
@@ -88,9 +88,9 @@ export const memoryParamsSchema = z.object({
   memoryId: z.string().uuid(),
 });
 
-export const agentToolParamsSchema = z.object({
+export const agentCapabilityParamsSchema = z.object({
   agentId: z.string().trim().min(1),
-  toolId: z.string().trim().min(1),
+  capabilityId: z.string().trim().min(1),
 });
 
 export const threadParamsSchema = z.object({

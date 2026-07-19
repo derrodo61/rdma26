@@ -42,7 +42,7 @@ function agentProfile(): AgentProfile {
     name: 'Albert',
     kind: 'chat',
     chatEnabled: true,
-    enabledTools: ['web_search'],
+    enabledCapabilities: ['web_search'],
     memory: { canRead: true, canWrite: true },
     models: { chat: 'chatgpt:gpt-5.4' },
     soulVirtualPath: '/configuration/soul.md',

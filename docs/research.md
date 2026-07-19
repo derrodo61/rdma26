@@ -7,7 +7,7 @@ rdma26 uses OpenAI's provider-hosted web search as its normal internet-search ca
 Grant the `web_search` capability to an agent through the UI, API, or CLI. The capability uses the model selected for that chat run and works with configured OpenAI API models or supported ChatGPT/Codex models.
 
 ```bash
-./bin/rdma26 agents:tools:grant --agent ronaldo --tool web_search
+./bin/rdma26 agents:capabilities:grant --agent ronaldo --capability web_search
 ```
 
 Agents without this grant cannot search the internet. The grant is not enabled automatically for newly created agents.
@@ -45,7 +45,7 @@ Ordinary web questions do not require a separate research skill.
 
 ## Known-URL Readers
 
-`read_web_page` and `read_web_page_structure` remain optional low-level tools for cases where the target URL is already known. They are not search providers:
+The optional `web_page_access` capability provides two low-level tools for cases where the target URL is already known. They are not search providers:
 
 - `read_web_page` returns readable page text;
 - `read_web_page_structure` returns focused tables, headings, links, lists, Markdown, or article content.

@@ -228,15 +228,15 @@ Optional body:
 
 Cost Analyst can use configured pricing sources through controlled tools and its `pricing-source-analysis` Deep Agents skill before falling back to general web research. For OpenAI model-price comparison, it has a dedicated `admin_sync_openai_model_pricing` controlled tool that fetches the official OpenAI pricing page, extracts the model pricing table deterministically, and returns a compact comparison without changing saved pricing records.
 
-### `GET /api/tools`
+### `GET /api/capabilities`
 
-Returns registered tools and their availability.
+Returns registered capabilities, their availability, and the tools each capability provides.
 
 - `web_search` is OpenAI's provider-hosted search capability. It is available with configured OpenAI API models and supported ChatGPT/Codex models, and uses the model selected for the chat run.
-- `read_web_page` is a low-level public web page reader.
-- `read_web_page_structure` fetches a known public web page and returns structured content with focused modes: `overview`, `markdown`, `article`, `headings`, `links`, `lists`, `tables`, and `full`. Use a narrow mode and optional `query` when page structure matters.
+- `web_page_access` provides the low-level `read_web_page` and `read_web_page_structure` tools for known public URLs.
+- `interpreter` provides the isolated `eval` tool through QuickJS middleware.
 
-Protected system agents such as `scotty` and the internal `cost-analyst` also receive controlled admin tools during chat runs for managing agents, `soul.md`, normal tool grants, memory, and observability data. Those admin tools are injected by the backend only for protected system agents and are not part of the normal assignable tool catalog returned here.
+Protected system agents such as `scotty` and the internal `cost-analyst` also receive controlled admin tools during chat runs for managing agents, `soul.md`, capability grants, memory, and observability data. Those admin tools are injected by the backend only for protected system agents and are not part of the configurable capability catalog returned here.
 
 ## Observability
 
@@ -434,34 +434,34 @@ Deletes an agent and all related threads and Deep Agents data. Protected system 
 
 The built-in protected operator agent has id `scotty` and display name `Scotty`.
 
-## Agent Tools
+## Agent Capabilities
 
-### `GET /api/agents/:agentId/tools`
+### `GET /api/agents/:agentId/capabilities`
 
-Returns the agent's enabled tool ids, all registered normal tool definitions, and any read-only controlled tools injected for that agent.
+Returns the agent's enabled capability ids, all registered capability definitions, the tools each capability provides, and any read-only system tools injected for that agent.
 
-### `PUT /api/agents/:agentId/tools`
+### `PUT /api/agents/:agentId/capabilities`
 
 Body:
 
 ```json
 {
-  "enabledTools": ["web_search"]
+  "enabledCapabilities": ["web_search", "web_page_access"]
 }
 ```
 
-Replaces the agent's enabled tool list.
+Replaces the agent's enabled capability list.
 
-Use `web_search` for agents that need current external information. Use
-`read_web_page` and `read_web_page_structure` only for known-URL inspection.
+Use `web_search` for agents that need current external information and
+`web_page_access` when they need to inspect known public URLs.
 
-### `POST /api/agents/:agentId/tools/:toolId`
+### `POST /api/agents/:agentId/capabilities/:capabilityId`
 
-Grants one tool to an agent.
+Grants one capability to an agent.
 
-### `DELETE /api/agents/:agentId/tools/:toolId`
+### `DELETE /api/agents/:agentId/capabilities/:capabilityId`
 
-Revokes one tool from an agent.
+Revokes one capability from an agent.
 
 ## Threads
 

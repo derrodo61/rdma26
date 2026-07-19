@@ -292,43 +292,43 @@ You can also update `--pinned` or `--tags`.
 rdma26 memories:delete --memory <memory-id>
 ```
 
-## Tools
+## Capabilities
 
-### List registered tools
-
-```bash
-rdma26 tools:list
-```
-
-### Show tools for one agent
+### List registered capabilities
 
 ```bash
-rdma26 agents:tools --agent research
+rdma26 capabilities:list
 ```
 
-For protected system agents, the response also includes `controlledTools`, which are controlled admin and inspection capabilities injected by the backend.
-
-### Replace an agent's enabled tools
+### Show capabilities for one agent
 
 ```bash
-rdma26 agents:tools:set --agent ronaldo --tools web_search
+rdma26 agents:capabilities --agent research
 ```
 
-Use a comma-separated list for multiple tools.
+For protected system agents, the response also includes `controlledTools`, which are callable administration and inspection operations injected by the backend. They are not configurable capabilities.
 
-### Grant one tool
+### Replace an agent's enabled capabilities
 
 ```bash
-rdma26 agents:tools:grant --agent ronaldo --tool web_search
+rdma26 agents:capabilities:set --agent ronaldo --capabilities web_search,web_page_access
 ```
 
-### Revoke one tool
+Use a comma-separated list for multiple capabilities.
+
+### Grant one capability
 
 ```bash
-rdma26 agents:tools:revoke --agent ronaldo --tool web_search
+rdma26 agents:capabilities:grant --agent ronaldo --capability web_search
 ```
 
-`web_search` is OpenAI's provider-hosted search capability and uses the selected chat model. `read_web_page` and `read_web_page_structure` are optional known-URL readers for specialized workflows. `read_web_page_structure` preserves page structure through focused modes such as `tables`, `headings`, `links`, `lists`, `markdown`, and `full`.
+### Revoke one capability
+
+```bash
+rdma26 agents:capabilities:revoke --agent ronaldo --capability web_search
+```
+
+`web_search` is OpenAI's provider-hosted search capability and uses the selected chat model. `web_page_access` provides the optional `read_web_page` and `read_web_page_structure` tools for known-URL workflows.
 
 ## Threads
 

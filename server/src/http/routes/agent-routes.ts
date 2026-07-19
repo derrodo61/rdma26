@@ -2,18 +2,18 @@ import type {
   CreateAgentRequest,
   UpdateAgentRequest,
   UpdateAgentSoulRequest,
-  UpdateAgentToolsRequest,
+  UpdateAgentCapabilitiesRequest,
 } from '../../../../shared/agent-contracts';
 import { getErrorMessage } from '../errors';
 import type { RouteRegistrar } from '../route-context';
 import { routeDocs } from '../route-docs';
 import {
   agentParamsSchema,
-  agentToolParamsSchema,
+  agentCapabilityParamsSchema,
   createAgentRequestSchema,
   updateAgentRequestSchema,
   updateAgentSoulRequestSchema,
-  updateAgentToolsRequestSchema,
+  updateAgentCapabilitiesRequestSchema,
 } from '../schemas';
 
 export const registerAgentRoutes: RouteRegistrar = (server, { runtime }) => {
@@ -53,10 +53,10 @@ export const registerAgentRoutes: RouteRegistrar = (server, { runtime }) => {
   );
 
   server.get(
-    '/api/agents/:agentId/tools',
+    '/api/agents/:agentId/capabilities',
     routeDocs({
-      tags: ['tools'],
-      summary: 'List enabled and available tools for one agent.',
+      tags: ['capabilities'],
+      summary: 'List enabled and available capabilities for one agent.',
       params: agentParamsSchema,
     }),
     async (request, reply) => {
@@ -69,7 +69,7 @@ export const registerAgentRoutes: RouteRegistrar = (server, { runtime }) => {
       }
 
       try {
-        return await runtime.agentToolsResponse(params.data.agentId);
+        return await runtime.agentCapabilitiesResponse(params.data.agentId);
       } catch (error) {
         return reply.code(404).send({
           message: getErrorMessage(error),
@@ -79,27 +79,27 @@ export const registerAgentRoutes: RouteRegistrar = (server, { runtime }) => {
   );
 
   server.put(
-    '/api/agents/:agentId/tools',
+    '/api/agents/:agentId/capabilities',
     routeDocs({
-      tags: ['tools'],
-      summary: "Replace an agent's enabled tools.",
+      tags: ['capabilities'],
+      summary: "Replace an agent's enabled capabilities.",
       params: agentParamsSchema,
-      body: updateAgentToolsRequestSchema,
+      body: updateAgentCapabilitiesRequestSchema,
     }),
     async (request, reply) => {
       const params = agentParamsSchema.safeParse(request.params);
-      const body = updateAgentToolsRequestSchema.safeParse(request.body);
+      const body = updateAgentCapabilitiesRequestSchema.safeParse(request.body);
 
       if (!params.success || !body.success) {
         return reply.code(400).send({
-          message: 'A valid agent id and enabledTools array are required.',
+          message: 'A valid agent id and enabledCapabilities array are required.',
         });
       }
 
       try {
-        return await runtime.updateAgentTools(
+        return await runtime.updateAgentCapabilities(
           params.data.agentId,
-          body.data satisfies UpdateAgentToolsRequest,
+          body.data satisfies UpdateAgentCapabilitiesRequest,
         );
       } catch (error) {
         return reply.code(400).send({
@@ -110,23 +110,23 @@ export const registerAgentRoutes: RouteRegistrar = (server, { runtime }) => {
   );
 
   server.post(
-    '/api/agents/:agentId/tools/:toolId',
+    '/api/agents/:agentId/capabilities/:capabilityId',
     routeDocs({
-      tags: ['tools'],
-      summary: 'Grant a tool to an agent.',
-      params: agentToolParamsSchema,
+      tags: ['capabilities'],
+      summary: 'Grant a capability to an agent.',
+      params: agentCapabilityParamsSchema,
     }),
     async (request, reply) => {
-      const params = agentToolParamsSchema.safeParse(request.params);
+      const params = agentCapabilityParamsSchema.safeParse(request.params);
 
       if (!params.success) {
         return reply.code(400).send({
-          message: 'A valid agent id and tool id are required.',
+          message: 'A valid agent id and capability id are required.',
         });
       }
 
       try {
-        return await runtime.grantAgentTool(params.data.agentId, params.data.toolId);
+        return await runtime.grantAgentCapability(params.data.agentId, params.data.capabilityId);
       } catch (error) {
         return reply.code(400).send({
           message: getErrorMessage(error),
@@ -136,23 +136,23 @@ export const registerAgentRoutes: RouteRegistrar = (server, { runtime }) => {
   );
 
   server.delete(
-    '/api/agents/:agentId/tools/:toolId',
+    '/api/agents/:agentId/capabilities/:capabilityId',
     routeDocs({
-      tags: ['tools'],
-      summary: 'Revoke a tool from an agent.',
-      params: agentToolParamsSchema,
+      tags: ['capabilities'],
+      summary: 'Revoke a capability from an agent.',
+      params: agentCapabilityParamsSchema,
     }),
     async (request, reply) => {
-      const params = agentToolParamsSchema.safeParse(request.params);
+      const params = agentCapabilityParamsSchema.safeParse(request.params);
 
       if (!params.success) {
         return reply.code(400).send({
-          message: 'A valid agent id and tool id are required.',
+          message: 'A valid agent id and capability id are required.',
         });
       }
 
       try {
-        return await runtime.revokeAgentTool(params.data.agentId, params.data.toolId);
+        return await runtime.revokeAgentCapability(params.data.agentId, params.data.capabilityId);
       } catch (error) {
         return reply.code(400).send({
           message: getErrorMessage(error),

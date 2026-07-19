@@ -335,8 +335,8 @@ upgraded.
 ## Inspecting A Real Run
 
 The run-details page records the inputs rdma26 prepared, including the soul,
-user profile, current-thread messages, pinned memories, enabled tools, withheld
-capabilities, tool calls, and LLM calls.
+user profile, current-thread messages, pinned memories, enabled capabilities,
+application tools exposed by rdma26, withheld capabilities, tool calls, and LLM calls.
 
 Each recorded LLM call also has a context-composition summary with message counts
 and character counts by role, plus tool-definition counts and sizes. This is the

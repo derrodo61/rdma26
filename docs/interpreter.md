@@ -94,7 +94,7 @@ management path used for other normal agent capabilities.
 Typical checks:
 
 - the capability list includes `interpreter`;
-- the agent's enabled tools/capabilities include `interpreter`;
+- the agent's enabled capabilities include `interpreter`;
 - the run bootloader prompt contains `Interpreter guidance`;
 - the run context contains `eval` only when the agent actually used it.
 

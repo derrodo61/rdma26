@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CapabilityRegistry,
   interpreterCapabilityId,
+  webPageAccessCapabilityId,
   webSearchCapabilityId,
 } from './capability-registry';
 
@@ -40,16 +41,21 @@ describe('CapabilityRegistry', () => {
     );
   });
 
-  it('lists the page-structure reader as an assignable tool', () => {
+  it('groups both page readers under one web page access capability', () => {
     const registry = new CapabilityRegistry();
 
     expect(registry.listDefinitions()).toContainEqual(
       expect.objectContaining({
-        id: 'read_web_page_structure',
-        label: 'Read web page structure',
+        id: webPageAccessCapabilityId,
+        label: 'Web page access',
         provider: 'web',
         available: true,
+        providedTools: [
+          expect.objectContaining({ id: 'read_web_page' }),
+          expect.objectContaining({ id: 'read_web_page_structure' }),
+        ],
       }),
     );
+    expect(registry.createRunnableTools([webPageAccessCapabilityId])).toHaveLength(2);
   });
 });

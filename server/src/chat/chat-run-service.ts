@@ -3,6 +3,7 @@ import type { StructuredToolInterface } from '@langchain/core/tools';
 import type {
   AgentRunRequest,
   ChatThread,
+  RunContextCapability,
   RunContextDetails,
   RunContextTool,
 } from '../../../shared/agent-contracts';
@@ -58,7 +59,7 @@ export class ChatRunService {
 
     const memoryReadsEnabled = storage.agent.memory.canRead;
     const memoryWritesEnabled = storage.agent.memory.canWrite;
-    const enabledCapabilityIds = storage.agent.enabledTools;
+    const enabledCapabilityIds = storage.agent.enabledCapabilities;
     const tools = [
       ...this.capabilities.createRunnableTools(enabledCapabilityIds),
       ...(memoryReadsEnabled
@@ -73,6 +74,7 @@ export class ChatRunService {
       ...(memoryWritesEnabled ? createMemoryTools(this.runtime, storage.agent.id) : []),
       ...this.adminToolsFor(storage.agent.id),
     ];
+    const capabilityContext = this.runContextCapabilitiesFor(enabledCapabilityIds);
     const toolContext = this.runContextToolsFor(
       storage.agent.id,
       enabledCapabilityIds,
@@ -99,6 +101,7 @@ export class ChatRunService {
       soulContent,
       userProfile,
       pinnedMemories,
+      capabilities: capabilityContext,
       tools: toolContext,
       withheldCapabilities: [],
       memoryReadsEnabled,
@@ -115,7 +118,7 @@ export class ChatRunService {
         threadId: request.threadId,
         model,
         tools,
-        enabledToolIds: enabledCapabilityIds,
+        enabledCapabilityIds,
         isOperatorAgent: isSystemOperatorAgent(storage.agent.id, this.registry.getDefaultAgentId()),
         userProfile,
         soulContent,
@@ -177,21 +180,23 @@ export class ChatRunService {
 
   private runContextToolsFor(
     agentId: string,
-    enabledToolIds: readonly string[],
+    enabledCapabilityIds: readonly string[],
     canReadMemory: boolean,
     canWriteMemory: boolean,
   ): readonly RunContextTool[] {
-    const enabledToolIdSet = new Set(enabledToolIds);
-    const assignableTools = this.capabilities
+    const enabledCapabilityIdSet = new Set(enabledCapabilityIds);
+    const capabilityTools = this.capabilities
       .listDefinitions()
-      .filter((tool) => tool.available && enabledToolIdSet.has(tool.id))
-      .map((tool) => ({
-        id: tool.id,
-        label: tool.label,
-        description: tool.description,
-        provider: tool.provider,
-        controlled: false,
-      }));
+      .filter((capability) => capability.available && enabledCapabilityIdSet.has(capability.id))
+      .flatMap((capability) =>
+        capability.providedTools.map((tool) => ({
+          id: tool.id,
+          label: tool.label,
+          description: tool.description,
+          provider: tool.provider,
+          controlled: false,
+        })),
+      );
     const memoryTools = canWriteMemory
       ? [
           {
@@ -236,7 +241,23 @@ export class ChatRunService {
       controlled: true,
     }));
 
-    return [...assignableTools, ...conversationTools, ...memoryTools, ...adminTools];
+    return [...capabilityTools, ...conversationTools, ...memoryTools, ...adminTools];
+  }
+
+  private runContextCapabilitiesFor(
+    enabledCapabilityIds: readonly string[],
+  ): readonly RunContextCapability[] {
+    const enabledCapabilityIdSet = new Set(enabledCapabilityIds);
+
+    return this.capabilities
+      .listDefinitions()
+      .filter((capability) => capability.available && enabledCapabilityIdSet.has(capability.id))
+      .map((capability) => ({
+        id: capability.id,
+        label: capability.label,
+        description: capability.description,
+        provider: capability.provider,
+      }));
   }
 }
 

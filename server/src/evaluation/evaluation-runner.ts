@@ -160,7 +160,9 @@ async function assertRequirements(
     throw new Error('OPENAI_API_KEY is required to run live evaluations.');
   }
 
-  const definitions = new Map(runtime.toolsResponse().tools.map((tool) => [tool.id, tool]));
+  const definitions = new Map(
+    runtime.capabilitiesResponse().capabilities.map((capability) => [capability.id, capability]),
+  );
   const unavailable = requiredCapabilities.filter(
     (capabilityId) => !definitions.get(capabilityId)?.available,
   );
@@ -204,7 +206,7 @@ async function createEvaluationAgents(
       models: { chat: model },
     });
     await runtime.updateAgentSoul(agent.id, { content: soul });
-    await runtime.updateAgentTools(agent.id, { enabledTools: requiredCapabilities });
+    await runtime.updateAgentCapabilities(agent.id, { enabledCapabilities: requiredCapabilities });
   }
 
   return {

@@ -2,6 +2,7 @@ import type {
   AgentRunRequest,
   ChatThread,
   LlmCallRecord,
+  RunContextCapability,
   RunContextDetails,
   RunContextTokenUsage,
   RunContextTool,
@@ -94,6 +95,7 @@ export class ChatRunRecorder {
         createdAt: message.createdAt,
         content: message.content,
       })),
+      capabilities: context.capabilities,
       tools: context.tools,
       withheldCapabilities: context.withheldCapabilities,
       memoryReadsEnabled: context.memoryReadsEnabled,
@@ -111,6 +113,7 @@ export interface ChatRunRecordingContext {
   readonly soulContent: string;
   readonly userProfile: UserProfile;
   readonly pinnedMemories: readonly FileMemoryEntry[];
+  readonly capabilities: readonly RunContextCapability[];
   readonly tools: readonly RunContextTool[];
   readonly withheldCapabilities: readonly RunContextWithheldCapability[];
   readonly memoryReadsEnabled: boolean;

@@ -58,6 +58,12 @@ describe('ChatRunRecorder', () => {
           access: 'startup',
         },
       ],
+      capabilities: [
+        {
+          id: 'interpreter',
+          label: 'Code interpreter',
+        },
+      ],
       withheldCapabilities: [
         {
           id: 'web_search',
@@ -154,6 +160,14 @@ function recordingContext(): ChatRunRecordingContext {
         tags: ['test'],
         createdAt: now,
         updatedAt: now,
+      },
+    ],
+    capabilities: [
+      {
+        id: 'interpreter',
+        label: 'Code interpreter',
+        description: 'Run isolated calculations.',
+        provider: 'deepagents-quickjs',
       },
     ],
     tools: [],

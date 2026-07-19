@@ -1,4 +1,4 @@
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -39,5 +39,31 @@ describe('AgentRegistry', () => {
       kind: 'internal',
       chatEnabled: false,
     });
+  });
+
+  it('migrates legacy tool grants to capability grants', async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-agents-'));
+    const registry = new AgentRegistry(dataDir, 'scotty', 'Scotty');
+
+    await registry.ensureReady();
+    await registry.createAgent({ id: 'ronaldo', name: 'Ronaldo' });
+    const profilePath = join(dataDir, 'agents', 'ronaldo', 'agent.json');
+    const legacyProfile = JSON.parse(await readFile(profilePath, 'utf8')) as Record<
+      string,
+      unknown
+    >;
+    delete legacyProfile['enabledCapabilities'];
+    legacyProfile['enabledTools'] = ['read_web_page', 'read_web_page_structure', 'web_search'];
+    await writeFile(profilePath, `${JSON.stringify(legacyProfile, null, 2)}\n`, 'utf8');
+
+    await expect(registry.readAgent('ronaldo')).resolves.toMatchObject({
+      enabledCapabilities: ['web_page_access', 'web_search'],
+    });
+    const migratedProfile = JSON.parse(await readFile(profilePath, 'utf8')) as Record<
+      string,
+      unknown
+    >;
+    expect(migratedProfile['enabledCapabilities']).toEqual(['web_page_access', 'web_search']);
+    expect(migratedProfile).not.toHaveProperty('enabledTools');
   });
 });

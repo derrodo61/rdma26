@@ -13,7 +13,12 @@ import {
   lucideQuote,
 } from '@ng-icons/lucide';
 
-import type { AgentProfile, ModelOption, ToolDefinition } from '../../../../shared/agent-contracts';
+import type {
+  AgentProfile,
+  CapabilityDefinition,
+  ModelOption,
+  ToolDefinition,
+} from '../../../../shared/agent-contracts';
 import { AssistantApi } from '../../chat/assistant-api';
 import { AppSelect, type SelectOption } from '../../shared/app-select/app-select';
 import { renderMarkdown } from '../../shared/markdown/render-markdown';
@@ -23,7 +28,7 @@ import { UserProfileSyncService } from '../user-profile-sync';
 type MarkdownAction = 'bold' | 'italic' | 'bulletList' | 'numberedList' | 'quote' | 'code' | 'link';
 
 type MarkdownHeadingLevel = 1 | 2 | 3;
-type AgentEditTab = 'basic' | 'tools' | 'soul';
+type AgentEditTab = 'basic' | 'capabilities' | 'soul';
 
 interface MarkdownToolbarItem {
   readonly action: MarkdownAction;
@@ -66,14 +71,14 @@ export class AgentEditPage {
 
   protected readonly agent = signal<AgentProfile | null>(null);
   protected readonly models = signal<readonly ModelOption[]>([]);
-  protected readonly tools = signal<readonly ToolDefinition[]>([]);
+  protected readonly capabilities = signal<readonly CapabilityDefinition[]>([]);
   protected readonly controlledTools = signal<readonly ToolDefinition[]>([]);
   protected readonly defaultModel = signal('');
   protected readonly draftName = signal('');
   protected readonly soulContent = signal('');
   protected readonly draftSoulContent = signal('');
   protected readonly selectedModel = signal('');
-  protected readonly enabledToolIds = signal<readonly string[]>([]);
+  protected readonly enabledCapabilityIds = signal<readonly string[]>([]);
   protected readonly canReadMemory = signal(true);
   protected readonly canWriteMemory = signal(true);
   protected readonly activeTab = signal<AgentEditTab>('basic');
@@ -110,7 +115,7 @@ export class AgentEditPage {
       (this.draftName().trim() !== agent.name ||
         this.canReadMemory() !== agent.memory.canRead ||
         this.canWriteMemory() !== agent.memory.canWrite ||
-        !areStringArraysEqual(this.enabledToolIds(), agent.enabledTools) ||
+        !areStringArraysEqual(this.enabledCapabilityIds(), agent.enabledCapabilities) ||
         this.draftSoulContent() !== this.soulContent()),
     );
   });
@@ -193,13 +198,13 @@ export class AgentEditPage {
     });
   }
 
-  protected updateTool(toolId: string, isEnabled: boolean): void {
-    this.enabledToolIds.update((toolIds) => {
-      const nextToolIds = isEnabled
-        ? [...toolIds, toolId]
-        : toolIds.filter((enabledToolId) => enabledToolId !== toolId);
+  protected updateCapability(capabilityId: string, isEnabled: boolean): void {
+    this.enabledCapabilityIds.update((capabilityIds) => {
+      const nextCapabilityIds = isEnabled
+        ? [...capabilityIds, capabilityId]
+        : capabilityIds.filter((enabledCapabilityId) => enabledCapabilityId !== capabilityId);
 
-      return normalizeToolIds(nextToolIds);
+      return normalizeCapabilityIds(nextCapabilityIds);
     });
     this.savedMessage.set(null);
   }
@@ -214,8 +219,8 @@ export class AgentEditPage {
     this.savedMessage.set(null);
   }
 
-  protected isToolEnabled(toolId: string): boolean {
-    return this.enabledToolIds().includes(toolId);
+  protected isCapabilityEnabled(capabilityId: string): boolean {
+    return this.enabledCapabilityIds().includes(capabilityId);
   }
 
   protected async save(): Promise<void> {
@@ -241,12 +246,15 @@ export class AgentEditPage {
             },
           })
         : agent;
-      const updatedTools = areStringArraysEqual(this.enabledToolIds(), updatedAgent.enabledTools)
+      const updatedCapabilities = areStringArraysEqual(
+        this.enabledCapabilityIds(),
+        updatedAgent.enabledCapabilities,
+      )
         ? {
-            enabledTools: updatedAgent.enabledTools,
+            enabledCapabilities: updatedAgent.enabledCapabilities,
           }
-        : await this.api.updateAgentTools(updatedAgent.id, {
-            enabledTools: this.enabledToolIds(),
+        : await this.api.updateAgentCapabilities(updatedAgent.id, {
+            enabledCapabilities: this.enabledCapabilityIds(),
           });
       const updatedSoul =
         this.draftSoulContent() === this.soulContent()
@@ -258,14 +266,14 @@ export class AgentEditPage {
             });
       const nextAgent: AgentProfile = {
         ...updatedAgent,
-        enabledTools: updatedTools.enabledTools,
+        enabledCapabilities: updatedCapabilities.enabledCapabilities,
       };
 
       this.agent.set(nextAgent);
       this.draftName.set(nextAgent.name);
       this.canReadMemory.set(nextAgent.memory.canRead);
       this.canWriteMemory.set(nextAgent.memory.canWrite);
-      this.enabledToolIds.set(nextAgent.enabledTools);
+      this.enabledCapabilityIds.set(nextAgent.enabledCapabilities);
       this.soulContent.set(updatedSoul.content);
       this.draftSoulContent.set(updatedSoul.content);
       this.savedMessage.set('Agent settings saved.');
@@ -280,24 +288,24 @@ export class AgentEditPage {
         throw new Error('Agent id is required.');
       }
 
-      const [agent, models, agentTools, soul, profile] = await Promise.all([
+      const [agent, models, agentCapabilities, soul, profile] = await Promise.all([
         this.api.readAgent(agentId),
         this.api.models(),
-        this.api.agentTools(agentId),
+        this.api.agentCapabilities(agentId),
         this.api.readAgentSoul(agentId),
         this.userProfileSync.loadProfile(),
       ]);
       this.agent.set(agent);
       this.models.set(models.models);
-      this.tools.set(agentTools.tools);
-      this.controlledTools.set(agentTools.controlledTools);
+      this.capabilities.set(agentCapabilities.capabilities);
+      this.controlledTools.set(agentCapabilities.controlledTools);
       this.defaultModel.set(models.defaultModel);
       this.draftName.set(agent.name);
       this.canReadMemory.set(agent.memory.canRead);
       this.canWriteMemory.set(agent.memory.canWrite);
       this.soulContent.set(soul.content);
       this.draftSoulContent.set(soul.content);
-      this.enabledToolIds.set(agentTools.enabledTools);
+      this.enabledCapabilityIds.set(agentCapabilities.enabledCapabilities);
       this.agentSettingsStorage.replaceAll(profile.agentSettings);
       this.selectedModel.set(
         this.initialModel(agent.id, agent.models.chat, models.defaultModel, models.models),
@@ -362,13 +370,13 @@ export class AgentEditPage {
   }
 }
 
-function normalizeToolIds(toolIds: readonly string[]): readonly string[] {
-  return [...new Set(toolIds)].sort();
+function normalizeCapabilityIds(capabilityIds: readonly string[]): readonly string[] {
+  return [...new Set(capabilityIds)].sort();
 }
 
 function areStringArraysEqual(left: readonly string[], right: readonly string[]): boolean {
-  const normalizedLeft = normalizeToolIds(left);
-  const normalizedRight = normalizeToolIds(right);
+  const normalizedLeft = normalizeCapabilityIds(left);
+  const normalizedRight = normalizeCapabilityIds(right);
 
   return (
     normalizedLeft.length === normalizedRight.length &&

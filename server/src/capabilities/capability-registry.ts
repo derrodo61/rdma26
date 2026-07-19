@@ -1,81 +1,97 @@
 import { tool, type StructuredToolInterface } from '@langchain/core/tools';
 import { z } from 'zod';
 
-import type { ToolDefinition } from '../../../shared/agent-contracts';
+import type { CapabilityDefinition, ToolDefinition } from '../../../shared/agent-contracts';
 import { extractWebContent } from '../research/web-content-extractor';
 import { readWebPage } from '../research/web-page-reader';
 
 export const webSearchCapabilityId = 'web_search';
 export const interpreterCapabilityId = 'interpreter';
+export const webPageAccessCapabilityId = 'web_page_access';
 const readWebPageToolId = 'read_web_page';
 const readWebPageStructureToolId = 'read_web_page_structure';
 
 interface CapabilityRegistration {
-  readonly id: string;
-  readonly label: string;
-  readonly description: string;
-  readonly provider: string;
+  readonly definition: Omit<CapabilityDefinition, 'available' | 'unavailableReason'>;
   readonly isAvailable: () => boolean;
   readonly unavailableReason: string;
-  readonly create: () => StructuredToolInterface;
+  readonly createTools?: () => readonly StructuredToolInterface[];
 }
 
 export class CapabilityRegistry {
   private readonly registrations: readonly CapabilityRegistration[] = [
     {
-      id: webSearchCapabilityId,
-      label: 'Web search',
-      description:
-        'Provider-hosted internet search with page opening and source citations, using the agent-selected OpenAI model.',
-      provider: 'openai',
+      definition: {
+        id: webSearchCapabilityId,
+        label: 'Web search',
+        description:
+          'Provider-hosted internet search with page opening and source citations, using the agent-selected OpenAI model.',
+        provider: 'openai',
+        providedTools: [
+          toolDefinition(
+            webSearchCapabilityId,
+            'Web search',
+            'Search the public web through the selected OpenAI model.',
+            'openai',
+          ),
+        ],
+      },
       isAvailable: () => Boolean(process.env['OPENAI_API_KEY']),
       unavailableReason: 'OPENAI_API_KEY is required.',
-      create: () => {
-        throw new Error('web_search is an OpenAI hosted server tool, not a locally runnable tool.');
-      },
     },
     {
-      id: interpreterCapabilityId,
-      label: 'Code interpreter',
-      description:
-        'Isolated QuickJS workspace for calculations and deterministic structured-data transformations.',
-      provider: 'deepagents-quickjs',
+      definition: {
+        id: interpreterCapabilityId,
+        label: 'Code interpreter',
+        description:
+          'Isolated QuickJS workspace for calculations and deterministic structured-data transformations.',
+        provider: 'deepagents-quickjs',
+        providedTools: [
+          toolDefinition(
+            'eval',
+            'Evaluate JavaScript',
+            'Run JavaScript in the isolated QuickJS interpreter.',
+            'deepagents-quickjs',
+          ),
+        ],
+      },
       isAvailable: () => true,
       unavailableReason: 'The QuickJS interpreter is not available.',
-      create: () => {
-        throw new Error('interpreter is Deep Agents middleware, not a direct tool.');
+    },
+    {
+      definition: {
+        id: webPageAccessCapabilityId,
+        label: 'Web page access',
+        description:
+          'Read known public web pages as text or structured content for focused source inspection.',
+        provider: 'web',
+        providedTools: [
+          toolDefinition(
+            readWebPageToolId,
+            'Read web page',
+            'Read text from a known public web page.',
+            'web',
+          ),
+          toolDefinition(
+            readWebPageStructureToolId,
+            'Read web page structure',
+            'Extract tables, headings, links, lists, Markdown, or article text from a known public page.',
+            'web',
+          ),
+        ],
       },
-    },
-    {
-      id: readWebPageToolId,
-      label: 'Read web page',
-      description: 'Low-level public web page reader for source inspection workflows.',
-      provider: 'web',
-      isAvailable: () => true,
-      unavailableReason: 'Web page reading is not available.',
-      create: () => createReadWebPageTool(),
-    },
-    {
-      id: readWebPageStructureToolId,
-      label: 'Read web page structure',
-      description:
-        'Fetch a public web page and return structured content such as tables, headings, links, lists, Markdown, or article text.',
-      provider: 'web',
       isAvailable: () => true,
       unavailableReason: 'Web content extraction is not available.',
-      create: () => createExtractWebContentTool(),
+      createTools: () => [createReadWebPageTool(), createExtractWebContentTool()],
     },
   ];
 
-  listDefinitions(): readonly ToolDefinition[] {
+  listDefinitions(): readonly CapabilityDefinition[] {
     return this.registrations.map((registration) => {
       const available = registration.isAvailable();
 
       return {
-        id: registration.id,
-        label: registration.label,
-        description: registration.description,
-        provider: registration.provider,
+        ...registration.definition,
         available,
         unavailableReason: available ? undefined : registration.unavailableReason,
       };
@@ -84,11 +100,15 @@ export class CapabilityRegistry {
 
   validateCapabilityIds(capabilityIds: readonly string[]): readonly string[] {
     const normalizedCapabilityIds = normalizeCapabilityIds(capabilityIds);
-    const knownToolIds = new Set(this.registrations.map((registration) => registration.id));
-    const unknownToolIds = normalizedCapabilityIds.filter((toolId) => !knownToolIds.has(toolId));
+    const knownCapabilityIds = new Set(
+      this.registrations.map((registration) => registration.definition.id),
+    );
+    const unknownCapabilityIds = normalizedCapabilityIds.filter(
+      (capabilityId) => !knownCapabilityIds.has(capabilityId),
+    );
 
-    if (unknownToolIds.length) {
-      throw new Error(`Unknown tool id: ${unknownToolIds.join(', ')}.`);
+    if (unknownCapabilityIds.length) {
+      throw new Error(`Unknown capability id: ${unknownCapabilityIds.join(', ')}.`);
     }
 
     return normalizedCapabilityIds;
@@ -97,35 +117,45 @@ export class CapabilityRegistry {
   createRunnableTools(capabilityIds: readonly string[]): readonly StructuredToolInterface[] {
     const registrations = this.registrationsById(capabilityIds);
 
-    return registrations
-      .filter(
-        (registration) =>
-          registration.id !== webSearchCapabilityId && registration.id !== interpreterCapabilityId,
-      )
-      .map((registration) => {
-        if (!registration.isAvailable()) {
-          throw new Error(
-            `Tool ${registration.id} is enabled for this agent but unavailable. ${registration.unavailableReason}`,
-          );
-        }
+    return registrations.flatMap((registration) => {
+      if (!registration.createTools) {
+        return [];
+      }
 
-        return registration.create();
-      });
+      if (!registration.isAvailable()) {
+        throw new Error(
+          `Capability ${registration.definition.id} is enabled for this agent but unavailable. ${registration.unavailableReason}`,
+        );
+      }
+
+      return registration.createTools();
+    });
   }
 
   private registrationsById(capabilityIds: readonly string[]): readonly CapabilityRegistration[] {
     const normalizedToolIds = this.validateCapabilityIds(capabilityIds);
 
-    return normalizedToolIds.map((toolId) => {
-      const registration = this.registrations.find((candidate) => candidate.id === toolId);
+    return normalizedToolIds.map((capabilityId) => {
+      const registration = this.registrations.find(
+        (candidate) => candidate.definition.id === capabilityId,
+      );
 
       if (!registration) {
-        throw new Error(`Unknown tool id: ${toolId}.`);
+        throw new Error(`Unknown capability id: ${capabilityId}.`);
       }
 
       return registration;
     });
   }
+}
+
+function toolDefinition(
+  id: string,
+  label: string,
+  description: string,
+  provider: string,
+): ToolDefinition {
+  return { id, label, description, provider, available: true };
 }
 
 function createExtractWebContentTool(): StructuredToolInterface {

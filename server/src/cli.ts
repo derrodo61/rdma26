@@ -54,8 +54,8 @@ async function main(): Promise<void> {
       requireChatGptProvider(options);
       printJson(await runtime.logoutOpenAiChatGpt());
       return;
-    case 'tools:list':
-      printJson(runtime.toolsResponse());
+    case 'capabilities:list':
+      printJson(runtime.capabilitiesResponse());
       return;
     case 'agents:list':
       printJson(await runtime.agentsResponse());
@@ -200,21 +200,28 @@ async function main(): Promise<void> {
     case 'memories:delete':
       printJson(await runtime.deleteMemory(requiredOption(options, 'memory')));
       return;
-    case 'agents:tools':
-      printJson(await runtime.agentToolsResponse(agentId(options)));
+    case 'agents:capabilities':
+      printJson(await runtime.agentCapabilitiesResponse(agentId(options)));
       return;
-    case 'agents:tools:set':
+    case 'agents:capabilities:set':
       printJson(
-        await runtime.updateAgentTools(agentId(options), {
-          enabledTools: parseToolList(requiredOption(options, 'tools')),
+        await runtime.updateAgentCapabilities(agentId(options), {
+          enabledCapabilities: parseCapabilityList(requiredOption(options, 'capabilities')),
         }),
       );
       return;
-    case 'agents:tools:grant':
-      printJson(await runtime.grantAgentTool(agentId(options), requiredOption(options, 'tool')));
+    case 'agents:capabilities:grant':
+      printJson(
+        await runtime.grantAgentCapability(agentId(options), requiredOption(options, 'capability')),
+      );
       return;
-    case 'agents:tools:revoke':
-      printJson(await runtime.revokeAgentTool(agentId(options), requiredOption(options, 'tool')));
+    case 'agents:capabilities:revoke':
+      printJson(
+        await runtime.revokeAgentCapability(
+          agentId(options),
+          requiredOption(options, 'capability'),
+        ),
+      );
       return;
     case 'threads:list':
       printJson(await runtime.listThreads(agentId(options)));
@@ -477,10 +484,10 @@ function openExternalUrl(url: string): void {
   child.unref();
 }
 
-function parseToolList(input: string): readonly string[] {
+function parseCapabilityList(input: string): readonly string[] {
   return input
     .split(',')
-    .map((toolId) => toolId.trim())
+    .map((capabilityId) => capabilityId.trim())
     .filter(Boolean);
 }
 
@@ -759,7 +766,7 @@ Usage:
   rdma26 providers:list
   rdma26 providers:login --provider openai-chatgpt
   rdma26 providers:logout --provider openai-chatgpt
-  rdma26 tools:list
+  rdma26 capabilities:list
   rdma26 agents:list
   rdma26 agents:create --id research --name "Research assistant"
   rdma26 agents:update --agent research --name "Researcher"
@@ -778,10 +785,10 @@ Usage:
   rdma26 memories:create --agent scotty --scope agent --content "The user prefers concise updates." --pinned true
   rdma26 memories:update --memory <memory-id> --content "Updated memory" --pinned false
   rdma26 memories:delete --memory <memory-id>
-  rdma26 agents:tools --agent research
-  rdma26 agents:tools:set --agent research --tools web_search
-  rdma26 agents:tools:grant --agent research --tool web_search
-  rdma26 agents:tools:revoke --agent research --tool web_search
+  rdma26 agents:capabilities --agent research
+  rdma26 agents:capabilities:set --agent research --capabilities web_search
+  rdma26 agents:capabilities:grant --agent research --capability web_search
+  rdma26 agents:capabilities:revoke --agent research --capability web_search
   rdma26 threads:list --agent scotty
   rdma26 threads:create --agent scotty --title "Planning"
   rdma26 threads:read --agent scotty --thread <thread-id>

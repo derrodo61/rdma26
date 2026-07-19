@@ -5,7 +5,7 @@ import type {
   AgentProfile,
   AgentRunRequest,
   AgentSoulResponse,
-  AgentToolsResponse,
+  AgentCapabilitiesResponse,
   AgentsResponse,
   ChatThread,
   ChatThreadSummary,
@@ -44,10 +44,10 @@ import type {
   PricingSourceRecord,
   RunContextDetails,
   SyncOpenAiModelPricingResult,
-  ToolsResponse,
+  CapabilitiesResponse,
   UpdateAgentRequest,
   UpdateAgentSoulRequest,
-  UpdateAgentToolsRequest,
+  UpdateAgentCapabilitiesRequest,
   UpdateMemoryRequest,
   UpdateModelPricingRequest,
   UpdatePricingSourceRequest,
@@ -57,7 +57,7 @@ import type {
 import { readAuthConfig } from './auth';
 import { AgentRegistry, validateAgentId } from './agents/agent-registry';
 import {
-  costAnalystDefaultEnabledTools,
+  costAnalystDefaultEnabledCapabilities,
   costAnalystAgentId,
   costAnalystAgentName,
   isSystemOperatorAgent,
@@ -150,14 +150,14 @@ export class AssistantRuntime {
       kind: 'internal',
       chatEnabled: true,
     });
-    const costAnalystTools = new Set([
-      ...costAnalyst.enabledTools,
-      ...costAnalystDefaultEnabledTools,
+    const costAnalystCapabilities = new Set([
+      ...costAnalyst.enabledCapabilities,
+      ...costAnalystDefaultEnabledCapabilities,
     ]);
 
-    if (costAnalystTools.size !== costAnalyst.enabledTools.length) {
-      await this.registry.updateAgentTools(costAnalystAgentId, {
-        enabledTools: Array.from(costAnalystTools),
+    if (costAnalystCapabilities.size !== costAnalyst.enabledCapabilities.length) {
+      await this.registry.updateAgentCapabilities(costAnalystAgentId, {
+        enabledCapabilities: Array.from(costAnalystCapabilities),
       });
     }
 
@@ -288,52 +288,62 @@ export class AssistantRuntime {
     return await this.userProfileStore.updateProfile(request);
   }
 
-  toolsResponse(): ToolsResponse {
+  capabilitiesResponse(): CapabilitiesResponse {
     return {
-      tools: this.capabilities.listDefinitions(),
+      capabilities: this.capabilities.listDefinitions(),
     };
   }
 
-  async agentToolsResponse(agentId: string): Promise<AgentToolsResponse> {
+  async agentCapabilitiesResponse(agentId: string): Promise<AgentCapabilitiesResponse> {
     const agent = await this.readAgent(agentId);
 
     return {
       agentId: agent.id,
-      enabledTools: agent.enabledTools,
-      tools: this.capabilities.listDefinitions(),
+      enabledCapabilities: agent.enabledCapabilities,
+      capabilities: this.capabilities.listDefinitions(),
       controlledTools: this.controlledToolsFor(agent.id),
     };
   }
 
-  async updateAgentTools(
+  async updateAgentCapabilities(
     agentId: string,
-    request: UpdateAgentToolsRequest,
-  ): Promise<AgentToolsResponse> {
-    const enabledTools = this.capabilities.validateCapabilityIds(request.enabledTools);
-    const agent = await this.registry.updateAgentTools(agentId, { enabledTools });
+    request: UpdateAgentCapabilitiesRequest,
+  ): Promise<AgentCapabilitiesResponse> {
+    const enabledCapabilities = this.capabilities.validateCapabilityIds(
+      request.enabledCapabilities,
+    );
+    const agent = await this.registry.updateAgentCapabilities(agentId, { enabledCapabilities });
 
     return {
       agentId: agent.id,
-      enabledTools: agent.enabledTools,
-      tools: this.capabilities.listDefinitions(),
+      enabledCapabilities: agent.enabledCapabilities,
+      capabilities: this.capabilities.listDefinitions(),
       controlledTools: this.controlledToolsFor(agent.id),
     };
   }
 
-  async grantAgentTool(agentId: string, toolId: string): Promise<AgentToolsResponse> {
+  async grantAgentCapability(
+    agentId: string,
+    capabilityId: string,
+  ): Promise<AgentCapabilitiesResponse> {
     const agent = await this.readAgent(agentId);
 
-    return await this.updateAgentTools(agentId, {
-      enabledTools: [...agent.enabledTools, toolId],
+    return await this.updateAgentCapabilities(agentId, {
+      enabledCapabilities: [...agent.enabledCapabilities, capabilityId],
     });
   }
 
-  async revokeAgentTool(agentId: string, toolId: string): Promise<AgentToolsResponse> {
+  async revokeAgentCapability(
+    agentId: string,
+    capabilityId: string,
+  ): Promise<AgentCapabilitiesResponse> {
     const agent = await this.readAgent(agentId);
-    this.capabilities.validateCapabilityIds([toolId]);
+    this.capabilities.validateCapabilityIds([capabilityId]);
 
-    return await this.updateAgentTools(agentId, {
-      enabledTools: agent.enabledTools.filter((enabledToolId) => enabledToolId !== toolId),
+    return await this.updateAgentCapabilities(agentId, {
+      enabledCapabilities: agent.enabledCapabilities.filter(
+        (enabledCapabilityId) => enabledCapabilityId !== capabilityId,
+      ),
     });
   }
 

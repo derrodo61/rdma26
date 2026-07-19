@@ -80,23 +80,23 @@ const adminToolDefinitions: readonly ToolDefinition[] = [
     available: true,
   },
   {
-    id: 'admin_list_tools',
-    label: 'List tools',
-    description: 'List normal assignable tools and their availability.',
+    id: 'admin_list_capabilities',
+    label: 'List capabilities',
+    description: 'List configurable agent capabilities and their availability.',
     provider: 'rdma26-admin',
     available: true,
   },
   {
-    id: 'admin_grant_agent_tool',
-    label: 'Grant tool',
-    description: 'Grant a normal assignable tool to an agent.',
+    id: 'admin_grant_agent_capability',
+    label: 'Grant capability',
+    description: 'Grant a configurable capability to an agent.',
     provider: 'rdma26-admin',
     available: true,
   },
   {
-    id: 'admin_revoke_agent_tool',
-    label: 'Revoke tool',
-    description: 'Revoke a normal assignable tool from an agent.',
+    id: 'admin_revoke_agent_capability',
+    label: 'Revoke capability',
+    description: 'Revoke a configurable capability from an agent.',
     provider: 'rdma26-admin',
     available: true,
   },
@@ -328,32 +328,32 @@ export function createAdminTools(runtime: AssistantRuntime): readonly Structured
         }),
       },
     ),
-    tool(async () => runtime.toolsResponse(), {
-      name: 'admin_list_tools',
-      description: 'List normal assignable tools and their availability.',
+    tool(async () => runtime.capabilitiesResponse(), {
+      name: 'admin_list_capabilities',
+      description: 'List configurable agent capabilities and their availability.',
       schema: z.object({}),
     }),
     tool(
-      async ({ agentId, toolId }: { agentId: string; toolId: string }) =>
-        await runtime.grantAgentTool(agentId, toolId),
+      async ({ agentId, capabilityId }: { agentId: string; capabilityId: string }) =>
+        await runtime.grantAgentCapability(agentId, capabilityId),
       {
-        name: 'admin_grant_agent_tool',
-        description: 'Grant a normal assignable tool to an agent.',
+        name: 'admin_grant_agent_capability',
+        description: 'Grant a configurable capability to an agent.',
         schema: z.object({
-          agentId: z.string().trim().min(1).describe('Agent id receiving the tool.'),
-          toolId: z.string().trim().min(1).describe('Tool id to grant.'),
+          agentId: z.string().trim().min(1).describe('Agent id receiving the capability.'),
+          capabilityId: z.string().trim().min(1).describe('Capability id to grant.'),
         }),
       },
     ),
     tool(
-      async ({ agentId, toolId }: { agentId: string; toolId: string }) =>
-        await runtime.revokeAgentTool(agentId, toolId),
+      async ({ agentId, capabilityId }: { agentId: string; capabilityId: string }) =>
+        await runtime.revokeAgentCapability(agentId, capabilityId),
       {
-        name: 'admin_revoke_agent_tool',
-        description: 'Revoke a normal assignable tool from an agent.',
+        name: 'admin_revoke_agent_capability',
+        description: 'Revoke a configurable capability from an agent.',
         schema: z.object({
-          agentId: z.string().trim().min(1).describe('Agent id losing the tool.'),
-          toolId: z.string().trim().min(1).describe('Tool id to revoke.'),
+          agentId: z.string().trim().min(1).describe('Agent id losing the capability.'),
+          capabilityId: z.string().trim().min(1).describe('Capability id to revoke.'),
         }),
       },
     ),

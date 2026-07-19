@@ -98,7 +98,7 @@ describe('PersonalAgent bootloader prompt', () => {
     expect(withSearch).not.toContain('web-research/SKILL.md');
   });
 
-  it('adds web page reading guidance only when read_web_page is enabled', () => {
+  it('adds web page reading guidance only when web page access is enabled', () => {
     const withoutReader = createBootloaderPromptForTest(
       {
         name: 'Agent',
@@ -119,7 +119,7 @@ describe('PersonalAgent bootloader prompt', () => {
       false,
       '# soul',
       true,
-      ['web_search', 'read_web_page'],
+      ['web_search', 'web_page_access'],
     );
 
     expect(withoutReader).not.toContain('Web page reading guidance');

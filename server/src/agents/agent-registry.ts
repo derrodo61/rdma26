@@ -8,7 +8,7 @@ import type {
   AgentProfile,
   CreateAgentRequest,
   UpdateAgentRequest,
-  UpdateAgentToolsRequest,
+  UpdateAgentCapabilitiesRequest,
 } from '../../../shared/agent-contracts';
 import {
   createAssistantStorage,
@@ -143,7 +143,10 @@ export class AgentRegistry {
     return updated;
   }
 
-  async updateAgentTools(agentId: string, request: UpdateAgentToolsRequest): Promise<AgentProfile> {
+  async updateAgentCapabilities(
+    agentId: string,
+    request: UpdateAgentCapabilitiesRequest,
+  ): Promise<AgentProfile> {
     const existing = await this.readAgent(agentId);
 
     if (!existing) {
@@ -152,7 +155,7 @@ export class AgentRegistry {
 
     const updated: AgentProfile = {
       ...existing,
-      enabledTools: normalizeToolIds(request.enabledTools),
+      enabledCapabilities: normalizeCapabilityIds(request.enabledCapabilities),
       updatedAt: new Date().toISOString(),
     };
 
@@ -251,7 +254,7 @@ export class AgentRegistry {
       name: normalizeAgentName(name),
       kind,
       chatEnabled,
-      enabledTools: [],
+      enabledCapabilities: [],
       memory: defaultAgentMemorySettings(id),
       models: {},
       soulVirtualPath,
@@ -395,6 +398,13 @@ function parseAgentProfile(value: unknown): AgentProfile | null {
     typeof value.createdAt === 'string' &&
     typeof value.updatedAt === 'string'
   ) {
+    const persistedCapabilities =
+      'enabledCapabilities' in value && Array.isArray(value.enabledCapabilities)
+        ? value.enabledCapabilities
+        : 'enabledTools' in value && Array.isArray(value.enabledTools)
+          ? value.enabledTools
+          : [];
+
     return {
       id: value.id,
       name: value.name,
@@ -403,10 +413,7 @@ function parseAgentProfile(value: unknown): AgentProfile | null {
         'chatEnabled' in value && typeof value.chatEnabled === 'boolean'
           ? value.chatEnabled
           : defaultAgentKindForId(value.id) !== 'internal',
-      enabledTools:
-        'enabledTools' in value && Array.isArray(value.enabledTools)
-          ? normalizeToolIds(value.enabledTools)
-          : [],
+      enabledCapabilities: normalizeCapabilityIds(persistedCapabilities),
       memory:
         'memory' in value
           ? normalizeAgentMemorySettings(value.memory, value.id)
@@ -431,8 +438,9 @@ function hasCurrentAgentProfileShape(value: unknown): boolean {
     ) &&
     'chatEnabled' in value &&
     typeof value.chatEnabled === 'boolean' &&
-    'enabledTools' in value &&
-    Array.isArray(value.enabledTools) &&
+    'enabledCapabilities' in value &&
+    Array.isArray(value.enabledCapabilities) &&
+    !value.enabledCapabilities.some(isLegacyWebPageToolId) &&
     'memory' in value &&
     typeof value.memory === 'object' &&
     value.memory !== null &&
@@ -516,11 +524,23 @@ function normalizeOptionalModelId(value: unknown): string | undefined {
   return normalized || undefined;
 }
 
-function normalizeToolIds(toolIds: readonly unknown[]): string[] {
-  return [...new Set(toolIds.filter((toolId): toolId is string => typeof toolId === 'string'))]
-    .map((toolId) => toolId.trim())
+function normalizeCapabilityIds(capabilityIds: readonly unknown[]): string[] {
+  return [
+    ...new Set(
+      capabilityIds
+        .filter((capabilityId): capabilityId is string => typeof capabilityId === 'string')
+        .map((capabilityId) =>
+          isLegacyWebPageToolId(capabilityId) ? 'web_page_access' : capabilityId,
+        ),
+    ),
+  ]
+    .map((capabilityId) => capabilityId.trim())
     .filter(Boolean)
     .sort();
+}
+
+function isLegacyWebPageToolId(value: unknown): boolean {
+  return value === 'read_web_page' || value === 'read_web_page_structure';
 }
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {

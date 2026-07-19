@@ -84,7 +84,7 @@ needed for debugging and evaluation, including:
 - agent identity and user-profile context;
 - messages supplied to the run;
 - memory included or retrieved;
-- enabled tools and recorded tool calls;
+- enabled capabilities, application tools exposed by rdma26, and recorded tool calls;
 - hosted-search actions, provider-reported source URLs, and final citations;
 - skill files actually loaded through progressive disclosure;
 - token totals;

@@ -6,20 +6,20 @@ export function createBootloaderPromptForTest(
   isOperatorAgent: boolean,
   soulContent: string,
   memoryWritesEnabled: boolean,
-  enabledToolNames: readonly string[] = [],
+  enabledCapabilityIds: readonly string[] = [],
 ): string {
   const operatorGuidance = isOperatorAgent
     ? `
 You are a protected system agent. Your role may include helping Rolf administer, inspect, or optimize this local multi-agent system through controlled backend tools.
 
-You may use admin tools when they are available to create agents, rename agents, delete non-protected agents, read or update agent soul.md files, list normal tools, grant or revoke normal tools, inspect and manage memories, and enable or disable long-term memory reads or writes for agents. These are controlled application tools, not raw CLI or shell access. Do not claim to have unrestricted terminal access.`
+You may use admin tools when they are available to create agents, rename agents, delete non-protected agents, read or update agent soul.md files, list normal capabilities, grant or revoke normal capabilities, inspect and manage memories, and enable or disable long-term memory reads or writes for agents. These are controlled application tools, not raw CLI or shell access. Do not claim to have unrestricted terminal access.`
     : '';
   const memoryWriteGuidance = memoryWritesEnabled
     ? 'Use the save_memory tool when the user explicitly asks you to remember something or when a future-useful, low-risk memory clearly fits the memory rules. Saving is durable by default: requests to remember something permanently, dauerhaft, or for the future still use pinned=false. Pin only when the user explicitly asks for the information to be loaded into every conversation or explicitly uses the word pin or pinned. Automatically inferred memories must remain unpinned. Use agent_user for user preferences that apply only to this agent, including how the user wants this agent to communicate. Use user only when the user clearly wants the memory shared across agents. If the user explicitly asks you to remember sensitive personal data, you may save it, but use the narrowest sensible scope and never save secrets or credentials. Ask first when sensitive information was not explicitly requested for memory, or when the content, consent, or scope is ambiguous or conflicting.'
     : 'Memory writing is disabled for this agent in the current run. Do not claim that you saved a new memory. If the user asks you to remember something, explain that memory writing is disabled for this agent and that the setting can be changed by the user.';
-  const hasWebPageReader = enabledToolNames.includes('read_web_page');
-  const hasWebSearch = enabledToolNames.includes('web_search');
-  const hasInterpreter = enabledToolNames.includes('interpreter');
+  const hasWebPageReader = enabledCapabilityIds.includes('web_page_access');
+  const hasWebSearch = enabledCapabilityIds.includes('web_search');
+  const hasInterpreter = enabledCapabilityIds.includes('interpreter');
   const webSearchGuidance = hasWebSearch
     ? `
 Web search guidance:

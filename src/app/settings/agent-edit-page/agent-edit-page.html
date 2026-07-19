@@ -49,12 +49,12 @@
             type="button"
             class="h-9 rounded-md px-3 text-sm font-semibold text-text-muted hover:bg-surface-hover hover:text-text focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
             role="tab"
-            [class.bg-surface-active]="activeTab() === 'tools'"
-            [class.text-text]="activeTab() === 'tools'"
-            [attr.aria-selected]="activeTab() === 'tools'"
-            (click)="selectTab('tools')"
+            [class.bg-surface-active]="activeTab() === 'capabilities'"
+            [class.text-text]="activeTab() === 'capabilities'"
+            [attr.aria-selected]="activeTab() === 'capabilities'"
+            (click)="selectTab('capabilities')"
           >
-            Tools
+            Capabilities
           </button>
           <button
             type="button"
@@ -137,42 +137,59 @@
           </section>
         }
 
-        @if (activeTab() === 'tools') {
+        @if (activeTab() === 'capabilities') {
           <section class="grid gap-5 xl:grid-cols-2" role="tabpanel">
             <div>
-              <h2 class="text-sm font-semibold text-text-muted">Tools</h2>
+              <h2 class="text-sm font-semibold text-text-muted">Capabilities</h2>
               <p class="mt-1 text-sm text-text-muted">
-                Tools enabled here are available to this agent during chat runs.
+                Capabilities enabled here determine what this agent is allowed and equipped to do.
               </p>
 
-              @if (tools().length === 0) {
-                <p class="mt-3 text-sm text-text-muted">No tools are registered yet.</p>
+              @if (capabilities().length === 0) {
+                <p class="mt-3 text-sm text-text-muted">No capabilities are registered yet.</p>
               } @else {
                 <div class="mt-3 divide-y divide-border border border-border">
-                  @for (tool of tools(); track tool.id) {
+                  @for (capability of capabilities(); track capability.id) {
                     <label
                       class="grid cursor-pointer gap-3 p-3 hover:bg-surface-muted sm:grid-cols-[auto_1fr] sm:items-start"
                     >
                       <input
                         type="checkbox"
                         class="mt-1 h-4 w-4 accent-accent"
-                        [checked]="isToolEnabled(tool.id)"
-                        (change)="updateTool(tool.id, $any($event.target).checked)"
+                        [checked]="isCapabilityEnabled(capability.id)"
+                        (change)="updateCapability(capability.id, $any($event.target).checked)"
                       />
                       <span class="min-w-0">
                         <span class="flex flex-wrap items-center gap-2">
-                          <span class="text-sm font-semibold text-text">{{ tool.label }}</span>
-                          <span class="font-mono text-xs text-text-muted">{{ tool.id }}</span>
+                          <span class="text-sm font-semibold text-text">{{
+                            capability.label
+                          }}</span>
+                          <span class="font-mono text-xs text-text-muted">{{ capability.id }}</span>
                         </span>
                         <span class="mt-1 block text-sm text-text-muted">
-                          {{ tool.description }}
+                          {{ capability.description }}
                         </span>
                         <span class="mt-1 block text-xs text-text-muted">
-                          Provider: {{ tool.provider }}
-                          @if (!tool.available && tool.unavailableReason) {
-                            <span> · {{ tool.unavailableReason }}</span>
+                          Provider: {{ capability.provider }}
+                          @if (!capability.available && capability.unavailableReason) {
+                            <span> · {{ capability.unavailableReason }}</span>
                           }
                         </span>
+                        @if (capability.providedTools.length > 0) {
+                          <span class="mt-1 block text-xs text-text-muted">
+                            Provides:
+                            @for (
+                              tool of capability.providedTools;
+                              track tool.id;
+                              let last = $last
+                            ) {
+                              <span class="font-mono">{{ tool.id }}</span>
+                              @if (!last) {
+                                <span>, </span>
+                              }
+                            }
+                          </span>
+                        }
                       </span>
                     </label>
                   }
@@ -182,10 +199,10 @@
 
             @if (controlledTools().length > 0) {
               <div>
-                <h2 class="text-sm font-semibold text-text-muted">Controlled tools</h2>
+                <h2 class="text-sm font-semibold text-text-muted">System tools</h2>
                 <p class="mt-1 text-sm text-text-muted">
-                  These tools are built into this protected system agent and cannot be granted or
-                  revoked here.
+                  These callable operations are built into this protected system agent. They are not
+                  configurable capabilities.
                 </p>
 
                 <div class="mt-3 divide-y divide-border border border-border">
