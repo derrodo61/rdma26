@@ -661,4 +661,12 @@ export interface RunContextDetails {
   readonly llmCalls?: readonly LlmCallRecord[];
   readonly memoryReadsEnabled: boolean;
   readonly memoryWritesEnabled: boolean;
+  readonly systemPromptDiagnostics?: RunContextSystemPromptDiagnostics;
+}
+
+export interface RunContextSystemPromptDiagnostics {
+  readonly characterCount: number;
+  readonly contentHash: string;
+  readonly includedSections: readonly string[];
+  readonly continuityGuidance?: string;
 }

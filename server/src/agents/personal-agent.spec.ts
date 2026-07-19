@@ -4,6 +4,7 @@ import {
   collectRunToolCalls,
   createMemoryFilesystemPermissions,
   extractSkillUsages,
+  summarizeSystemPrompt,
 } from './personal-agent';
 
 describe('PersonalAgent memory filesystem permissions', () => {
@@ -98,6 +99,33 @@ describe('extractSkillUsages', () => {
         path: '/skills/example/SKILL.md',
       },
     ]);
+  });
+});
+
+describe('summarizeSystemPrompt', () => {
+  it('captures the continuity block and stable diagnostics', () => {
+    const diagnostics = summarizeSystemPrompt(
+      [
+        'Agent identity:',
+        '- You are Albert.',
+        '',
+        'Conversation continuity:',
+        '- Treat the current thread as a live conversation.',
+        '',
+        'Interpreter guidance:',
+        '- Use eval for deterministic calculations.',
+      ].join('\n'),
+    );
+
+    expect(diagnostics.characterCount).toBeGreaterThan(0);
+    expect(diagnostics.contentHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(diagnostics.includedSections).toEqual([
+      'Conversation continuity',
+      'Interpreter guidance',
+    ]);
+    expect(diagnostics.continuityGuidance).toBe(
+      'Conversation continuity:\n- Treat the current thread as a live conversation.',
+    );
   });
 });
 

@@ -2,9 +2,11 @@ import { CompositeBackend, createDeepAgent, FilesystemBackend } from 'deepagents
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import type { ServerTool, StructuredToolInterface } from '@langchain/core/tools';
 import { tools as openAiTools } from '@langchain/openai';
+import { createHash } from 'node:crypto';
 
 import type {
   ChatMessage,
+  RunContextSystemPromptDiagnostics,
   RunContextTokenUsage,
   RunContextSkillUsage,
   RunContextToolCall,
@@ -18,7 +20,7 @@ import {
   type AgentActivityCallback,
 } from './agent-activity';
 import { createBootloaderPromptForTest } from './agent-prompt';
-import { extractText } from './agent-result';
+import { extractText, normalizeAssistantText } from './agent-result';
 import { createEnabledAgentMiddleware } from './agent-middleware';
 import { LlmAccountingCallbackHandler } from '../llm/llm-accounting-callback';
 import type { LlmCallStore } from '../llm/llm-call-store';
@@ -53,6 +55,7 @@ export interface PersonalAgentResponse {
   readonly toolCalls: readonly RunContextToolCall[];
   readonly skillsUsed: readonly RunContextSkillUsage[];
   readonly tokenUsage?: RunContextTokenUsage;
+  readonly systemPromptDiagnostics?: RunContextSystemPromptDiagnostics;
 }
 
 export class PersonalAgent {
@@ -104,6 +107,15 @@ export class PersonalAgent {
       rootDir: this.storage.deepAgentRootDir,
       virtualMode: true,
     });
+    const systemPrompt = createBootloaderPromptForTest(
+      this.storage.agent,
+      request.userProfile,
+      request.isOperatorAgent,
+      request.soulContent,
+      request.memoryWritesEnabled,
+      request.enabledToolIds,
+    );
+    const systemPromptDiagnostics = summarizeSystemPrompt(systemPrompt);
     const agent = createDeepAgent({
       model: configuredModel.instance,
       backend: new CompositeBackend(defaultBackend, {
@@ -126,14 +138,7 @@ export class PersonalAgent {
       tools: createAgentTools(request.tools, request.enabledToolIds),
       middleware: await createEnabledAgentMiddleware(request.enabledToolIds),
       checkpointer: this.checkpointer,
-      systemPrompt: createBootloaderPromptForTest(
-        this.storage.agent,
-        request.userProfile,
-        request.isOperatorAgent,
-        request.soulContent,
-        request.memoryWritesEnabled,
-        request.enabledToolIds,
-      ),
+      systemPrompt,
     });
 
     emitActivity(request.onActivity, {
@@ -154,6 +159,9 @@ export class PersonalAgent {
     };
 
     if (request.enabledToolIds.includes('web_search')) {
+      emitActivity(request.onActivity, {
+        label: `${this.storage.agent.name} is checking sources and tools`,
+      });
       const toolCallObserver = new ToolCallObserver(request.onActivity);
       const result: unknown = await agent.invoke(agentInput, {
         ...agentConfig,
@@ -163,15 +171,21 @@ export class PersonalAgent {
         ...toolCallObserver.collected(),
         ...extractOpenAiHostedWebToolCallsFromAgentResult(result),
       ];
+      if (toolCalls.some((toolCall) => toolCall.name === 'web_search')) {
+        emitActivity(request.onActivity, {
+          label: `${this.storage.agent.name} is reviewing web sources`,
+        });
+      }
       emitActivity(request.onActivity, {
         label: `${this.storage.agent.name} is writing the answer`,
       });
 
       return {
-        content: extractText(result),
+        content: normalizeAssistantText(extractText(result)),
         usedFallback: false,
         toolCalls,
         skillsUsed: extractSkillUsages(toolCalls),
+        systemPromptDiagnostics,
       };
     }
 
@@ -190,12 +204,22 @@ export class PersonalAgent {
     });
 
     return {
-      content: extractText(result),
+      content: normalizeAssistantText(extractText(result)),
       usedFallback: false,
       toolCalls,
       skillsUsed: extractSkillUsages(toolCalls),
+      systemPromptDiagnostics,
     };
   }
+}
+
+export function summarizeSystemPrompt(systemPrompt: string): RunContextSystemPromptDiagnostics {
+  return {
+    characterCount: systemPrompt.length,
+    contentHash: createHash('sha256').update(systemPrompt).digest('hex'),
+    includedSections: findPromptSections(systemPrompt),
+    continuityGuidance: extractPromptBlock(systemPrompt, 'Conversation continuity'),
+  };
 }
 
 export function extractSkillUsages(
@@ -217,6 +241,27 @@ export function extractSkillUsages(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+function findPromptSections(systemPrompt: string): readonly string[] {
+  const sections = [
+    'Conversation continuity',
+    'Web search guidance',
+    'Web page reading guidance',
+    'Interpreter guidance',
+    'Long-term memory guidance',
+  ];
+
+  return sections.filter((section) => systemPrompt.includes(`${section}:`));
+}
+
+function extractPromptBlock(systemPrompt: string, label: string): string | undefined {
+  const marker = `${label}:`;
+  const start = systemPrompt.indexOf(marker);
+  if (start === -1) return undefined;
+
+  const nextBlankLine = systemPrompt.indexOf('\n\n', start);
+  return systemPrompt.slice(start, nextBlankLine === -1 ? undefined : nextBlankLine).trim();
 }
 
 function createAgentTools(

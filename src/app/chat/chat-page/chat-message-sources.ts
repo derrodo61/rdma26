@@ -139,9 +139,7 @@ function summarizeRun(runContext: RunContextDetails): MessageRunSummary | null {
   return model || costs.length ? { model, costs } : null;
 }
 
-function summarizeRunCosts(
-  llmCalls: readonly LlmCallRecord[],
-): MessageRunSummary['costs'] {
+function summarizeRunCosts(llmCalls: readonly LlmCallRecord[]): MessageRunSummary['costs'] {
   const totals = new Map<string, number>();
 
   for (const call of llmCalls) {

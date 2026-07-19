@@ -31,7 +31,9 @@ export class ChatMessageList {
   }
 
   protected hasFooter(messageId: string): boolean {
-    return this.sourcesForMessage(messageId).length > 0 || Boolean(this.runSummaryForMessage(messageId));
+    return (
+      this.sourcesForMessage(messageId).length > 0 || Boolean(this.runSummaryForMessage(messageId))
+    );
   }
 
   protected formatMessageCost(summary: MessageRunSummary): string {

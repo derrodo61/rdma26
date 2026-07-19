@@ -38,6 +38,7 @@ export class ChatRunRecorder {
       skillsUsed: responseWithUsage.skillsUsed,
       tokenUsage: responseWithUsage.tokenUsage,
       llmCalls,
+      systemPromptDiagnostics: responseWithUsage.systemPromptDiagnostics,
     });
   }
 

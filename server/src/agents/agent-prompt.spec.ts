@@ -3,6 +3,30 @@ import { describe, expect, it } from 'vitest';
 import { createBootloaderPromptForTest } from './agent-prompt';
 
 describe('PersonalAgent bootloader prompt', () => {
+  it('adds shared conversation continuity guidance', () => {
+    const prompt = createBootloaderPromptForTest(
+      {
+        name: 'Agent',
+        soulVirtualPath: '/configuration/soul.md',
+      },
+      testProfile(),
+      false,
+      '# soul',
+      true,
+    );
+
+    expect(prompt).toContain('Conversation continuity');
+    expect(prompt).toContain('live conversation, not a sequence of independent Q&A items');
+    expect(prompt).toContain('infer the topic from the immediately preceding exchange');
+    expect(prompt).toContain("Prefer answering the new part of the user's question first");
+    expect(prompt).toContain('Do not begin a follow-up answer by restating');
+    expect(prompt).toContain('do not repeat an already-stated headline result at all');
+    expect(prompt).toContain('dieses Spiel');
+    expect(prompt).toContain('already-stated headline result, date, score, winner');
+    expect(prompt).toContain('follow-up questions asking for explanation, story, analysis');
+    expect(prompt).toContain('Genau zu diesem 6:4');
+  });
+
   it('describes save_memory only when memory writes are enabled', () => {
     const enabledPrompt = createBootloaderPromptForTest(
       {

@@ -192,6 +192,10 @@ export class RunContextPage {
   protected embeddingCacheDetails(call: LlmCallRecord): string | null {
     return getEmbeddingCacheDetails(call);
   }
+
+  protected shortHash(hash: string): string {
+    return hash.slice(0, 12);
+  }
 }
 
 interface SourceSummary {
