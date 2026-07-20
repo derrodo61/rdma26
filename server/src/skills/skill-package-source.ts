@@ -268,13 +268,13 @@ async function handleZipEntry(
     throw new Error(`ZIP archive contains unsupported entry type ${path}.`);
   }
 
-  const destination = safeDestination(extractionRoot, path);
-
   if (path.endsWith('/')) {
+    const destination = safeDirectoryDestination(extractionRoot, path);
     await mkdir(destination, { recursive: true });
     return;
   }
 
+  const destination = safeDestination(extractionRoot, path);
   limits.accountFile(entry.uncompressedSize, entry.compressedSize);
   await mkdir(dirname(destination), { recursive: true });
   const stream = await openZipEntry(zipFile, entry);
@@ -411,6 +411,16 @@ function validateRelativePath(path: string): void {
 
 function safeDestination(root: string, path: string): string {
   validateRelativePath(path);
+  return resolveSafeDestination(root, path);
+}
+
+function safeDirectoryDestination(root: string, path: string): string {
+  const normalized = path.replace(/\/+$/, '');
+  validateRelativePath(normalized);
+  return resolveSafeDestination(root, normalized);
+}
+
+function resolveSafeDestination(root: string, path: string): string {
   const destination = resolve(root, path);
   const relativeDestination = relative(resolve(root), destination);
 

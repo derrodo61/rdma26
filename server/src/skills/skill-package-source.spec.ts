@@ -26,6 +26,7 @@ describe('skill package sources', () => {
         path: 'SKILL.md',
         content: '---\nname: archive-skill\ndescription: Test.\n---\n\n# Archive\n',
       },
+      { path: 'references/', content: '' },
       { path: 'references/info.md', content: '# Info\n' },
     ]);
 
@@ -110,7 +111,11 @@ async function writeZip(
 ): Promise<void> {
   const zip = new ZipFile();
   for (const file of files) {
-    zip.addBuffer(Buffer.from(file.content), file.path);
+    if (file.path.endsWith('/')) {
+      zip.addEmptyDirectory(file.path);
+    } else {
+      zip.addBuffer(Buffer.from(file.content), file.path);
+    }
   }
   zip.end();
   await pipeline(zip.outputStream, createWriteStream(path));
