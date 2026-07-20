@@ -404,7 +404,133 @@ Notes:
 
 ```
 
-## 11. Historical Run Compatibility
+## 11. Install A ZIP External Skill
+
+Create a disposable ZIP-packaged skill in a terminal:
+
+```bash
+rm -rf /tmp/manual-zip-check /tmp/manual-zip-check.zip
+mkdir -p /tmp/manual-zip-check/references
+cat > /tmp/manual-zip-check/SKILL.md <<'EOF'
+---
+name: manual-zip-check
+description: Use this skill when the user asks for the RDMA26 ZIP install marker.
+---
+
+# Manual ZIP check
+
+When asked for the RDMA26 ZIP install marker, read `references/marker.md`.
+EOF
+cat > /tmp/manual-zip-check/references/marker.md <<'EOF'
+The exact marker is ZIP-SKILL-731.
+EOF
+(cd /tmp/manual-zip-check && zip -qr /tmp/manual-zip-check.zip .)
+```
+
+In **Settings > Skills > Install > ZIP**, install:
+
+```text
+/tmp/manual-zip-check.zip
+```
+
+Expected:
+
+- `manual-zip-check` appears as **External**.
+- Its detail panel lists `SKILL.md` and `references/marker.md`.
+- Its installation source is the ZIP archive path.
+- Its compatibility result is visible.
+- Clicking `references/marker.md` opens the file preview modal and shows
+  `ZIP-SKILL-731`.
+
+Result:
+
+- [ ] Pass
+- [ ] Fail
+- [ ] Blocked
+
+Notes:
+
+```text
+
+```
+
+## 12. Install A Git External Skill
+
+Use a trusted disposable HTTPS Git repository that contains exactly one Agent
+Skills package. The package directory name and frontmatter `name` must match.
+For example, use a repository path that contains:
+
+```text
+manual-git-check/SKILL.md
+manual-git-check/references/marker.md
+```
+
+with marker content:
+
+```text
+The exact marker is GIT-SKILL-731.
+```
+
+In **Settings > Skills > Install > Git**, enter:
+
+- Repository URL: the HTTPS Git repository URL.
+- Package path: the package directory path, for example `manual-git-check`.
+- Revision: a branch, tag, or commit that contains the package.
+
+Expected:
+
+- `manual-git-check` appears as **External**.
+- Its detail panel lists `SKILL.md` and `references/marker.md`.
+- Its installation source shows the Git repository.
+- Its retained version records the resolved revision when available.
+- Clicking `references/marker.md` opens the file preview modal and shows
+  `GIT-SKILL-731`.
+
+If no trusted disposable HTTPS Git source is available, mark this test
+**Blocked** and record that reason.
+
+Result:
+
+- [ ] Pass
+- [ ] Fail
+- [ ] Blocked
+
+Notes:
+
+```text
+
+```
+
+## 13. Install A ClawHub External Skill
+
+In **Settings > Skills > Install > ClawHub**, search for a simple trusted skill.
+Choose one result and install it.
+
+Expected:
+
+- The catalog search returns readable results with source links.
+- Installing a result creates an **External** skill.
+- Its detail panel shows package files, compatibility, and external
+  installation source details.
+- File preview works for at least `SKILL.md`.
+- The install does not attach the skill to any agent automatically.
+
+If ClawHub is unavailable or no trusted disposable package is suitable, mark
+this test **Blocked** and record the error or reason.
+
+Result:
+
+- [ ] Pass
+- [ ] Fail
+- [ ] Blocked
+
+Notes:
+
+```text
+
+```
+
+## 14. Historical Run Compatibility
 
 Open a Run Details page for a run created before this release.
 
@@ -433,7 +559,7 @@ Notes:
 
 ```
 
-## 12. Agent Skill Authoring Proposal
+## 15. Agent Skill Authoring Proposal
 
 Enable **Skill authoring** for **Skill Tester**. In a new thread, ask:
 
@@ -480,7 +606,7 @@ Notes:
 
 ```
 
-## 13. Agent Skill Acquisition Boundary
+## 16. Agent Skill Acquisition Boundary
 
 Enable **Skill acquisition** for **Skill Tester**. Ask the agent to find an
 existing calendar-related skill and prepare a suitable installation for review.
@@ -510,20 +636,22 @@ Notes:
 
 ```
 
-## 14. Delete User And External Packages
+## 17. Delete User And External Packages
 
 Detach both test skills from **Skill Tester**.
 
 1. Delete `manual-pricing-test` and confirm the dialog.
 2. Delete `manual-reference-check` and confirm the dialog.
-3. Reload the skill library.
+3. Delete `manual-zip-check` if it was installed.
+4. Delete `manual-git-check` if it was installed.
+5. Delete any ClawHub test skill if one was installed.
+6. Reload the skill library.
 
 Expected:
 
-- Both packages disappear from the installed library.
+- All deleted test packages disappear from the installed library.
 - The bundled `pricing-source-analysis` package remains unchanged.
-- The external installation record disappears with
-  `manual-reference-check`.
+- External installation records disappear with their external packages.
 - Neither deleted skill remains available in the agent editor.
 
 Result:
@@ -538,7 +666,7 @@ Notes:
 
 ```
 
-## 15. Responsive And Error-State Check
+## 18. Responsive And Error-State Check
 
 Repeat a quick library inspection at a narrow mobile-sized browser width.
 
