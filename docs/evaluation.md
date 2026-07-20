@@ -23,17 +23,15 @@ It uses the same `AssistantRuntime` as the UI, API, and ordinary CLI commands.
 
 ## Case Version
 
-The current case set is `2026-07-12-v5`. Definitions live in
+The current case set is `2026-07-19-v6`. Definitions live in
 `server/src/evaluation/evaluation-cases.ts` and are covered by unit tests.
 
-Version `2026-07-12-v5` adds a regional-news case covering same-day event
-matching, local-language sources, direct-report citations, and explicit human
-review of freshness. Version `2026-07-12-v4` records the hosted-search
-architecture. Version `2026-07-12-v3` corrects the explicit-uncertainty
-assertion to accept the equivalent wording "cannot be known". Version
-`2026-07-12-v2` added an isolated interpreter transformation case. The initial
-smoke, research, and memory baselines below remain identified as
-`2026-07-12-v1` so their historical meaning does not change.
+Version `2026-07-19-v6` adds relevant-skill selection and irrelevant-skill
+non-selection, records the skills used by each evaluation step, and measures
+maximum system-prompt characters and attached-skill count. Version
+`2026-07-12-v5` added the regional-news case. Earlier versions introduced the
+hosted-search architecture, uncertainty wording correction, and isolated
+interpreter transformation case.
 
 Changing a prompt, expected result, setup, or assertion changes what the suite
 measures. Material changes should therefore create a new suite version rather
@@ -70,6 +68,13 @@ Long-term and episodic context checks:
 - cross-agent local-memory isolation;
 - past-conversation recall.
 
+### `skills`
+
+Progressive-disclosure checks using temporary attached skills:
+
+- a relevant skill is loaded and its instructions affect the answer;
+- an irrelevant attached skill stays unloaded for an unrelated direct fact.
+
 ### `core`
 
 Runs every case, including the focused QuickJS interpreter transformation case.
@@ -86,6 +91,10 @@ system agents, so normal cleanup removes them and all associated data.
 Memory seeds use unique marker values. The harness deletes seeded memories and
 temporary agents after the suite. Agent deletion also removes evaluation
 threads, runs, LLM calls, and checkpoints.
+
+Skill cases create uniquely named user packages through the proposal workflow,
+attach them only to the selected temporary agent, and detach and delete them
+after each case.
 
 Use `--keep-data true` when a failed run needs inspection. The report then lists
 the retained agent ids so they can be deleted after debugging.
@@ -118,6 +127,14 @@ Run research cases with the selected model:
 ```bash
 ./bin/rdma26 evals:run \
   --suite research \
+  --model gpt-5.4
+```
+
+Run the skill-selection cases:
+
+```bash
+./bin/rdma26 evals:run \
+  --suite skills \
   --model gpt-5.4
 ```
 
@@ -164,7 +181,8 @@ A report contains:
 - source URLs and top-level tool calls;
 - automatic assertion failures;
 - human-review questions;
-- token, call, cost, and context proxy measurements.
+- token, call, cost, and context proxy measurements;
+- maximum system-prompt characters and attached-skill count.
 
 Status meanings:
 
@@ -184,7 +202,9 @@ measurement for model context. Reports include:
 
 - total input tokens across the case;
 - cached input tokens;
-- `maxInputTokensPerCall`, the largest input-token count of one provider call.
+- `maxInputTokensPerCall`, the largest input-token count of one provider call;
+- `maxSystemPromptCharacters`, the largest recorded system prompt;
+- `maxAttachedSkillCount`, the largest attached-skill catalog in one run.
 
 This does not replace detailed run-context inspection. It provides a stable
 numeric baseline for detecting context growth or reduction between

@@ -23,8 +23,8 @@ features.
   boundaries.
 - [Memory](./memory.md): current thread state, long-term memory, semantic
   retrieval, and user controls.
-- [Skills](./skills.md): open skill packages, current loading behavior, reusable
-  catalogs, agent-assisted management, and the planned library model.
+- [Skills](./skills.md): open skill packages, progressive loading, shared
+  library management, catalogs, and agent-assisted proposals.
 - [Web research](./research.md): hosted search, source handling, and known-URL readers.
 - [Interpreter capability](./interpreter.md): QuickJS interpreter boundary,
   runtime behavior, observability, and testing.
@@ -39,6 +39,12 @@ features.
 - [CLI reference](./cli.md)
 - Interactive OpenAPI documentation is available from a running backend at
   `http://localhost:3000/docs`.
+
+## Active Validation
+
+- [Skills release test checklist](./skills-test-checklist.md): temporary,
+  markable manual acceptance checks for skill lifecycle, safety, runtime use,
+  proposals, and observability.
 
 ## Project History
 
