@@ -8,6 +8,7 @@ import { pipeline } from 'node:stream/promises';
 import yauzl, { type Entry, type ZipFile } from 'yauzl';
 import { parse } from 'yaml';
 
+import { AppError } from '../errors/app-error';
 import { listFiles } from './skill-library';
 
 const maxFiles = 200;
@@ -24,10 +25,13 @@ export interface StagedSkillPackage {
 
 export async function stageLocalDirectory(sourceDirectory: string): Promise<StagedSkillPackage> {
   const source = resolve(sourceDirectory);
-  const info = await lstat(source);
+  const info = await lstatSource(source, {
+    notFound: 'SKILL_SOURCE_NOT_FOUND',
+    notReadable: 'SKILL_SOURCE_NOT_READABLE',
+  });
 
   if (!info.isDirectory() || info.isSymbolicLink()) {
-    throw new Error('Local skill source must be a normal directory.');
+    throw new AppError('SKILL_SOURCE_NOT_USABLE', { path: source });
   }
 
   const stagingRoot = await createStagingRoot();
@@ -44,16 +48,22 @@ export async function stageLocalDirectory(sourceDirectory: string): Promise<Stag
 
 export async function stageZipArchive(archivePath: string): Promise<StagedSkillPackage> {
   const source = resolve(archivePath);
-  const info = await lstat(source);
+  const info = await lstatSource(source, {
+    notFound: 'SKILL_ARCHIVE_NOT_FOUND',
+    notReadable: 'SKILL_ARCHIVE_NOT_READABLE',
+  });
 
   if (!info.isFile() || info.isSymbolicLink()) {
-    throw new Error('Skill archive source must be a normal ZIP file.');
+    throw new AppError('SKILL_ARCHIVE_NOT_USABLE', { path: source });
   }
   if (info.size > maxArchiveBytes) {
-    throw new Error(`Skill archive exceeds the ${maxArchiveBytes}-byte limit.`);
+    throw new AppError('SKILL_ARCHIVE_TOO_LARGE', {
+      path: source,
+      limitBytes: maxArchiveBytes,
+    });
   }
   if (!source.toLowerCase().endsWith('.zip')) {
-    throw new Error('Only ZIP skill archives are supported.');
+    throw new AppError('SKILL_ARCHIVE_UNSUPPORTED_TYPE', { path: source });
   }
 
   const stagingRoot = await createStagingRoot();
@@ -146,7 +156,7 @@ export async function stageGitPackage(options: {
 
 export async function stageZipBuffer(buffer: Buffer): Promise<StagedSkillPackage> {
   if (buffer.length > maxArchiveBytes) {
-    throw new Error(`Skill archive exceeds the ${maxArchiveBytes}-byte limit.`);
+    throw new AppError('SKILL_ARCHIVE_TOO_LARGE', { limitBytes: maxArchiveBytes });
   }
 
   const temporaryRoot = await createStagingRoot();
@@ -159,6 +169,26 @@ export async function stageZipBuffer(buffer: Buffer): Promise<StagedSkillPackage
     return stagedArchive;
   } catch (error) {
     await rm(temporaryRoot, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+async function lstatSource(
+  path: string,
+  codes: {
+    readonly notFound: 'SKILL_ARCHIVE_NOT_FOUND' | 'SKILL_SOURCE_NOT_FOUND';
+    readonly notReadable: 'SKILL_ARCHIVE_NOT_READABLE' | 'SKILL_SOURCE_NOT_READABLE';
+  },
+): ReturnType<typeof lstat> {
+  try {
+    return await lstat(path);
+  } catch (error) {
+    if (isNodeError(error) && error.code === 'ENOENT') {
+      throw new AppError(codes.notFound, { path });
+    }
+    if (isNodeError(error) && error.code === 'EACCES') {
+      throw new AppError(codes.notReadable, { path });
+    }
     throw error;
   }
 }
@@ -489,4 +519,8 @@ function staged(directory: string, stagingRoot: string): StagedSkillPackage {
     directory,
     cleanup: async () => await rm(stagingRoot, { recursive: true, force: true }),
   };
+}
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && 'code' in error;
 }

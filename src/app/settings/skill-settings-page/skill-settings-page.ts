@@ -1,4 +1,3 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -31,6 +30,7 @@ import type {
   SkillUpdatePreview,
 } from '../../../../shared/agent-contracts';
 import { AssistantApi } from '../../chat/assistant-api';
+import { getApiErrorMessage } from '../../shared/api-errors';
 
 type InstallSourceType = InstallSkillRequest['sourceType'];
 
@@ -412,7 +412,7 @@ export class SkillSettingsPage {
       this.clearMessages();
       await work();
     } catch (error) {
-      this.error.set(getErrorMessage(error));
+      this.error.set(getApiErrorMessage(error, 'Skill request failed.'));
     } finally {
       this.isWorking.set(false);
     }
@@ -422,20 +422,4 @@ export class SkillSettingsPage {
     this.error.set(null);
     this.notice.set(null);
   }
-}
-
-function getErrorMessage(error: unknown): string {
-  if (error instanceof HttpErrorResponse) {
-    const body = error.error as unknown;
-    if (
-      typeof body === 'object' &&
-      body !== null &&
-      'message' in body &&
-      typeof body.message === 'string'
-    ) {
-      return body.message;
-    }
-  }
-
-  return error instanceof Error ? error.message : 'Skill request failed.';
 }

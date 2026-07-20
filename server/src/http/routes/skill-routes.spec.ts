@@ -244,13 +244,67 @@ describe('skill routes', () => {
       runtime.close();
     }
   });
+
+  it('returns scanner findings when an external skill package is invalid', async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), 'rdma26-invalid-skill-route-'));
+    const sourceRoot = await mkdtemp(join(tmpdir(), 'rdma26-invalid-skill-source-'));
+    const sourceDir = join(sourceRoot, 'directory-name');
+    temporaryDirectories.push(dataDir, sourceRoot);
+    await writeSkill(sourceDir, 'metadata-name');
+    const runtime = new AssistantRuntime({
+      dataDir,
+      defaultAgentId: 'scotty',
+      defaultAgentName: 'Scotty',
+    });
+    const server = Fastify();
+
+    try {
+      await runtime.ensureReady();
+      registerApiRoutes(server, {
+        authConfig: {
+          enabled: false,
+          username: '',
+          password: '',
+          sessionSecret: 'test-session-secret',
+        },
+        runtime,
+      });
+      await server.ready();
+
+      const install = await server.inject({
+        method: 'POST',
+        url: '/api/skill-installations',
+        payload: { sourceType: 'local-directory', path: sourceDir },
+      });
+
+      expect(install.statusCode).toBe(400);
+      expect(install.json()).toMatchObject({
+        code: 'SKILL_PACKAGE_INVALID',
+        message: 'The skill package is invalid.',
+        compatibility: {
+          status: 'unsafe_or_invalid',
+          findings: [
+            expect.objectContaining({
+              severity: 'error',
+              message: expect.stringContaining(
+                'Skill name metadata-name must match its directory name directory-name.',
+              ),
+            }),
+          ],
+        },
+      });
+    } finally {
+      await server.close();
+      runtime.close();
+    }
+  });
 });
 
-async function writeSkill(directory: string): Promise<void> {
+async function writeSkill(directory: string, name = 'invoice-review'): Promise<void> {
   await mkdir(directory, { recursive: true });
   await writeFile(
     join(directory, 'SKILL.md'),
-    '---\nname: invoice-review\ndescription: Review invoice batches.\n---\n\n# Invoice review\n',
+    `---\nname: ${name}\ndescription: Review invoice batches.\n---\n\n# Invoice review\n`,
     'utf8',
   );
 }

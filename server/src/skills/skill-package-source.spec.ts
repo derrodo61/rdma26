@@ -54,6 +54,19 @@ describe('skill package sources', () => {
     await expect(stageLocalDirectory(directory)).rejects.toThrow('unsupported symbolic link');
   });
 
+  it('describes missing local skill paths without leaking Node filesystem errors', async () => {
+    const root = await temporaryRoot(temporaryDirectories);
+
+    await expect(stageLocalDirectory(join(root, 'missing-directory'))).rejects.toMatchObject({
+      code: 'SKILL_SOURCE_NOT_FOUND',
+      message: expect.stringContaining('Skill directory does not exist:'),
+    });
+    await expect(stageZipArchive(join(root, 'missing-archive.zip'))).rejects.toMatchObject({
+      code: 'SKILL_ARCHIVE_NOT_FOUND',
+      message: expect.stringContaining('Skill archive does not exist:'),
+    });
+  });
+
   it('rejects traversal paths and symbolic links in ZIP archives', async () => {
     const root = await temporaryRoot(temporaryDirectories);
     const traversalArchive = join(root, 'traversal.zip');

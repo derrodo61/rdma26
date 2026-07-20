@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { HttpErrorResponse } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
 import { vi } from 'vitest';
 
@@ -63,6 +64,85 @@ describe('SkillSettingsPage', () => {
 });
 
 describe('SkillSettingsPage lifecycle', () => {
+  it('shows plain source path installation errors without scanner findings', async () => {
+    const source = skillDetails('pricing-analysis', 'bundled');
+    const api = {
+      ...lifecycleApi(source, source),
+      installSkill: vi.fn(async () => {
+        throw new HttpErrorResponse({
+          status: 400,
+          error: {
+            code: 'SKILL_SOURCE_NOT_FOUND',
+            message: 'Skill directory does not exist: /tmp/missing-skill',
+            details: { path: '/tmp/missing-skill' },
+          },
+        });
+      }),
+    };
+    const fixture = await createLifecycleFixture(api);
+
+    const input = fixture.nativeElement.querySelector(
+      'input[name="sourcePath"]',
+    ) as HTMLInputElement;
+    input.value = '/tmp/missing-skill';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    buttonContaining(fixture, 'Install').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Skill directory does not exist: /tmp/missing-skill');
+    expect(text).not.toContain('ENOENT');
+  });
+
+  it('shows scanner findings when skill installation fails validation', async () => {
+    const source = skillDetails('pricing-analysis', 'bundled');
+    const api = {
+      ...lifecycleApi(source, source),
+      installSkill: vi.fn(async () => {
+        throw new HttpErrorResponse({
+          status: 400,
+          error: {
+            code: 'SKILL_PACKAGE_INVALID',
+            message: 'The skill package is invalid.',
+            compatibility: {
+              status: 'unsafe_or_invalid',
+              requiredCapabilities: [],
+              missingCapabilities: [],
+              unsupportedRequirements: [],
+              findings: [
+                {
+                  code: 'invalid_package',
+                  severity: 'error',
+                  message:
+                    'Skill name manual-reference-check must match its directory name rdma26-manual-skill-test.',
+                },
+              ],
+            },
+          },
+        });
+      }),
+    };
+    const fixture = await createLifecycleFixture(api);
+
+    const input = fixture.nativeElement.querySelector(
+      'input[name="sourcePath"]',
+    ) as HTMLInputElement;
+    input.value = '/tmp/rdma26-manual-skill-test';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    buttonContaining(fixture, 'Install').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('The skill package is invalid.');
+    expect(text).toContain(
+      'Skill name manual-reference-check must match its directory name rdma26-manual-skill-test.',
+    );
+  });
+
   it('clones an immutable skill with an explicit user-owned id', async () => {
     const source = skillDetails('pricing-analysis', 'bundled');
     const cloned = skillDetails('custom-pricing', 'user');

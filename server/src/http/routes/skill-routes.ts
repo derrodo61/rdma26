@@ -9,7 +9,9 @@ import type {
   UpdateUserSkillRequest,
   UpdateAgentSkillsRequest,
 } from '../../../../shared/agent-contracts';
-import { getErrorMessage } from '../errors';
+import { appErrorMessage } from '../../../../shared/app-errors';
+import { SkillPackageValidationError } from '../../skills/skill-package-scanner';
+import { appErrorResponse, getErrorMessage } from '../errors';
 import type { RouteRegistrar } from '../route-context';
 import { routeDocs } from '../route-docs';
 import {
@@ -204,7 +206,7 @@ export const registerSkillRoutes: RouteRegistrar = (server, { runtime }) => {
       try {
         return await runtime.installSkill(body.data satisfies InstallSkillRequest);
       } catch (error) {
-        return reply.code(400).send({ message: getErrorMessage(error) });
+        return reply.code(400).send(skillErrorResponse(error));
       }
     },
   );
@@ -229,7 +231,7 @@ export const registerSkillRoutes: RouteRegistrar = (server, { runtime }) => {
         const input = body.data satisfies InspectSkillUpdateRequest;
         return await runtime.inspectSkillUpdate(params.data.skillId, input.enabledCapabilities);
       } catch (error) {
-        return reply.code(400).send({ message: getErrorMessage(error) });
+        return reply.code(400).send(skillErrorResponse(error));
       }
     },
   );
@@ -260,7 +262,7 @@ export const registerSkillRoutes: RouteRegistrar = (server, { runtime }) => {
           input.enabledCapabilities,
         );
       } catch (error) {
-        return reply.code(400).send({ message: getErrorMessage(error) });
+        return reply.code(400).send(skillErrorResponse(error));
       }
     },
   );
@@ -471,3 +473,19 @@ export const registerSkillRoutes: RouteRegistrar = (server, { runtime }) => {
     },
   );
 };
+
+function skillErrorResponse(error: unknown) {
+  if (error instanceof SkillPackageValidationError) {
+    const code =
+      error.message === 'The skill package failed safety validation.'
+        ? 'SKILL_PACKAGE_UNSAFE'
+        : 'SKILL_PACKAGE_INVALID';
+    return {
+      code,
+      message: appErrorMessage(code),
+      compatibility: error.report,
+    };
+  }
+
+  return appErrorResponse(error);
+}

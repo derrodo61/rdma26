@@ -214,7 +214,7 @@ Do not delete it yet.
 
 Result:
 
-- [ ] Pass
+- [x] Pass
 - [ ] Fail
 - [ ] Blocked
 
@@ -229,9 +229,9 @@ Notes:
 Create a disposable Agent Skills package in a terminal:
 
 ```bash
-rm -rf /tmp/rdma26-manual-skill-test
-mkdir -p /tmp/rdma26-manual-skill-test/references
-cat > /tmp/rdma26-manual-skill-test/SKILL.md <<'EOF'
+rm -rf /tmp/manual-reference-check
+mkdir -p /tmp/manual-reference-check/references
+cat > /tmp/manual-reference-check/SKILL.md <<'EOF'
 ---
 name: manual-reference-check
 description: Use this skill when the user asks for the RDMA26 manual reference marker.
@@ -242,7 +242,7 @@ description: Use this skill when the user asks for the RDMA26 manual reference m
 When asked for the RDMA26 manual reference marker, read
 `references/marker.md` and return its exact marker.
 EOF
-cat > /tmp/rdma26-manual-skill-test/references/marker.md <<'EOF'
+cat > /tmp/manual-reference-check/references/marker.md <<'EOF'
 The exact marker is REFERENCE-SKILL-731.
 EOF
 ```
@@ -250,7 +250,7 @@ EOF
 In **Settings > Skills > Install > Directory**, install:
 
 ```text
-/tmp/rdma26-manual-skill-test
+/tmp/manual-reference-check
 ```
 
 Expected:
@@ -291,7 +291,7 @@ Expected:
 Now change the disposable source in a terminal:
 
 ```bash
-cat > /tmp/rdma26-manual-skill-test/references/marker.md <<'EOF'
+cat > /tmp/manual-reference-check/references/marker.md <<'EOF'
 The exact marker is REFERENCE-SKILL-732.
 EOF
 ```
@@ -596,7 +596,7 @@ Report path:
 - [ ] Both disposable skills have been deleted.
 - [ ] The user skill applied during proposal testing has been deleted.
 - [ ] The **Skill Tester** agent has been deleted.
-- [ ] `/tmp/rdma26-manual-skill-test` has been removed.
+- [ ] `/tmp/manual-reference-check` has been removed.
 - [ ] No pending test proposal remains awaiting review.
 - [ ] Any retained evaluation agents have been deleted.
 
