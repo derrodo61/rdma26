@@ -68,7 +68,7 @@
                 </span>
                 <button
                   type="button"
-                  class="grid h-7 w-7 shrink-0 place-items-center rounded text-text-muted opacity-0 hover:bg-danger-soft hover:text-danger focus:outline-none focus-visible:bg-danger-soft focus-visible:text-danger focus-visible:opacity-100 focus-visible:shadow-none group-hover:opacity-100 disabled:cursor-not-allowed disabled:text-control-disabled"
+                  class="grid h-7 w-7 shrink-0 place-items-center rounded text-text-muted opacity-100 hover:bg-danger-soft hover:text-danger focus:outline-none focus-visible:bg-danger-soft focus-visible:text-danger focus-visible:opacity-100 focus-visible:shadow-none disabled:cursor-not-allowed disabled:text-control-disabled [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11"
                   [disabled]="isRunning()"
                   [attr.aria-label]="'Delete thread ' + thread.title"
                   (click)="stopThreadClick($event); threadDeleted.emit(thread.id)"
