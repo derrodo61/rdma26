@@ -420,6 +420,12 @@ export class AssistantApi {
     );
   }
 
+  async updateThread(agentId: string, threadId: string, title: string): Promise<ChatThread> {
+    return await firstValueFrom(
+      this.http.patch<ChatThread>(`/api/agents/${agentId}/threads/${threadId}`, { title }),
+    );
+  }
+
   async deleteThread(agentId: string, threadId: string): Promise<DeleteThreadResponse> {
     return await firstValueFrom(
       this.http.delete<DeleteThreadResponse>(`/api/agents/${agentId}/threads/${threadId}`),

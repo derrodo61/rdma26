@@ -25,6 +25,7 @@ import type {
   DeleteModelPricingResponse,
   DeletePricingSourceResponse,
   DeleteThreadResponse,
+  UpdateThreadRequest,
   HealthResponse,
   InstallSkillRequest,
   LlmCallListRequest,
@@ -786,6 +787,14 @@ export class AssistantRuntime {
 
   async readThread(agentId: string, threadId: string): Promise<ChatThread> {
     return await this.threads.readThread(agentId, threadId);
+  }
+
+  async updateThread(
+    agentId: string,
+    threadId: string,
+    request: UpdateThreadRequest,
+  ): Promise<ChatThread> {
+    return await this.threads.updateThread(agentId, threadId, request);
   }
 
   async searchPastConversations(

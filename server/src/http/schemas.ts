@@ -16,6 +16,10 @@ export const createThreadRequestSchema = z.object({
   title: z.string().trim().min(1).optional(),
 });
 
+export const updateThreadRequestSchema = z.object({
+  title: z.string().trim().min(1),
+});
+
 export const updateAgentRequestSchema = z.object({
   name: z.string().trim().min(1).optional(),
   kind: agentKindSchema.optional(),

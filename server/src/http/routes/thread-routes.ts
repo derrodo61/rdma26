@@ -1,8 +1,13 @@
-import type { CreateThreadRequest } from '../../../../shared/agent-contracts';
+import type { CreateThreadRequest, UpdateThreadRequest } from '../../../../shared/agent-contracts';
 import { getErrorMessage } from '../errors';
 import type { RouteRegistrar } from '../route-context';
 import { routeDocs } from '../route-docs';
-import { agentParamsSchema, createThreadRequestSchema, threadParamsSchema } from '../schemas';
+import {
+  agentParamsSchema,
+  createThreadRequestSchema,
+  threadParamsSchema,
+  updateThreadRequestSchema,
+} from '../schemas';
 
 export const registerThreadRoutes: RouteRegistrar = (server, { runtime }) => {
   server.get(
@@ -80,6 +85,38 @@ export const registerThreadRoutes: RouteRegistrar = (server, { runtime }) => {
 
       try {
         return await runtime.readThread(params.data.agentId, params.data.threadId);
+      } catch (error) {
+        return reply.code(404).send({
+          message: getErrorMessage(error),
+        });
+      }
+    },
+  );
+
+  server.patch(
+    '/api/agents/:agentId/threads/:threadId',
+    routeDocs({
+      tags: ['threads'],
+      summary: 'Update one thread.',
+      params: threadParamsSchema,
+      body: updateThreadRequestSchema,
+    }),
+    async (request, reply) => {
+      const params = threadParamsSchema.safeParse(request.params);
+      const body = updateThreadRequestSchema.safeParse(request.body);
+
+      if (!params.success || !body.success) {
+        return reply.code(400).send({
+          message: 'A valid agent id, thread id, and non-empty title are required.',
+        });
+      }
+
+      try {
+        return await runtime.updateThread(
+          params.data.agentId,
+          params.data.threadId,
+          body.data satisfies UpdateThreadRequest,
+        );
       } catch (error) {
         return reply.code(404).send({
           message: getErrorMessage(error),

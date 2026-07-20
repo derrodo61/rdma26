@@ -27,6 +27,10 @@ export interface CreateThreadRequest {
   readonly title?: string;
 }
 
+export interface UpdateThreadRequest {
+  readonly title: string;
+}
+
 export interface DeleteThreadResponse {
   readonly deleted: true;
   readonly agentId: string;

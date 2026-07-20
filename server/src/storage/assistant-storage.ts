@@ -19,6 +19,7 @@ export interface AssistantStorage {
   listThreads(): Promise<ChatThreadSummary[]>;
   createThread(title?: string): Promise<ChatThread>;
   readThread(threadId: string): Promise<ChatThread | null>;
+  updateThreadTitle(threadId: string, title: string): Promise<ChatThread | null>;
   deleteThread(threadId: string): Promise<boolean>;
   appendMessage(
     threadId: string,
@@ -188,6 +189,20 @@ export function createAssistantStorage(dataDir: string, agent: AgentProfile): As
     },
     async readThread(threadId) {
       await this.ensureReady();
+
+      return readThreadFromDatabase(database, agent.id, threadId);
+    },
+    async updateThreadTitle(threadId, title) {
+      await this.ensureReady();
+      const updatedAt = new Date().toISOString();
+      const result = database
+        .get()
+        .prepare('update threads set title = ?, updated_at = ? where id = ? and agent_id = ?')
+        .run(title, updatedAt, threadId, agent.id);
+
+      if (!result.changes) {
+        return null;
+      }
 
       return readThreadFromDatabase(database, agent.id, threadId);
     },

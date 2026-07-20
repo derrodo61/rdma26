@@ -5,8 +5,10 @@ import {
   lucideArrowUp,
   lucideMonitor,
   lucideMoon,
+  lucideEllipsis,
   lucidePanelLeftClose,
   lucidePanelLeftOpen,
+  lucidePencil,
   lucidePlus,
   lucideSettings,
   lucideSun,
@@ -36,8 +38,10 @@ import { ChatWorkspaceController } from './chat-workspace-controller';
       lucideArrowUp,
       lucideMonitor,
       lucideMoon,
+      lucideEllipsis,
       lucidePanelLeftClose,
       lucidePanelLeftOpen,
+      lucidePencil,
       lucidePlus,
       lucideSettings,
       lucideSun,
@@ -152,6 +156,28 @@ export class ChatPage {
     await this.handleAsync(async () => {
       this.chatRun.clearDraft();
       await this.threadState.deleteThread(threadId);
+    });
+  }
+
+  protected async renameThread(threadId: string): Promise<void> {
+    if (this.isRunning()) {
+      return;
+    }
+
+    const thread = this.threads().find((candidate) => candidate.id === threadId);
+
+    if (!thread) {
+      return;
+    }
+
+    const title = globalThis.prompt('Thread name', thread.title)?.trim();
+
+    if (!title || title === thread.title) {
+      return;
+    }
+
+    await this.handleAsync(async () => {
+      await this.threadState.renameThread(threadId, title);
     });
   }
 

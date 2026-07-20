@@ -84,6 +84,23 @@ export class ChatThreadState {
     await this.refreshThreads();
   }
 
+  async renameThread(threadId: string, title: string): Promise<void> {
+    const agentId = this.selectedAgentId();
+
+    if (!agentId) {
+      return;
+    }
+
+    const thread = await this.api.updateThread(agentId, threadId, title);
+    this.threads.update((threads) =>
+      threads.map((candidate) => (candidate.id === thread.id ? thread : candidate)),
+    );
+
+    if (this.activeThread()?.id === thread.id) {
+      this.activeThread.set(thread);
+    }
+  }
+
   async refreshThreads(): Promise<void> {
     const agentId = this.selectedAgentId();
 

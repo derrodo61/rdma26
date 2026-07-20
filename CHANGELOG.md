@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Added an accessible thread actions menu for desktop and touch devices, with
+  persistent thread renaming and confirmed deletion.
 - Added OpenAI provider-hosted `web_search` with captured search actions, page
   openings, citations, source URLs, model usage, cost, context, and latency.
 - Added a built-in `web-research` Deep Agents skill with reusable guidance for

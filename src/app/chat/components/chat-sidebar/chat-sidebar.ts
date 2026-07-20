@@ -1,4 +1,5 @@
 import { Component, input, output } from '@angular/core';
+import { CdkMenu, CdkMenuItem, CdkMenuTrigger } from '@angular/cdk/menu';
 import { RouterLink } from '@angular/router';
 import { NgIcon } from '@ng-icons/core';
 
@@ -11,7 +12,7 @@ import { AppSelect, type SelectOption } from '../../../shared/app-select/app-sel
 
 @Component({
   selector: 'app-chat-sidebar',
-  imports: [RouterLink, NgIcon, AppSelect],
+  imports: [CdkMenu, CdkMenuItem, CdkMenuTrigger, RouterLink, NgIcon, AppSelect],
   templateUrl: './chat-sidebar.html',
 })
 export class ChatSidebar {
@@ -28,14 +29,11 @@ export class ChatSidebar {
   readonly sidebarToggled = output<void>();
   readonly threadCreated = output<void>();
   readonly threadSelected = output<string>();
+  readonly threadRenamed = output<string>();
   readonly threadDeleted = output<string>();
   readonly agentChanged = output<string>();
   readonly settingsMenuToggled = output<void>();
   readonly settingsMenuClosed = output<void>();
   readonly themeChanged = output<ThemePreference>();
   readonly signedOut = output<void>();
-
-  protected stopThreadClick(event: Event): void {
-    event.stopPropagation();
-  }
 }

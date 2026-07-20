@@ -19,6 +19,7 @@ type ChatThreadStateApi = Pick<
   | 'readThread'
   | 'runContext'
   | 'threadRunContexts'
+  | 'updateThread'
 >;
 
 type ChatThreadStateApiMock = {
@@ -130,6 +131,21 @@ describe('ChatThreadState', () => {
     expect(state.messageRunSummaries()).toEqual({});
   });
 
+  it('renames a thread in the list and active conversation', async () => {
+    const originalThread = thread('thread-1');
+    const renamedThread = { ...originalThread, title: 'Project planning' };
+    state.selectedAgentId.set('ronaldo');
+    state.threads.set([originalThread]);
+    state.activeThread.set(originalThread);
+    api.updateThread.mockResolvedValueOnce(renamedThread);
+
+    await state.renameThread(originalThread.id, renamedThread.title);
+
+    expect(api.updateThread).toHaveBeenCalledWith('ronaldo', 'thread-1', 'Project planning');
+    expect(state.threads()).toEqual([renamedThread]);
+    expect(state.activeThread()).toEqual(renamedThread);
+  });
+
   it('attaches research sources from a run to the matching assistant message', async () => {
     const assistantMessage = message('assistant-1', 'assistant', 'The answer.');
     const activeThread = thread('thread-1', [
@@ -208,6 +224,7 @@ function createApiMock(): ChatThreadStateApiMock {
     readThread: vi.fn<AssistantApi['readThread']>(),
     runContext: vi.fn<AssistantApi['runContext']>(),
     threadRunContexts: vi.fn<AssistantApi['threadRunContexts']>(),
+    updateThread: vi.fn<AssistantApi['updateThread']>(),
   };
 }
 

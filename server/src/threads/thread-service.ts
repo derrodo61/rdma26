@@ -3,6 +3,7 @@ import type {
   ChatThreadSummary,
   CreateThreadRequest,
   DeleteThreadResponse,
+  UpdateThreadRequest,
 } from '../../../shared/agent-contracts';
 import type { AgentRegistry } from '../agents/agent-registry';
 import type { LlmCallStore } from '../llm/llm-call-store';
@@ -31,6 +32,21 @@ export class ThreadService {
   async readThread(agentId: string, threadId: string): Promise<ChatThread> {
     const storage = await this.registry.storageFor(agentId);
     const thread = await storage.readThread(threadId);
+
+    if (!thread) {
+      throw new Error(`Thread ${threadId} does not exist for agent ${agentId}.`);
+    }
+
+    return thread;
+  }
+
+  async updateThread(
+    agentId: string,
+    threadId: string,
+    request: UpdateThreadRequest,
+  ): Promise<ChatThread> {
+    const storage = await this.registry.storageFor(agentId);
+    const thread = await storage.updateThreadTitle(threadId, request.title);
 
     if (!thread) {
       throw new Error(`Thread ${threadId} does not exist for agent ${agentId}.`);

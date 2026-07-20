@@ -8,6 +8,19 @@ import type { ThreadCheckpointer } from './thread-checkpointer';
 import { ThreadService } from './thread-service';
 
 describe('ThreadService conversation history', () => {
+  it('renames a thread through its agent-scoped storage', async () => {
+    const original = thread('first', 'Original title', []);
+    const renamed = { ...original, title: 'Renamed thread' };
+    const storage = storageFor([original]);
+    storage.updateThreadTitle.mockResolvedValueOnce(renamed);
+    const service = createService(storage);
+
+    await expect(
+      service.updateThread('ronaldo', original.id, { title: renamed.title }),
+    ).resolves.toEqual(renamed);
+    expect(storage.updateThreadTitle).toHaveBeenCalledWith(original.id, renamed.title);
+  });
+
   it('searches only the selected agent and returns bounded excerpts', async () => {
     const ronaldoThreads = [
       thread('first', 'World Cup planning', [
@@ -117,6 +130,7 @@ function storageFor(threads: readonly ChatThread[]) {
     readThread: vi.fn(
       async (threadId: string) => threads.find((candidate) => candidate.id === threadId) ?? null,
     ),
+    updateThreadTitle: vi.fn(async () => null as ChatThread | null),
   };
 }
 
