@@ -541,6 +541,18 @@
                       {{ preview.changes.length }} file changes ·
                       {{ preview.candidate.compatibility.status }}
                     </p>
+                    @if (preview.changes.length > 0) {
+                      <div class="mt-3 divide-y divide-border border border-border">
+                        @for (change of preview.changes; track change.path) {
+                          <div class="flex items-center justify-between gap-3 px-3 py-2 text-xs">
+                            <span class="min-w-0 truncate font-mono">{{ change.path }}</span>
+                            <span class="shrink-0 uppercase text-text-muted">{{
+                              change.kind
+                            }}</span>
+                          </div>
+                        }
+                      </div>
+                    }
                     @if (preview.updateAvailable) {
                       <button
                         type="button"
@@ -561,7 +573,9 @@
                           <p class="truncate text-xs font-medium">
                             {{ version.version ?? version.contentHash.slice(0, 12) }}
                           </p>
-                          <p class="mt-1 text-xs text-text-muted">{{ version.installedAt }}</p>
+                          <p class="mt-1 text-xs text-text-muted">
+                            {{ formatDateTime(version.installedAt) }}
+                          </p>
                         </div>
                         <button
                           type="button"
@@ -586,10 +600,16 @@
               <h3 class="text-sm font-semibold text-text-muted">Package files</h3>
               <div class="mt-2 divide-y divide-border border border-border">
                 @for (file of skill.files; track file.path) {
-                  <div class="flex justify-between gap-3 px-3 py-2 text-xs">
-                    <span class="min-w-0 truncate font-mono">{{ file.path }}</span
-                    ><span class="shrink-0 text-text-muted">{{ file.sizeBytes }} B</span>
-                  </div>
+                  <button
+                    type="button"
+                    class="flex w-full justify-between gap-3 px-3 py-2 text-left text-xs hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+                    [class.bg-surface-active]="selectedFile()?.path === file.path"
+                    [disabled]="isWorking()"
+                    (click)="readPackageFile(skill, file)"
+                  >
+                    <span class="min-w-0 truncate font-mono">{{ file.path }}</span>
+                    <span class="shrink-0 text-text-muted">{{ file.sizeBytes }} B</span>
+                  </button>
                 }
               </div>
             </section>
@@ -603,4 +623,39 @@
       </aside>
     </div>
   </main>
+
+  @if (selectedFile(); as file) {
+    <div
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
+      role="presentation"
+    >
+      <section
+        class="flex max-h-[min(82dvh,56rem)] w-full max-w-5xl flex-col border border-border bg-surface shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="skill-file-dialog-title"
+      >
+        <header class="flex items-start justify-between gap-4 border-b border-border px-4 py-3">
+          <div class="min-w-0">
+            <h2 id="skill-file-dialog-title" class="truncate font-mono text-sm font-semibold">
+              {{ file.path }}
+            </h2>
+            <p class="mt-1 text-xs text-text-muted">{{ file.sizeBytes }} B</p>
+          </div>
+          <button
+            type="button"
+            class="grid h-9 w-9 shrink-0 place-items-center text-text-muted hover:bg-surface-muted focus:outline-none focus-visible:shadow-[var(--focus-shadow)]"
+            (click)="closeSelectedFile()"
+            aria-label="Close file preview"
+            title="Close"
+          >
+            <ng-icon name="lucideX" size="17" />
+          </button>
+        </header>
+        <pre
+          class="min-h-0 flex-1 overflow-auto whitespace-pre-wrap p-4 font-mono text-xs leading-5 text-text"
+          >{{ file.content }}</pre>
+      </section>
+    </div>
+  }
 </div>

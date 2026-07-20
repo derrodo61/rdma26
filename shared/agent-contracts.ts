@@ -166,6 +166,13 @@ export interface SkillPackageDetails extends SkillPackageSummary {
   readonly files: readonly SkillFileSummary[];
 }
 
+export interface SkillFileContentResponse {
+  readonly skillId: string;
+  readonly path: string;
+  readonly content: string;
+  readonly sizeBytes: number;
+}
+
 export interface CloneSkillRequest {
   readonly targetSkillId: string;
   readonly expectedSourceHash: string;

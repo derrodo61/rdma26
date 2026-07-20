@@ -1,10 +1,16 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
+import { signal } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { vi } from 'vitest';
 
-import type { SkillPackageDetails, SkillProposalRecord } from '../../../../shared/agent-contracts';
+import type {
+  SkillPackageDetails,
+  SkillProposalRecord,
+  UserProfile,
+} from '../../../../shared/agent-contracts';
 import { AssistantApi } from '../../chat/assistant-api';
+import { UserProfileSyncService } from '../user-profile-sync';
 import { SkillSettingsPage } from './skill-settings-page';
 
 describe('SkillSettingsPage', () => {
@@ -17,12 +23,18 @@ describe('SkillSettingsPage', () => {
     skillProposals: vi.fn(async () => ({ proposals: [proposal] })),
     applySkillProposal: vi.fn(async () => ({ ...proposal, state: 'applied' as const })),
   };
+  const profileSync = userProfileSyncMock();
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    profileSync.profile.set(userProfile());
     await TestBed.configureTestingModule({
       imports: [SkillSettingsPage],
-      providers: [provideRouter([]), { provide: AssistantApi, useValue: api }],
+      providers: [
+        provideRouter([]),
+        { provide: AssistantApi, useValue: api },
+        { provide: UserProfileSyncService, useValue: profileSync },
+      ],
     }).compileComponents();
     fixture = TestBed.createComponent(SkillSettingsPage);
     fixture.detectChanges();
@@ -48,6 +60,7 @@ describe('SkillSettingsPage', () => {
 
     expect(confirm).toHaveBeenCalled();
     expect(api.applySkillProposal).toHaveBeenCalledWith(proposal.id);
+    expect(profileSync.loadProfile).toHaveBeenCalled();
     expect(root.textContent).toContain('Applied proposal for invoice-review.');
   });
 
@@ -208,12 +221,99 @@ describe('SkillSettingsPage lifecycle', () => {
       expectedContentHash: updated.contentHash,
     });
   });
+
+  it('lists changed files in an inspected external skill update', async () => {
+    const skill = skillDetails('manual-reference-check', 'external');
+    const retainedAt = '2026-07-20T15:14:04.832Z';
+    const currentAt = '2026-07-20T15:44:29.466Z';
+    const api = {
+      ...lifecycleApi(skill, skill),
+      readSkillFile: vi.fn(async () => ({
+        skillId: skill.id,
+        path: 'references/marker.md',
+        content: 'The exact marker is REFERENCE-SKILL-731.',
+        sizeBytes: 41,
+      })),
+      skillInstallations: vi.fn(async () => ({
+        installations: [
+          {
+            skillId: skill.id,
+            source: { type: 'local-directory' as const, path: '/tmp/manual-reference-check' },
+            activeContentHash: skill.contentHash,
+            pinned: false,
+            installedAt: retainedAt,
+            updatedAt: currentAt,
+            versions: [
+              {
+                contentHash: 'b'.repeat(64),
+                installedAt: retainedAt,
+                compatibility: compatibleReport(),
+              },
+              {
+                contentHash: skill.contentHash,
+                installedAt: currentAt,
+                compatibility: compatibleReport(),
+              },
+            ],
+          },
+        ],
+      })),
+      inspectSkillUpdate: vi.fn(async () => ({
+        skillId: skill.id,
+        currentContentHash: skill.contentHash,
+        candidate: {
+          contentHash: 'b'.repeat(64),
+          installedAt: '2026-07-20T15:44:29.466Z',
+          compatibility: compatibleReport(),
+        },
+        changes: [{ path: 'references/marker.md', kind: 'modified' as const }],
+        updateAvailable: true,
+      })),
+    };
+    const fixture = await createLifecycleFixture(api);
+
+    buttonContaining(fixture, skill.id).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    buttonContaining(fixture, 'Check update').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Update available');
+    expect(text).toContain('references/marker.md');
+    expect(text).toContain('modified');
+    expect(text).toContain(formatExpectedProfileDate(retainedAt));
+    expect(text).toContain(formatExpectedProfileDate(currentAt));
+    expect(text).not.toContain(retainedAt);
+
+    buttonContaining(fixture, 'references/marker.md').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(api.readSkillFile).toHaveBeenCalledWith(skill.id, 'references/marker.md');
+    const root = fixture.nativeElement as HTMLElement;
+    const dialog = root.querySelector('[role="dialog"]');
+    expect(dialog?.textContent).toContain('references/marker.md');
+    expect(dialog?.textContent).toContain('The exact marker is REFERENCE-SKILL-731.');
+
+    buttonWithLabel(fixture, 'Close file preview').click();
+    fixture.detectChanges();
+    expect(root.querySelector('[role="dialog"]')).toBeNull();
+  });
 });
 
-async function createLifecycleFixture(api: ReturnType<typeof lifecycleApi>) {
+async function createLifecycleFixture(
+  api: Partial<AssistantApi> & { initial: SkillPackageDetails },
+) {
+  const profileSync = userProfileSyncMock();
   await TestBed.configureTestingModule({
     imports: [SkillSettingsPage],
-    providers: [provideRouter([]), { provide: AssistantApi, useValue: api }],
+    providers: [
+      provideRouter([]),
+      { provide: AssistantApi, useValue: api },
+      { provide: UserProfileSyncService, useValue: profileSync },
+    ],
   }).compileComponents();
   const fixture = TestBed.createComponent(SkillSettingsPage);
   fixture.detectChanges();
@@ -249,8 +349,61 @@ function skillDetails(
     ownership,
     contentHash: 'a'.repeat(64),
     skillMarkdown: `---\nname: ${id}\ndescription: Review invoice batches.\n---\n\n# Review\n`,
-    files: [{ path: 'SKILL.md', sizeBytes: 100 }],
+    files:
+      id === 'manual-reference-check'
+        ? [
+            { path: 'references/marker.md', sizeBytes: 41 },
+            { path: 'SKILL.md', sizeBytes: 259 },
+          ]
+        : [{ path: 'SKILL.md', sizeBytes: 100 }],
   };
+}
+
+function compatibleReport() {
+  return {
+    status: 'compatible' as const,
+    requiredCapabilities: [],
+    missingCapabilities: [],
+    unsupportedRequirements: [],
+    findings: [],
+  };
+}
+
+function userProfileSyncMock() {
+  const profile = signal<UserProfile | null>(userProfile());
+
+  return {
+    profile,
+    loadProfile: vi.fn(async () => {
+      const value = userProfile();
+      profile.set(value);
+      return value;
+    }),
+  };
+}
+
+function userProfile(): UserProfile {
+  return {
+    name: 'Rolf',
+    timeZone: 'Europe/Berlin',
+    language: 'de',
+    locale: 'de-DE',
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    theme: 'dark',
+    agentSettings: {},
+    createdAt: '2026-07-20T12:00:00.000Z',
+    updatedAt: '2026-07-20T12:00:00.000Z',
+  };
+}
+
+function formatExpectedProfileDate(value: string): string {
+  const profile = userProfile();
+  return new Intl.DateTimeFormat(profile.locale, {
+    dateStyle: profile.dateStyle,
+    timeStyle: profile.timeStyle,
+    timeZone: profile.timeZone,
+  }).format(new Date(value));
 }
 
 function buttonContaining(

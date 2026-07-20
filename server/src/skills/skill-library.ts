@@ -6,7 +6,11 @@ import { parse, parseDocument } from 'yaml';
 
 import { pricingSourceAnalysisSkillContent } from '../storage/assistant-storage';
 
-import type { SkillFileSummary, SkillOwnership } from '../../../shared/agent-contracts';
+import type {
+  SkillFileContentResponse,
+  SkillFileSummary,
+  SkillOwnership,
+} from '../../../shared/agent-contracts';
 import { SkillInstallationStore } from './skill-installation-store';
 
 export interface SkillPackageDefinition {
@@ -129,6 +133,32 @@ export class SkillLibrary {
           sizeBytes: (await stat(filePath)).size,
         })),
       ),
+    };
+  }
+
+  async readPackageFile(skillId: string, path: string): Promise<SkillFileContentResponse> {
+    const [normalizedId] = normalizeSkillIds([skillId]);
+    const normalizedPath = normalizePackageFilePath(path);
+    const skill = (await this.listPackages()).find((candidate) => candidate.id === normalizedId);
+
+    if (!skill) {
+      throw new Error(`Skill ${normalizedId} is not installed.`);
+    }
+
+    const files = await listFiles(skill.directory);
+    const filePath = files.find(
+      (candidate) => relative(skill.directory, candidate).split(sep).join('/') === normalizedPath,
+    );
+
+    if (!filePath) {
+      throw new Error(`Skill ${normalizedId} does not contain file ${normalizedPath}.`);
+    }
+
+    return {
+      skillId: normalizedId,
+      path: normalizedPath,
+      content: await readFile(filePath, 'utf8'),
+      sizeBytes: (await stat(filePath)).size,
     };
   }
 
@@ -517,6 +547,20 @@ function validateSkillId(id: string): void {
       `Invalid skill id ${JSON.stringify(id)}. Use 1-64 lowercase letters, numbers, and single hyphens.`,
     );
   }
+}
+
+function normalizePackageFilePath(path: string): string {
+  const normalized = path.replace(/\\/g, '/').trim();
+
+  if (
+    !normalized ||
+    normalized.startsWith('/') ||
+    normalized.split('/').some((part) => !part || part === '.' || part === '..')
+  ) {
+    throw new Error(`Invalid skill file path ${JSON.stringify(path)}.`);
+  }
+
+  return normalized;
 }
 
 async function readDirectories(path: string): Promise<readonly import('node:fs').Dirent[]> {

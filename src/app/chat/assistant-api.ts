@@ -50,6 +50,7 @@ import type {
   SetSkillPinnedRequest,
   SkillInstallationRecord,
   SkillInstallationsResponse,
+  SkillFileContentResponse,
   SkillPackageDetails,
   SkillProposalRecord,
   SkillProposalsResponse,
@@ -147,6 +148,14 @@ export class AssistantApi {
 
   async readSkill(skillId: string): Promise<SkillPackageDetails> {
     return await firstValueFrom(this.http.get<SkillPackageDetails>(`/api/skills/${skillId}`));
+  }
+
+  async readSkillFile(skillId: string, path: string): Promise<SkillFileContentResponse> {
+    return await firstValueFrom(
+      this.http.get<SkillFileContentResponse>(
+        `/api/skills/${skillId}/file?path=${encodeURIComponent(path)}`,
+      ),
+    );
   }
 
   async cloneSkill(skillId: string, request: CloneSkillRequest): Promise<SkillPackageDetails> {

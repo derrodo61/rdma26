@@ -51,6 +51,10 @@ export const skillParamsSchema = z.object({
   skillId: skillIdSchema,
 });
 
+export const skillFileQuerySchema = z.object({
+  path: z.string().trim().min(1),
+});
+
 const contentHashSchema = z
   .string()
   .trim()

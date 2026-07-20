@@ -25,6 +25,7 @@ import {
   rollbackSkillRequestSchema,
   rejectSkillProposalRequestSchema,
   setSkillPinnedRequestSchema,
+  skillFileQuerySchema,
   skillCatalogParamsSchema,
   skillCatalogSearchQuerySchema,
   skillParamsSchema,
@@ -372,6 +373,30 @@ export const registerSkillRoutes: RouteRegistrar = (server, { runtime }) => {
 
       try {
         return await runtime.readSkill(params.data.skillId);
+      } catch (error) {
+        return reply.code(404).send({ message: getErrorMessage(error) });
+      }
+    },
+  );
+
+  server.get(
+    '/api/skills/:skillId/file',
+    routeDocs({
+      tags: ['skills'],
+      summary: 'Read one file from an installed skill package.',
+      params: skillParamsSchema,
+      querystring: skillFileQuerySchema,
+    }),
+    async (request, reply) => {
+      const params = skillParamsSchema.safeParse(request.params);
+      const query = skillFileQuerySchema.safeParse(request.query);
+
+      if (!params.success || !query.success) {
+        return reply.code(400).send({ message: 'A valid skill id and file path are required.' });
+      }
+
+      try {
+        return await runtime.readSkillFile(params.data.skillId, query.data.path);
       } catch (error) {
         return reply.code(404).send({ message: getErrorMessage(error) });
       }

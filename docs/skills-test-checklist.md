@@ -263,7 +263,7 @@ Expected:
 
 Result:
 
-- [ ] Pass
+- [x] Pass
 - [ ] Fail
 - [ ] Blocked
 
@@ -316,7 +316,7 @@ Expected:
 
 Result:
 
-- [ ] Pass
+- [x] Pass
 - [ ] Fail
 - [ ] Blocked
 
@@ -360,7 +360,7 @@ Run id:
 
 Result:
 
-- [ ] Pass
+- [x] Pass
 - [ ] Fail
 - [ ] Blocked
 

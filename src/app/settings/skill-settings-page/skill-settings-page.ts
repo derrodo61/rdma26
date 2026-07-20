@@ -22,15 +22,19 @@ import type {
   AgentProfile,
   CatalogSkillSummary,
   InstallSkillRequest,
+  SkillFileContentResponse,
+  SkillFileSummary,
   SkillInstallationRecord,
   SkillInstalledVersion,
   SkillPackageDetails,
   SkillPackageSummary,
   SkillProposalRecord,
   SkillUpdatePreview,
+  UserProfile,
 } from '../../../../shared/agent-contracts';
 import { AssistantApi } from '../../chat/assistant-api';
 import { getApiErrorMessage } from '../../shared/api-errors';
+import { UserProfileSyncService } from '../user-profile-sync';
 
 type InstallSourceType = InstallSkillRequest['sourceType'];
 
@@ -58,7 +62,9 @@ type InstallSourceType = InstallSkillRequest['sourceType'];
 })
 export class SkillSettingsPage {
   private readonly api = inject(AssistantApi);
+  private readonly userProfileSync = inject(UserProfileSyncService);
 
+  protected readonly userProfile = this.userProfileSync.profile;
   protected readonly skills = signal<readonly SkillPackageSummary[]>([]);
   protected readonly installations = signal<readonly SkillInstallationRecord[]>([]);
   protected readonly agents = signal<readonly AgentProfile[]>([]);
@@ -66,6 +72,7 @@ export class SkillSettingsPage {
   protected readonly selectedSkillId = signal<string | null>(null);
   protected readonly selectedProposalId = signal<string | null>(null);
   protected readonly selectedSkill = signal<SkillPackageDetails | null>(null);
+  protected readonly selectedFile = signal<SkillFileContentResponse | null>(null);
   protected readonly updatePreview = signal<SkillUpdatePreview | null>(null);
   protected readonly libraryQuery = signal('');
   protected readonly installSourceType = signal<InstallSourceType>('local-directory');
@@ -134,6 +141,7 @@ export class SkillSettingsPage {
     this.updatePreview.set(null);
     this.cloneTargetId.set('');
     this.isEditingSkill.set(false);
+    this.selectedFile.set(null);
     await this.run(async () => {
       const skill = await this.api.readSkill(skillId);
       this.selectedSkill.set(skill);
@@ -144,6 +152,7 @@ export class SkillSettingsPage {
   protected selectProposal(proposalId: string): void {
     this.selectedSkillId.set(null);
     this.selectedSkill.set(null);
+    this.selectedFile.set(null);
     this.updatePreview.set(null);
     this.selectedProposalId.set(proposalId);
     this.clearMessages();
@@ -195,6 +204,7 @@ export class SkillSettingsPage {
       await this.refreshLibrary();
       this.selectedSkillId.set(record.skillId);
       this.selectedSkill.set(await this.api.readSkill(record.skillId));
+      this.selectedFile.set(null);
       this.notice.set(`Installed ${record.skillId}.`);
     });
   }
@@ -223,6 +233,7 @@ export class SkillSettingsPage {
       await this.refreshLibrary();
       this.selectedSkillId.set(record.skillId);
       this.selectedSkill.set(await this.api.readSkill(record.skillId));
+      this.selectedFile.set(null);
       this.notice.set(`Installed ${record.skillId}.`);
     });
   }
@@ -246,6 +257,19 @@ export class SkillSettingsPage {
       await this.refreshLibrary();
       this.notice.set(`Updated ${preview.skillId}.`);
     });
+  }
+
+  protected async readPackageFile(
+    skill: SkillPackageDetails,
+    file: SkillFileSummary,
+  ): Promise<void> {
+    await this.run(async () => {
+      this.selectedFile.set(await this.api.readSkillFile(skill.id, file.path));
+    });
+  }
+
+  protected closeSelectedFile(): void {
+    this.selectedFile.set(null);
   }
 
   protected async setPinned(record: SkillInstallationRecord): Promise<void> {
@@ -312,6 +336,7 @@ export class SkillSettingsPage {
       await this.refreshLibrary();
       this.selectedSkillId.set(cloned.id);
       this.selectedSkill.set(cloned);
+      this.selectedFile.set(null);
       this.skillMarkdownDraft.set(cloned.skillMarkdown);
       this.cloneTargetId.set('');
       this.notice.set(`Cloned ${skill.id} as ${cloned.id}.`);
@@ -327,6 +352,7 @@ export class SkillSettingsPage {
       await this.api.deleteSkill(skill.id, { expectedContentHash: skill.contentHash });
       this.selectedSkillId.set(null);
       this.selectedSkill.set(null);
+      this.selectedFile.set(null);
       this.isEditingSkill.set(false);
       await this.refreshLibrary();
       this.notice.set(`Deleted ${skill.id}.`);
@@ -353,6 +379,18 @@ export class SkillSettingsPage {
   protected sourceLabel(record: SkillInstallationRecord): string {
     const source = record.source;
     return source.catalogId ?? source.url ?? source.path ?? source.type;
+  }
+
+  protected formatDateTime(value: string): string {
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+
+    const profile = this.userProfile();
+
+    return profile ? formatProfileDateTime(date, profile) : formatFallbackDateTime(date);
   }
 
   private installRequest(): InstallSkillRequest | null {
@@ -382,7 +420,7 @@ export class SkillSettingsPage {
 
   private async load(): Promise<void> {
     await this.run(async () => {
-      await this.refreshLibrary();
+      await Promise.all([this.refreshLibrary(), this.userProfileSync.loadProfile()]);
     });
     this.isLoading.set(false);
   }
@@ -422,4 +460,19 @@ export class SkillSettingsPage {
     this.error.set(null);
     this.notice.set(null);
   }
+}
+
+function formatProfileDateTime(date: Date, profile: UserProfile): string {
+  return new Intl.DateTimeFormat(profile.locale, {
+    dateStyle: profile.dateStyle,
+    timeStyle: profile.timeStyle,
+    timeZone: profile.timeZone,
+  }).format(date);
+}
+
+function formatFallbackDateTime(date: Date): string {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date);
 }

@@ -5,6 +5,7 @@ import type {
   InstallSkillRequest,
   SkillInstallationRecord,
   SkillInstallationPreview,
+  SkillFileContentResponse,
   SkillPackageDetails,
   SkillPackageSummary,
   SkillUpdatePreview,
@@ -45,6 +46,10 @@ export class SkillManagementService {
       skillMarkdown: skill.skillMarkdown,
       files: skill.files,
     };
+  }
+
+  async readSkillFile(skillId: string, path: string): Promise<SkillFileContentResponse> {
+    return await this.library.readPackageFile(skillId, path);
   }
 
   async cloneSkill(

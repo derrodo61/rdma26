@@ -50,6 +50,7 @@ import type {
   PricingSourceListResponse,
   PricingSourceRecord,
   RunContextDetails,
+  SkillFileContentResponse,
   SkillInstallationRecord,
   SkillInstallationPreview,
   SkillProposalActor,
@@ -382,6 +383,10 @@ export class AssistantRuntime {
 
   async readSkill(skillId: string): Promise<SkillPackageDetails> {
     return await this.skills.readSkill(skillId);
+  }
+
+  async readSkillFile(skillId: string, path: string): Promise<SkillFileContentResponse> {
+    return await this.skills.readSkillFile(skillId, path);
   }
 
   async cloneSkill(

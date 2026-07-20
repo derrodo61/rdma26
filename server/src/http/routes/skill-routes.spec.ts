@@ -148,6 +148,22 @@ describe('skill routes', () => {
 
       const details = await server.inject({ method: 'GET', url: '/api/skills/invoice-review' });
       const sourceHash = String(details.json<{ contentHash: string }>().contentHash);
+      const sourceFile = await server.inject({
+        method: 'GET',
+        url: '/api/skills/invoice-review/file?path=SKILL.md',
+      });
+      expect(sourceFile.statusCode).toBe(200);
+      expect(sourceFile.json()).toMatchObject({
+        skillId: 'invoice-review',
+        path: 'SKILL.md',
+        content: expect.stringContaining('name: invoice-review'),
+      });
+      const traversal = await server.inject({
+        method: 'GET',
+        url: '/api/skills/invoice-review/file?path=../secret.txt',
+      });
+      expect(traversal.statusCode).toBe(404);
+
       const clone = await server.inject({
         method: 'POST',
         url: '/api/skills/invoice-review/clone',
