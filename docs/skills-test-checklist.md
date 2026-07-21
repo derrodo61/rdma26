@@ -456,49 +456,28 @@ Notes:
 
 ## 12. Install A Git External Skill
 
-Use a trusted disposable HTTPS Git repository that contains exactly one Agent
-Skills package. The package directory name and frontmatter `name` must match.
-For example, use a repository path that contains:
-
-```text
-manual-git-check/SKILL.md
-manual-git-check/references/marker.md
-```
-
-with marker content:
-
-```text
-The exact marker is GIT-SKILL-731.
-```
-
-In **Settings > Skills > Install > Git**, enter:
-
-- Repository URL: the HTTPS Git repository URL.
-- Package path: the package directory path, for example `manual-git-check`.
-- Revision: a branch, tag, or commit that contains the package.
+This test is deferred until the product concept for importing skills directly
+from external Git repositories has been defined. The **Git** installation tab
+remains visible so the planned source is discoverable, but it must show
+**Coming soon** and must not offer installation controls.
 
 Expected:
 
-- `manual-git-check` appears as **External**.
-- Its detail panel lists `SKILL.md` and `references/marker.md`.
-- Its installation source shows the Git repository.
-- Its retained version records the resolved revision when available.
-- Clicking `references/marker.md` opens the file preview modal and shows
-  `GIT-SKILL-731`.
-
-If no trusted disposable HTTPS Git source is available, mark this test
-**Blocked** and record that reason.
+- Selecting **Settings > Skills > Install > Git** shows **Coming soon**.
+- No repository URL, package path, revision, or install controls are shown.
 
 Result:
 
 - [ ] Pass
 - [ ] Fail
 - [ ] Blocked
+- [x] Deferred
 
 Notes:
 
 ```text
-
+Deferred by product decision: external Git trust, source layout, revision,
+update, and compatibility semantics need a dedicated concept first.
 ```
 
 ## 13. Install A ClawHub External Skill

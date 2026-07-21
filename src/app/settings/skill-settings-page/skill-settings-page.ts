@@ -77,9 +77,6 @@ export class SkillSettingsPage {
   protected readonly libraryQuery = signal('');
   protected readonly installSourceType = signal<InstallSourceType>('local-directory');
   protected readonly sourcePath = signal('');
-  protected readonly repositoryUrl = signal('');
-  protected readonly packagePath = signal('');
-  protected readonly revision = signal('');
   protected readonly catalogQuery = signal('');
   protected readonly catalogResults = signal<readonly CatalogSkillSummary[]>([]);
   protected readonly cloneTargetId = signal('');
@@ -402,17 +399,7 @@ export class SkillSettingsPage {
         const path = this.sourcePath().trim();
         return path ? { sourceType, path } : null;
       }
-      case 'git': {
-        const repositoryUrl = this.repositoryUrl().trim();
-        return repositoryUrl
-          ? {
-              sourceType: 'git',
-              repositoryUrl,
-              packagePath: this.packagePath().trim() || undefined,
-              revision: this.revision().trim() || undefined,
-            }
-          : null;
-      }
+      case 'git':
       case 'clawhub':
         return null;
     }

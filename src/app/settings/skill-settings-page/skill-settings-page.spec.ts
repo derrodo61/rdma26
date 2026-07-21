@@ -64,6 +64,18 @@ describe('SkillSettingsPage', () => {
     expect(root.textContent).toContain('Applied proposal for invoice-review.');
   });
 
+  it('marks Git installation as coming soon without showing installation controls', () => {
+    buttonContaining('Git').click();
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.textContent).toContain('Coming soon');
+    expect(root.textContent).toContain(
+      'Installing skills directly from Git repositories is not available yet.',
+    );
+    expect(root.querySelector('input[name="repositoryUrl"]')).toBeNull();
+  });
+
   function buttonContaining(text: string): HTMLButtonElement {
     const root = fixture.nativeElement as HTMLElement;
     const button = [...root.querySelectorAll<HTMLButtonElement>('button')].find((candidate) =>

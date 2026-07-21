@@ -200,39 +200,12 @@
           }
 
           @if (installSourceType() === 'git') {
-            <form
-              class="mt-4 grid gap-3 sm:grid-cols-2"
-              (submit)="$event.preventDefault(); install()"
-            >
-              <label class="text-sm font-medium text-text-muted sm:col-span-2"
-                >Repository URL<input
-                  class="mt-1 h-10 w-full border border-border bg-surface px-3 font-mono text-sm text-text"
-                  [ngModel]="repositoryUrl()"
-                  name="repositoryUrl"
-                  (ngModelChange)="repositoryUrl.set($event)"
-              /></label>
-              <label class="text-sm font-medium text-text-muted"
-                >Package path<input
-                  class="mt-1 h-10 w-full border border-border bg-surface px-3 font-mono text-sm text-text"
-                  [ngModel]="packagePath()"
-                  name="packagePath"
-                  (ngModelChange)="packagePath.set($event)"
-              /></label>
-              <label class="text-sm font-medium text-text-muted"
-                >Revision<input
-                  class="mt-1 h-10 w-full border border-border bg-surface px-3 font-mono text-sm text-text"
-                  [ngModel]="revision()"
-                  name="revision"
-                  (ngModelChange)="revision.set($event)"
-              /></label>
-              <button
-                type="submit"
-                class="flex h-10 items-center justify-center gap-2 bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-hover disabled:bg-control-disabled sm:col-span-2 sm:justify-self-end"
-                [disabled]="isWorking()"
-              >
-                <ng-icon name="lucideDownload" size="16" /> Install
-              </button>
-            </form>
+            <div class="mt-4 border border-border bg-surface-muted p-4">
+              <p class="text-sm font-semibold text-text">Coming soon</p>
+              <p class="mt-1 text-sm text-text-muted">
+                Installing skills directly from Git repositories is not available yet.
+              </p>
+            </div>
           }
 
           @if (installSourceType() === 'clawhub') {
