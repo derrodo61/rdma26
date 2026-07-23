@@ -499,14 +499,17 @@ this test **Blocked** and record the error or reason.
 
 Result:
 
-- [ ] Pass
+- [x] Pass
 - [ ] Fail
 - [ ] Blocked
 
 Notes:
 
 ```text
-
+Installed @reighlan/human-writing from ClawHub as an unattached External skill.
+The package was Compatible and contained _meta.json,
+references/anti-ai-patterns.md, skill-card.md, and SKILL.md. Preview worked for
+all four files.
 ```
 
 ## 14. Historical Run Compatibility

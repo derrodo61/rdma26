@@ -5,6 +5,9 @@ import { provideRouter } from '@angular/router';
 import { vi } from 'vitest';
 
 import type {
+  CatalogSearchResponse,
+  CatalogSkillSummary,
+  SkillInstallationRecord,
   SkillPackageDetails,
   SkillProposalRecord,
   UserProfile,
@@ -22,6 +25,9 @@ describe('SkillSettingsPage', () => {
     agents: vi.fn(async () => ({ agents: [], defaultAgentId: 'scotty' })),
     skillProposals: vi.fn(async () => ({ proposals: [proposal] })),
     applySkillProposal: vi.fn(async () => ({ ...proposal, state: 'applied' as const })),
+    searchSkillCatalog: vi.fn(),
+    installSkill: vi.fn(),
+    readSkill: vi.fn(),
   };
   const profileSync = userProfileSyncMock();
 
@@ -74,6 +80,58 @@ describe('SkillSettingsPage', () => {
       'Installing skills directly from Git repositories is not available yet.',
     );
     expect(root.querySelector('input[name="repositoryUrl"]')).toBeNull();
+  });
+
+  it('shows progress while ClawHub is searched and a skill is installed', async () => {
+    const skill = skillDetails('human-writing', 'external');
+    const catalogResult = {
+      catalogId: 'clawhub',
+      skillId: 'human-writing',
+      displayName: 'Human Writing',
+      description: 'Write natural prose.',
+      canonicalUrl: 'https://clawhub.ai/reighlan/skills/human-writing',
+    } satisfies CatalogSkillSummary;
+    let finishSearch!: (response: CatalogSearchResponse) => void;
+    const searchPromise = new Promise<CatalogSearchResponse>((resolve) => {
+      finishSearch = resolve;
+    });
+    let finishInstall!: (record: SkillInstallationRecord) => void;
+    const installPromise = new Promise<SkillInstallationRecord>((resolve) => {
+      finishInstall = resolve;
+    });
+    api.searchSkillCatalog = vi.fn(() => searchPromise);
+    api.installSkill = vi.fn(() => installPromise);
+    api.readSkill = vi.fn(async () => skill);
+
+    buttonContaining('ClawHub').click();
+    fixture.detectChanges();
+    const component = fixture.componentInstance as unknown as {
+      catalogQuery: { set(value: string): void };
+    };
+    component.catalogQuery.set('human-writing');
+    fixture.detectChanges();
+    buttonContaining('Search').click();
+
+    fixture.detectChanges();
+    const searchingButton = buttonContaining('Searching...');
+    expect(searchingButton.disabled).toBe(true);
+    expect(searchingButton.getAttribute('aria-busy')).toBe('true');
+
+    finishSearch({ results: [catalogResult] });
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('Human Writing');
+    });
+
+    buttonContaining('Install').click();
+    fixture.detectChanges();
+
+    const installingButton = buttonContaining('Installing...');
+    expect(installingButton.disabled).toBe(true);
+    expect(installingButton.getAttribute('aria-busy')).toBe('true');
+
+    finishInstall({ skillId: skill.id } as SkillInstallationRecord);
+    await fixture.whenStable();
   });
 
   function buttonContaining(text: string): HTMLButtonElement {

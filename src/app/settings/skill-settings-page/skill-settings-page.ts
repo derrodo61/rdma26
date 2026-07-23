@@ -8,6 +8,7 @@ import {
   lucideCopy,
   lucideDownload,
   lucideExternalLink,
+  lucideLoaderCircle,
   lucidePin,
   lucidePencil,
   lucideRefreshCw,
@@ -48,6 +49,7 @@ type InstallSourceType = InstallSkillRequest['sourceType'];
       lucideCopy,
       lucideDownload,
       lucideExternalLink,
+      lucideLoaderCircle,
       lucidePin,
       lucidePencil,
       lucideRefreshCw,
@@ -79,6 +81,8 @@ export class SkillSettingsPage {
   protected readonly sourcePath = signal('');
   protected readonly catalogQuery = signal('');
   protected readonly catalogResults = signal<readonly CatalogSkillSummary[]>([]);
+  protected readonly isSearchingCatalog = signal(false);
+  protected readonly installingCatalogSkillId = signal<string | null>(null);
   protected readonly cloneTargetId = signal('');
   protected readonly isEditingSkill = signal(false);
   protected readonly skillMarkdownDraft = signal('');
@@ -214,25 +218,37 @@ export class SkillSettingsPage {
       return;
     }
 
-    await this.run(async () => {
-      const response = await this.api.searchSkillCatalog(query);
-      this.catalogResults.set(response.results);
-    });
+    this.isSearchingCatalog.set(true);
+
+    try {
+      await this.run(async () => {
+        const response = await this.api.searchSkillCatalog(query);
+        this.catalogResults.set(response.results);
+      });
+    } finally {
+      this.isSearchingCatalog.set(false);
+    }
   }
 
   protected async installCatalogSkill(result: CatalogSkillSummary): Promise<void> {
-    await this.run(async () => {
-      const record = await this.api.installSkill({
-        sourceType: 'clawhub',
-        slug: result.skillId,
-        version: result.version,
+    this.installingCatalogSkillId.set(result.skillId);
+
+    try {
+      await this.run(async () => {
+        const record = await this.api.installSkill({
+          sourceType: 'clawhub',
+          slug: result.skillId,
+          version: result.version,
+        });
+        await this.refreshLibrary();
+        this.selectedSkillId.set(record.skillId);
+        this.selectedSkill.set(await this.api.readSkill(record.skillId));
+        this.selectedFile.set(null);
+        this.notice.set(`Installed ${record.skillId}.`);
       });
-      await this.refreshLibrary();
-      this.selectedSkillId.set(record.skillId);
-      this.selectedSkill.set(await this.api.readSkill(record.skillId));
-      this.selectedFile.set(null);
-      this.notice.set(`Installed ${record.skillId}.`);
-    });
+    } finally {
+      this.installingCatalogSkillId.set(null);
+    }
   }
 
   protected async inspectUpdate(skillId: string): Promise<void> {
