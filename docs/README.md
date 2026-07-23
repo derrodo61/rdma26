@@ -26,6 +26,7 @@ you are trying to learn or change.
 ### I Am Changing The Implementation
 
 - Begin with the [architecture overview](./architecture/README.md).
+- Check the [issue register](./project/issues.md) for known problems in the area.
 - Find the relevant concept, capability, or interface below.
 - Read the [documentation rules](./AGENTS.md) before changing the wiki.
 - Use [testing and verification](./development/testing.md) before handing off a
@@ -72,6 +73,8 @@ you are trying to learn or change.
 
 ## Development And Operations
 
+- [Issue register](./project/issues.md): known problems that cannot be fixed
+  immediately.
 - [Local development](./development/local-development.md)
 - [Testing and verification](./development/testing.md)
 - [Skills release checklist](./development/release-checklists/skills.md):
@@ -80,10 +83,10 @@ you are trying to learn or change.
 
 ## Documentation Policy
 
-The wiki separates product direction, current implementation, concepts,
-capabilities, reference material, and temporary work. Each subject has one
-canonical page. Completed plans and superseded specifications are removed;
-durable decisions are incorporated into the appropriate current page.
+The wiki separates product direction, project tracking, current implementation,
+concepts, capabilities, reference material, and temporary work. Each subject
+has one canonical page. Completed plans and superseded specifications are
+removed; durable decisions are incorporated into the appropriate current page.
 
 Agents and contributors must follow [docs/AGENTS.md](./AGENTS.md) when adding or
 updating documentation.

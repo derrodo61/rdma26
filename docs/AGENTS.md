@@ -20,6 +20,7 @@ belong on an existing canonical page.
 Place documentation according to its purpose:
 
 - `product/`: vision, roadmap, current milestone, scope, and product decisions.
+- `project/`: repository-local issue tracking and other project-wide records.
 - `concepts/`: explanations of durable domain concepts.
 - `architecture/`: implemented system structure and technical decisions.
 - `capabilities/`: behavior and boundaries of agent capabilities.
@@ -41,6 +42,23 @@ information belongs in this wiki.
   not in conceptual overviews.
 - Remove superseded documents after incorporating any durable information.
   Do not accumulate an archive of obsolete plans in `docs/`.
+
+## Issue Register
+
+[The issue register](./project/issues.md) is the only issue-tracking system for
+this repository. Do not create or mirror issues in another tracker.
+
+- Read the register before investigating or changing an area with known
+  problems.
+- Add a problem when it is observed but cannot be fixed in the current work.
+- Record problems, not feature ideas or general roadmap items.
+- Search for duplicates before assigning a new issue ID.
+- Use the next unused sequential `ISSUE-NNN` identifier and never reuse an ID.
+- Keep entries concise and include impact, observed behavior, expected
+  behavior, and available evidence.
+- Reference the issue ID in related commits and documentation.
+- When an issue is fixed, record the fix in the changelog when appropriate,
+  then remove the resolved entry from the register.
 
 ## Page Shape
 
@@ -86,6 +104,8 @@ In particular:
 - setup or verification changes update `development/`;
 - product scope changes update the roadmap, milestone, or non-goals without
   silently changing the vision.
+- newly discovered unresolved problems update `project/issues.md`, and fixes
+  remove the corresponding entry.
 
 Update [the changelog](../CHANGELOG.md) when the repository's normal change
 discipline calls for it.

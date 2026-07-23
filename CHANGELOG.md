@@ -79,6 +79,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   concepts, architecture, capabilities, references, and development workflows;
   split the active milestone from the durable product vision; and added
   documentation-specific agent maintenance rules.
+- Added a repository-local issue register as the single place to record known
+  problems that cannot be fixed immediately.
 - Replaced startup-time schema patching with ordered transactional SQLite migrations. Destructive migrations create a database backup; schema version 8 removes the obsolete memory table and schema version 9 adds a rebuildable semantic-memory vector cache while preserving threads and messages.
 - Replaced the custom memory system with a Deep Agents and LangGraph-aligned architecture that separates checkpointed threads, bounded file-backed long-term memory, on-demand recall, skills, identity, and past-conversation search.
 - Simplified the Memories page to scope, content, tags, pinning, generated timestamps, and direct CRUD with plain-language help.
