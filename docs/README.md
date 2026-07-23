@@ -1,55 +1,89 @@
-# Documentation
+# rdma26 Documentation
 
-The documentation is organized by purpose. Product direction is separate from
-implemented behavior so that future plans are not mistaken for working
-features.
+Welcome to the rdma26 project wiki. Start with the section that matches what
+you are trying to learn or change.
 
-## Product Direction
+## Start Here
 
-- [Product vision](./vision.md): authoritative goal, principles, long-term
-  direction, milestone, and acceptance criteria.
+### I Am New To The Project
+
+1. Read the [product vision](./product/vision.md) to understand the destination.
+2. Read the [current milestone](./product/current-milestone.md) to understand
+   the present focus.
+3. Use the [architecture overview](./architecture/README.md) to see how the
+   application fits together.
+4. Follow [local development](./development/local-development.md) to run it.
+
+### I Am Making A Product Decision
+
+- [Product vision](./product/vision.md): permanent product goal, promises, and
+  principles.
+- [Roadmap](./product/roadmap.md): ordered product outcomes.
+- [Current milestone](./product/current-milestone.md): active outcome,
+  evaluation, and definition of done.
+- [Current non-goals](./product/non-goals.md): deliberately deferred work.
+
+### I Am Changing The Implementation
+
+- Begin with the [architecture overview](./architecture/README.md).
+- Find the relevant concept, capability, or interface below.
+- Read the [documentation rules](./AGENTS.md) before changing the wiki.
+- Use [testing and verification](./development/testing.md) before handing off a
+  change.
+
+## Core Concepts
+
+- [Agents](./concepts/agents.md): identity, models, capabilities, conversations,
+  and isolation.
+- [Context windows](./concepts/context-window.md): what an agent sees during a
+  model call.
+- [Memory](./concepts/memory.md): conversation state, long-term memory,
+  retrieval, and user controls.
+- [Skills](./concepts/skills.md): reusable guidance and skill packages.
 
 ## Implemented Architecture
 
-- [Architecture](./architecture.md): current frontend, backend, agent runtime,
-  data flow, and service boundaries.
-- [Agent context window](./context-window.md): how model-visible context is
-  assembled, ordered, expanded, and compacted during a run.
-- [Backend structure](./backend.md): backend folder ownership and dependency
-  direction.
-- [OpenAI ChatGPT/Codex provider](./architecture/openai-chatgpt-provider.md):
-  OAuth flow, support boundary, model transport, and capability matrix.
-- [Storage](./storage.md): SQLite databases, files, migrations, and deletion
-  boundaries.
-- [Memory](./memory.md): current thread state, long-term memory, semantic
-  retrieval, and user controls.
-- [Skills](./skills.md): open skill packages, progressive loading, shared
-  library management, catalogs, and agent-assisted proposals.
-- [Web research](./research.md): hosted search, source handling, and known-URL readers.
-- [Interpreter capability](./interpreter.md): QuickJS interpreter boundary,
-  runtime behavior, observability, and testing.
-- [Observability and costs](./observability.md): LLM and embedding accounting,
-  pricing, run context, and cost estimates.
-- [Agent evaluation](./evaluation.md): versioned cases, reproducible live runs,
+- [Architecture overview](./architecture/README.md): system shape, data flow,
+  and service boundaries.
+- [Backend structure](./architecture/backend.md): backend ownership and
+  dependency direction.
+- [Storage](./architecture/storage.md): databases, files, migrations, and
+  deletion boundaries.
+- [Observability and costs](./architecture/observability.md): model accounting,
+  run context, pricing, and estimates.
+- [Agent evaluation](./architecture/evaluation.md): versioned cases, live runs,
   reports, and baseline comparisons.
+- [OpenAI ChatGPT/Codex provider](./architecture/openai-chatgpt-provider.md):
+  OAuth, transport, support boundary, and capability matrix.
 
-## Interfaces
+## Capabilities
 
-- [API reference](./api.md)
-- [CLI reference](./cli.md)
-- Interactive OpenAPI documentation is available from a running backend at
+- [Web research](./capabilities/web-research.md): hosted search, sources, and
+  known-URL readers.
+- [Interpreter](./capabilities/interpreter.md): deterministic JavaScript
+  calculations and transformations.
+
+## Interface Reference
+
+- [API](./reference/api.md)
+- [CLI](./reference/cli.md)
+- A running backend also provides interactive OpenAPI documentation at
   `http://localhost:3000/docs`.
 
-## Active Validation
+## Development And Operations
 
-- [Skills release test checklist](./skills-test-checklist.md): temporary,
-  markable manual acceptance checks for skill lifecycle, safety, runtime use,
-  proposals, and observability.
-
-## Project History
-
+- [Local development](./development/local-development.md)
+- [Testing and verification](./development/testing.md)
+- [Skills release checklist](./development/release-checklists/skills.md):
+  temporary manual acceptance checks for the current skills release.
 - [Changelog](../CHANGELOG.md)
 
-The repository intentionally does not keep completed implementation plans or
-superseded specifications. Durable decisions belong in the current-state or
-vision documents above.
+## Documentation Policy
+
+The wiki separates product direction, current implementation, concepts,
+capabilities, reference material, and temporary work. Each subject has one
+canonical page. Completed plans and superseded specifications are removed;
+durable decisions are incorporated into the appropriate current page.
+
+Agents and contributors must follow [docs/AGENTS.md](./AGENTS.md) when adding or
+updating documentation.

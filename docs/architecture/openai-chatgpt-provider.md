@@ -1,5 +1,10 @@
 # OpenAI ChatGPT/Codex Provider
 
+**Status:** Current implementation
+**Audience:** Engineering
+**Canonical for:** Subscription-backed provider authentication, transport, and
+support boundaries
+
 ## Decision
 
 rdma26 treats subscription-backed ChatGPT/Codex access as a separate model
@@ -147,3 +152,9 @@ pricing, and other public Platform APIs continue to require `OPENAI_API_KEY`.
   provider status.
 - Formatting, linting, frontend tests, backend tests, build, and type checking
   pass.
+
+## Related Pages
+
+- [Architecture overview](./README.md)
+- [Observability and cost control](./observability.md)
+- [Web research](../capabilities/web-research.md)

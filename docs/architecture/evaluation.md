@@ -1,5 +1,9 @@
 # Agent Evaluation
 
+**Status:** Current implementation
+**Audience:** Product and engineering
+**Canonical for:** Behavioral evaluation cases, execution, and reports
+
 rdma26 uses a versioned live evaluation set to measure behavior before and after
 agent-architecture changes. A successful conversation is useful evidence, but
 it is not a reliability test by itself.
@@ -546,3 +550,9 @@ failed wording. It must define:
 
 Do not add a case merely to force one model response. Add it when the behavior
 matters across agents or architectures.
+
+## Related Pages
+
+- [Current milestone](../product/current-milestone.md)
+- [Observability and cost control](./observability.md)
+- [Testing and verification](../development/testing.md)

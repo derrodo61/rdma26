@@ -1,8 +1,12 @@
 # Architecture
 
+**Status:** Current implementation
+**Audience:** Engineering
+**Canonical for:** Overall system shape, runtime flow, and service boundaries
+
 This document describes the implemented rdma26 architecture on the current
 branch. Product direction and future acceptance criteria are defined in
-[vision.md](./vision.md).
+[product vision](../product/vision.md).
 
 ## System Shape
 
@@ -152,14 +156,15 @@ Agents uses _capabilities_ broadly when describing features of its agent harness
 while rdma26's capability is the stable product-level grant that resolves into
 one or more runtime mechanisms. Skills are a separate form of reusable guidance;
 their definition, current runtime behavior, and planned management model are
-documented in [skills.md](./skills.md).
+documented in [skills](../concepts/skills.md).
 
 Current examples illustrate the relationship:
 
 - The `web_search` capability adds search guidance and OpenAI's provider-hosted
-  `web_search` tool to the selected model. See [research.md](./research.md).
+  `web_search` tool to the selected model. See
+  [web research](../capabilities/web-research.md).
 - The `interpreter` capability adds QuickJS middleware, interpreter guidance,
-  and the `eval` tool. See [interpreter.md](./interpreter.md).
+  and the `eval` tool. See [interpreter](../capabilities/interpreter.md).
 - The `web_page_access` capability provides the `read_web_page` and
   `read_web_page_structure` tools for known public URLs.
 - Protected administration tools are injected by agent role and are not normal
@@ -173,10 +178,10 @@ The model-visible context combines the rdma26 bootloader, Deep Agents runtime
 instructions, current-thread state, pinned memory, available tool definitions,
 and any tool results added during the run. Its exact sources, ordering,
 on-demand expansion, and compaction are documented in
-[context-window.md](./context-window.md).
+[context windows](../concepts/context-window.md).
 
 Long-term memory storage, scopes, retrieval, and controls are documented in
-[memory.md](./memory.md).
+[memory](../concepts/memory.md).
 
 ## Models And Accounting
 
@@ -187,7 +192,7 @@ tokens, timing, and pricing snapshots where available.
 The public OpenAI API and experimental subscription-backed ChatGPT/Codex path
 are separate providers. The latter is limited to Codex model calls; embeddings
 and hosted web search remain API-key-only. See
-[OpenAI ChatGPT/Codex provider](./architecture/openai-chatgpt-provider.md).
+[OpenAI ChatGPT/Codex provider](./openai-chatgpt-provider.md).
 
 This makes chat, maintenance, and embedding work separately inspectable. See
 [observability.md](./observability.md).
@@ -217,3 +222,10 @@ See [storage.md](./storage.md) for ownership and lifecycle details.
   execution sandbox is not yet enabled.
 - Mobile access, multimodality, broad file work, and controlled script execution
   are long-term directions, not current features.
+
+## Related Pages
+
+- [Backend structure](./backend.md)
+- [Storage](./storage.md)
+- [Agents](../concepts/agents.md)
+- [Product vision](../product/vision.md)

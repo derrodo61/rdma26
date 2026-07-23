@@ -1,5 +1,9 @@
 # Backend Structure
 
+**Status:** Current implementation
+**Audience:** Engineering
+**Canonical for:** Backend folder ownership and dependency direction
+
 The backend is a Fastify service with a shared runtime facade. HTTP routes and CLI commands call the same `AssistantRuntime` methods, while the implementation is split into focused domain modules.
 
 ## Main Entry Points
@@ -29,3 +33,10 @@ The backend is a Fastify service with a shared runtime facade. HTTP routes and C
 Routes and CLI call `AssistantRuntime`. `AssistantRuntime` coordinates stores and services. Domain services can use lower-level stores, capabilities, and storage adapters, but route files should not call those internals directly.
 
 This keeps API and CLI behavior consistent while allowing backend internals to evolve in smaller pieces.
+
+## Related Pages
+
+- [Architecture overview](./README.md)
+- [Storage](./storage.md)
+- [API reference](../reference/api.md)
+- [CLI reference](../reference/cli.md)

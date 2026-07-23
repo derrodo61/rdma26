@@ -4,7 +4,7 @@
 
 rdma26 is a local-first, multi-agent personal AI assistant. Agents have configurable identities, job descriptions, models, capabilities, and scoped memory. They should flexibly plan tasks using general-purpose capabilities, provide reliable answers with appropriate sources and uncertainty, remember relevant information across conversations, and make model usage and costs transparent. Core functionality must be available consistently through the UI, API, and CLI.
 
-`docs/vision.md` is the authoritative product-direction document. Architecture and implementation decisions must support it.
+`docs/product/vision.md` is the authoritative product-direction document. Architecture and implementation decisions must support it. Documentation work under `docs/` must also follow `docs/AGENTS.md`.
 
 ## Product And Agent Design Principles
 

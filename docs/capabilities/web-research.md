@@ -1,5 +1,9 @@
 # Web Research
 
+**Status:** Current implementation
+**Audience:** Product and engineering
+**Canonical for:** Internet search, known-URL access, sources, and citations
+
 rdma26 uses OpenAI's provider-hosted web search as its normal internet-search capability. There is no separate research agent or research model.
 
 ## Configuration
@@ -56,4 +60,12 @@ These readers use local HTTP fetching and reject localhost and private-network U
 
 Chat still streams run activity and the final answer through SSE. The current Deep Agents event stream does not preserve all hosted-search citation metadata, so hosted-search runs use the final invocation result to capture search actions and citations reliably. LLM calls remain routed through the accounting-aware model factory.
 
-Research behavior, citations, calls, tokens, context size, cost, and latency are measured by the `research` evaluation suite described in [evaluation.md](./evaluation.md).
+Research behavior, citations, calls, tokens, context size, cost, and latency
+are measured by the `research` evaluation suite described in
+[agent evaluation](../architecture/evaluation.md).
+
+## Related Pages
+
+- [Architecture overview](../architecture/README.md)
+- [Agent evaluation](../architecture/evaluation.md)
+- [Interpreter](./interpreter.md)

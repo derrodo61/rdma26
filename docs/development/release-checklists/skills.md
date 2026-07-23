@@ -1,5 +1,9 @@
 # Skills Release Test Checklist
 
+**Status:** Temporary validation work
+**Audience:** Release testers
+**Canonical for:** Manual acceptance checks for the current skills release
+
 This document is the manual acceptance checklist for the first complete skills
 management release. Work through it in order and mark each result directly in
 this file. It is intentionally temporary and can be removed after the release
@@ -733,3 +737,9 @@ Final notes:
 ```text
 
 ```
+
+## Related Pages
+
+- [Skills](../../concepts/skills.md)
+- [Testing and verification](../testing.md)
+- [Agent evaluation](../../architecture/evaluation.md)

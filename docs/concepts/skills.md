@@ -1,5 +1,9 @@
 # Skills
 
+**Status:** Current implementation and intended management model
+**Audience:** Product and engineering
+**Canonical for:** Skill packages, loading, management, and safety boundaries
+
 A skill teaches an agent how to perform a reusable kind of work. It can contain
 workflow guidance, domain knowledge, examples, templates, and supporting files.
 A skill does not perform an operation by itself and does not give an agent new
@@ -472,3 +476,10 @@ overwriting either package.
   irrelevant skill non-selection;
 - invalid or unsafe packages are rejected with a clear explanation;
 - existing Cost Analyst behavior survives migration.
+
+## Related Pages
+
+- [Agents](./agents.md)
+- [Context windows](./context-window.md)
+- [Architecture overview](../architecture/README.md)
+- [Skills release checklist](../development/release-checklists/skills.md)

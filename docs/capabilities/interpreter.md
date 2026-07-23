@@ -1,5 +1,9 @@
 # Interpreter Capability
 
+**Status:** Current implementation
+**Audience:** Product and engineering
+**Canonical for:** Interpreter behavior, boundaries, observability, and tests
+
 The interpreter is an assignable agent capability for deterministic code-backed
 work. It lets an agent run small JavaScript snippets inside the Deep Agents
 QuickJS interpreter when code is a better fit than model-only reasoning.
@@ -296,3 +300,9 @@ depending on its model behavior.
 - It is best for small bounded snippets, not large programs.
 - The model still decides when to call `eval`; the application does not force
   interpreter use for every calculation-like prompt.
+
+## Related Pages
+
+- [Architecture overview](../architecture/README.md)
+- [Agent evaluation](../architecture/evaluation.md)
+- [Web research](./web-research.md)

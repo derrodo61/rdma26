@@ -1,5 +1,9 @@
 # Observability And Cost Control
 
+**Status:** Current implementation
+**Audience:** Product and engineering
+**Canonical for:** Model accounting, run inspection, pricing, and cost estimates
+
 This document describes the implemented LLM, embedding, run-context, pricing,
 and cost-accounting behavior.
 
@@ -94,7 +98,7 @@ Run context may contain sensitive prompts, messages, memory, and tool data. It
 is local application data and should not be exposed without authentication.
 
 The meaning and limits of `skillsUsed` are documented in
-[Skills](./skills.md#what-the-run-inspector-records).
+[Skills](../concepts/skills.md#what-the-run-inspector-records).
 
 ## Model Pricing
 
@@ -147,12 +151,14 @@ hosted web search when that capability is granted.
 ### API
 
 The API exposes LLM calls, cost summaries, run contexts, pricing records,
-pricing sources, and OpenAI pricing synchronization. See [api.md](./api.md).
+pricing sources, and OpenAI pricing synchronization. See the
+[API reference](../reference/api.md).
 
 ### CLI
 
 The CLI can list and inspect calls, summarize costs, manage pricing and sources,
-inspect run context, and ask the Cost Analyst. See [cli.md](./cli.md).
+inspect run context, and ask the Cost Analyst. See the
+[CLI reference](../reference/cli.md).
 
 ## Retention And Cleanup
 
@@ -173,3 +179,9 @@ They should be added only when real data volume requires them.
 - Hosted search quality and cost depend strongly on the user-selected model and
   must be tracked with the stable evaluation suite.
 - Pricing synchronization currently targets OpenAI.
+
+## Related Pages
+
+- [Agent evaluation](./evaluation.md)
+- [Context windows](../concepts/context-window.md)
+- [Current milestone](../product/current-milestone.md)

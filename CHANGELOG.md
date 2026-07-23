@@ -75,7 +75,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   page readers remain separate optional capabilities.
 - Evaluation research cases now exercise the same `web_search` path used by
   normal agents.
-- Reorganized README and project documentation around product direction, implemented architecture, interfaces, and project history.
+- Reorganized project documentation into a wiki-style hierarchy for product,
+  concepts, architecture, capabilities, references, and development workflows;
+  split the active milestone from the durable product vision; and added
+  documentation-specific agent maintenance rules.
 - Replaced startup-time schema patching with ordered transactional SQLite migrations. Destructive migrations create a database backup; schema version 8 removes the obsolete memory table and schema version 9 adds a rebuildable semantic-memory vector cache while preserving threads and messages.
 - Replaced the custom memory system with a Deep Agents and LangGraph-aligned architecture that separates checkpointed threads, bounded file-backed long-term memory, on-demand recall, skills, identity, and past-conversation search.
 - Simplified the Memories page to scope, content, tags, pinning, generated timestamps, and direct CRUD with plain-language help.

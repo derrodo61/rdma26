@@ -1,5 +1,9 @@
 # Agent Context Window
 
+**Status:** Current implementation
+**Audience:** Product and engineering
+**Canonical for:** The information assembled and sent to each model call
+
 An agent can only respond to information that is available in its **context
 window**. In rdma26, this is not one permanent document and it is not a copy of
 everything the application knows. It is the working input sent to a model for
@@ -30,7 +34,7 @@ rdma26 therefore loads a focused set of information at startup and gives the
 agent tools for finding more when it is needed.
 
 Capabilities, tools, and skills are distinct architectural concepts. See
-[Architecture](./architecture.md#capabilities-and-tools) and
+[Architecture](../architecture/README.md#capabilities-and-tools) and
 [Skills](./skills.md). This document focuses only on the content each mechanism
 contributes to a model request.
 
@@ -363,3 +367,10 @@ The Deep Agents base instructions, skills catalog, filesystem behavior,
 subagents, pinned-memory injection, and summarization are supplied by the
 installed `deepagents` package. When that dependency changes, this document and
 the resulting run context should be reviewed together.
+
+## Related Pages
+
+- [Agents](./agents.md)
+- [Memory](./memory.md)
+- [Skills](./skills.md)
+- [Observability and cost control](../architecture/observability.md)

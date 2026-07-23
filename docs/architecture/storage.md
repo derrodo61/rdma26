@@ -1,5 +1,9 @@
 # Storage
 
+**Status:** Current implementation
+**Audience:** Engineering
+**Canonical for:** Persistent data ownership, layout, lifecycle, and deletion
+
 This document describes the implemented local storage boundaries and lifecycle.
 
 ## Data Root
@@ -75,10 +79,10 @@ Data that is naturally editable and file-oriented remains outside SQLite:
 - each agent's `configuration/soul.md` identity;
 - global and agent-scoped Markdown memory;
 - Deep Agents filesystem state, the shared skill library, and archived legacy
-  agent-local skill packages; see [Skills](./skills.md);
+  agent-local skill packages; see [Skills](../concepts/skills.md);
 - future attachments and generated artifacts.
 
-The complete memory layout is documented in [memory.md](./memory.md).
+The complete memory layout is documented in [Memory](../concepts/memory.md).
 
 ChatGPT/Codex OAuth credentials are stored in
 `.assistant-data/provider-auth/openai-chatgpt.json`. The provider-auth directory
@@ -140,3 +144,9 @@ Potential future additions include attachments, generated artifacts, retention
 controls for high-volume telemetry, and full-text indexes for large thread
 collections. They should be added only when the product requires them and their
 deletion lifecycle is defined.
+
+## Related Pages
+
+- [Architecture overview](./README.md)
+- [Memory](../concepts/memory.md)
+- [Observability and cost control](./observability.md)

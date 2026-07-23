@@ -1,5 +1,9 @@
 # API Endpoints
 
+**Status:** Current reference
+**Audience:** API users and engineering
+**Canonical for:** HTTP routes, inputs, and response behavior
+
 The backend is a Fastify service. All routes call the shared `AssistantRuntime`, which is also used by the CLI.
 
 Unless authentication is disabled, `/api/*` routes require the signed session cookie created by `POST /api/auth/login`. The auth session and login/logout routes are exempt.
@@ -226,7 +230,12 @@ Optional body:
 }
 ```
 
-Cost Analyst's reusable pricing workflow is described in [Skills](./skills.md). For OpenAI model-price comparison, it has a dedicated `admin_sync_openai_model_pricing` controlled tool that fetches the official OpenAI pricing page, extracts the model pricing table deterministically, and returns a compact comparison without changing saved pricing records.
+Cost Analyst's reusable pricing workflow is described in
+[Skills](../concepts/skills.md). For OpenAI model-price comparison, it has a
+dedicated `admin_sync_openai_model_pricing` controlled tool that fetches the
+official OpenAI pricing page, extracts the model pricing table
+deterministically, and returns a compact comparison without changing saved
+pricing records.
 
 ### `GET /api/capabilities`
 
@@ -553,3 +562,9 @@ The response includes:
 - token usage when returned by the model/runtime
 - LLM call records, including purpose, status, token usage, duration, pricing snapshot id, and estimated cost when active pricing exists
 - whether memory writes were enabled
+
+## Related Pages
+
+- [Architecture overview](../architecture/README.md)
+- [CLI reference](./cli.md)
+- [Local development](../development/local-development.md)

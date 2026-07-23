@@ -1,7 +1,13 @@
 # Memory System
 
+**Status:** Current implementation
+**Audience:** Product and engineering
+**Canonical for:** Conversation state, long-term memory, retrieval, and user
+controls
+
 This document describes the implemented rdma26 memory system. Product-level
-acceptance criteria are defined in [vision.md](./vision.md).
+acceptance criteria are defined in the
+[current milestone](../product/current-milestone.md).
 
 ## Design Decisions
 
@@ -179,3 +185,10 @@ accepted as reliable. The stable evaluation set must still demonstrate:
 
 These are quality requirements for the existing architecture, not a reason to
 add a new memory taxonomy.
+
+## Related Pages
+
+- [Agents](./agents.md)
+- [Context windows](./context-window.md)
+- [Storage](../architecture/storage.md)
+- [Current milestone](../product/current-milestone.md)

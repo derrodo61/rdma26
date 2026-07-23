@@ -1,5 +1,9 @@
 # CLI Commands
 
+**Status:** Current reference
+**Audience:** CLI users and engineering
+**Canonical for:** Commands, options, and command-line behavior
+
 The CLI is named `rdma26`. It calls the same `AssistantRuntime` service as the HTTP API.
 
 From the repository, use either:
@@ -187,7 +191,11 @@ rdma26 pricing-sources:delete --source <source-id>
 
 Checking a source updates its last checked, last success, and last error fields.
 
-Cost Analyst's reusable pricing workflow is described in [Skills](./skills.md). For OpenAI model-price checks it has a dedicated `admin_sync_openai_model_pricing` tool that fetches the official OpenAI pricing page, extracts model prices deterministically, and returns a compact comparison without changing saved pricing records.
+Cost Analyst's reusable pricing workflow is described in
+[Skills](../concepts/skills.md). For OpenAI model-price checks it has a
+dedicated `admin_sync_openai_model_pricing` tool that fetches the official
+OpenAI pricing page, extracts model prices deterministically, and returns a
+compact comparison without changing saved pricing records.
 
 ## Observability
 
@@ -449,3 +457,9 @@ The login command starts a loopback callback on `localhost:1455`, prints the
 authorization URL, opens the browser, and waits until token exchange and secure
 persistence complete. Use
 `chatgpt:<model>` when assigning or invoking a subscription-backed model.
+
+## Related Pages
+
+- [Architecture overview](../architecture/README.md)
+- [API reference](./api.md)
+- [Local development](../development/local-development.md)
